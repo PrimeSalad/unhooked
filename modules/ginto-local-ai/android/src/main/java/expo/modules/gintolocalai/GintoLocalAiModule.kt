@@ -419,6 +419,8 @@ class GintoLocalAiModule : Module() {
     }
 
     cancelSpeechRecognition()
+    // Whisper and the chat model do not fit in memory together on this phone.
+    runtimeLock.withLock { closeRuntime() }
     speechPromise = promise
     whisperSpeech.start(
       encoderPath = encoder.absolutePath,

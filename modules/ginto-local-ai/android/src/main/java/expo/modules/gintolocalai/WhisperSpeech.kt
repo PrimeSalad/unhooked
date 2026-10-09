@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.util.Log
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
@@ -61,11 +62,11 @@ class WhisperSpeech {
         }
       } catch (error: Throwable) {
         if (mine != session.get()) return@Thread
-        onError(
-          "ERR_SPEECH_RECOGNITION",
-          error.message ?: "Voice input stopped. Please try again.",
-          error,
-        )
+        val detail = listOfNotNull(error.javaClass.simpleName, error.message?.takeIf { it.isNotBlank() })
+          .joinToString(": ")
+          .ifBlank { "Voice input stopped. Please try again." }
+        Log.e(TAG, detail, error)
+        onError("ERR_SPEECH_RECOGNITION", detail, error)
       } finally {
         runCatching { recorder?.release() }
       }
@@ -99,17 +100,7 @@ class WhisperSpeech {
     val encoding = AudioFormat.ENCODING_PCM_16BIT
     val minBuffer = AudioRecord.getMinBufferSize(sampleRate, channel, encoding)
     if (minBuffer <= 0) throw IllegalStateException("The microphone could not start.")
-    val recorder = AudioRecord(
-      MediaRecorder.AudioSource.VOICE_RECOGNITION,
-      sampleRate,
-      channel,
-      encoding,
-      minBuffer * 2,
-    )
-    if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-      recorder.release()
-      throw IllegalStateException("The microphone could not start.")
-    }
+    val recorder = openRecorder(sampleRate, channel, encoding, minBuffer * 2)
     recorder.startRecording()
     val maxSamples = sampleRate * 20
     val samples = ArrayList<Float>(sampleRate * 4)
@@ -182,7 +173,7 @@ class WhisperSpeech {
     try {
       stream.acceptWaveform(samples, 16_000)
       active.decode(stream)
-      return active.getResult(stream).text.trim()
+      return active.getResult(stream).text?.trim().orEmpty()
     } finally {
       stream.release()
     }
@@ -198,26 +189,68 @@ class WhisperSpeech {
       val current = recognizer
       if (current != null && recognizerKey == key) return current
       runCatching { current?.release() }
-      val created = OfflineRecognizer(
-        config = OfflineRecognizerConfig(
-          featConfig = FeatureConfig(sampleRate = 16_000, featureDim = 80, dither = 0f),
-          modelConfig = OfflineModelConfig(
-            whisper = OfflineWhisperModelConfig(
-              encoder = encoderPath,
-              decoder = decoderPath,
-              language = "tl",
-              task = "transcribe",
-              tailPaddings = 300,
-            ),
-            tokens = tokensPath,
-            modelType = "whisper",
-            numThreads = 4,
-          ),
-        ),
-      )
+      val created = openRecognizer(encoderPath, decoderPath, tokensPath)
       recognizer = created
       recognizerKey = key
       return created
     }
+  }
+
+  private fun openRecognizer(
+    encoderPath: String,
+    decoderPath: String,
+    tokensPath: String,
+  ): OfflineRecognizer {
+    var last: Throwable? = null
+    for (language in listOf("tl", "")) {
+      try {
+        return OfflineRecognizer(
+          config = OfflineRecognizerConfig(
+            featConfig = FeatureConfig(sampleRate = 16_000, featureDim = 80, dither = 0f),
+            modelConfig = OfflineModelConfig(
+              whisper = OfflineWhisperModelConfig(
+                encoder = encoderPath,
+                decoder = decoderPath,
+                language = language,
+                task = "transcribe",
+                tailPaddings = 300,
+              ),
+              tokens = tokensPath,
+              modelType = "whisper",
+              numThreads = 2,
+            ),
+          ),
+        )
+      } catch (error: Throwable) {
+        Log.e(TAG, "whisper language='$language'", error)
+        last = error
+      }
+    }
+    throw IllegalStateException(
+      last?.message ?: "The Tagalog speech model could not start on this phone.",
+      last,
+    )
+  }
+
+  private fun openRecorder(
+    sampleRate: Int,
+    channel: Int,
+    encoding: Int,
+    bufferSize: Int,
+  ): AudioRecord {
+    val sources = intArrayOf(
+      MediaRecorder.AudioSource.MIC,
+      MediaRecorder.AudioSource.VOICE_RECOGNITION,
+    )
+    for (source in sources) {
+      val recorder = AudioRecord(source, sampleRate, channel, encoding, bufferSize)
+      if (recorder.state == AudioRecord.STATE_INITIALIZED) return recorder
+      recorder.release()
+    }
+    throw IllegalStateException("The microphone could not start.")
+  }
+
+  private companion object {
+    const val TAG = "GintoWhisper"
   }
 }
