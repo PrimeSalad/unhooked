@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import {
   hasAndroidLocalAiRuntime,
   setAndroidPerformanceMode,
+  setAndroidProcessor,
   warmAndroidLocalModel,
 } from '@/ai/androidLocalAi';
 import { useSettings, useSettingsHydrated } from '@/store/settings';
@@ -16,15 +17,17 @@ export function useWarmLocalModel(delayMs = 2500) {
   const hydrated = useSettingsHydrated();
   const choice = useSettings((s) => s.localAiModel);
   const mode = useSettings((s) => s.localAiPerformance);
+  const processor = useSettings((s) => s.localAiProcessor);
 
   useEffect(() => {
     if (!hydrated || !hasAndroidLocalAiRuntime()) return;
     const timer = setTimeout(() => {
       void (async () => {
         await setAndroidPerformanceMode(mode);
+        await setAndroidProcessor(processor);
         await warmAndroidLocalModel(choice);
       })();
     }, delayMs);
     return () => clearTimeout(timer);
-  }, [hydrated, choice, mode, delayMs]);
+  }, [hydrated, choice, mode, processor, delayMs]);
 }

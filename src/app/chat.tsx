@@ -46,6 +46,7 @@ import { LOCAL_MODEL_BY_ID, type LocalModelId } from '@/ai/localModels';
 import { ensureSpeechModel, isSpeechModelReady, SPEECH_MODEL_BYTES } from '@/ai/speechModel';
 import { Ginto } from '@/components/mascot/Ginto';
 import { GemmaModelSheet } from '@/components/chat/GemmaModelSheet';
+import { ThinkingBubble, type ThinkingPhase } from '@/components/chat/ThinkingBubble';
 import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { logEvent } from '@/db/events';
@@ -113,6 +114,9 @@ export default function ChatScreen() {
   const [showModelSettings, setShowModelSettings] = useState(false);
   const [activeBackend, setActiveBackend] = useState<string | null>(null);
   const [answeredWith, setAnsweredWith] = useState<LocalModelId | null>(null);
+  const [phase, setPhase] = useState<ThinkingPhase>('thinking');
+  const [phaseModel, setPhaseModel] = useState<string | null>(null);
+  const [phaseImage, setPhaseImage] = useState(false);
   const [listening, setListening] = useState(false);
   const [writingSpeech, setWritingSpeech] = useState(false);
   const [speechProgress, setSpeechProgress] = useState<number | null>(null);
@@ -266,6 +270,9 @@ export default function ChatScreen() {
     setMessages(history);
     setInput('');
     setTyping(true);
+    setPhase('thinking');
+    setPhaseModel(null);
+    setPhaseImage(!!userMsg.image);
 
     const ctx = { name, budget, overview: await getOverview(db) };
     // Rules compute, the model phrases. Crisis wording never reaches any model (R5).
@@ -293,6 +300,10 @@ export default function ChatScreen() {
           const allowed = userMsg.image
             ? 'any'
             : allowedNumbers([summary, computed ?? '', text]);
+          const onPhase = (next: ThinkingPhase, modelId: LocalModelId) => {
+            setPhase(next);
+            setPhaseModel(LOCAL_MODEL_BY_ID[modelId].name);
+          };
           let generation = await generateAndroidLocalReply(
             localAiModel,
             text,
@@ -300,6 +311,8 @@ export default function ChatScreen() {
             priorTurns,
             computed,
             userMsg.image?.uri,
+            false,
+            onPhase,
           );
           if (generation && !vetModelText(generation.text, allowed, 700).ok) {
             // One retry with a stricter instruction when the guard rejects the draft.
@@ -311,6 +324,7 @@ export default function ChatScreen() {
               computed,
               userMsg.image?.uri,
               true,
+              onPhase,
             );
           }
           if (generation) {
@@ -338,7 +352,9 @@ export default function ChatScreen() {
           role: 'ginto',
           text:
             (fellBack ? 'I could not reach the cloud, so here is my on-device answer. ' : '') +
-            (userMsg.image ? localImageReply() : localReply(text, ctx)),
+            (userMsg.image
+              ? localImageReply(await canAnswerImageLocally(localAiModel))
+              : localReply(text, ctx)),
           source: 'local',
         };
       }
@@ -409,17 +425,12 @@ export default function ChatScreen() {
           </View>
         ))}
         {typing && (
-          <View
-            style={[
-              styles.bubble,
-              styles.ginto,
-              { flexDirection: 'row', gap: 6, paddingVertical: 16 },
-            ]}
-          >
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={[styles.dot, { opacity: 0.35 + i * 0.25 }]} />
-            ))}
-          </View>
+          <ThinkingBubble
+            phase={phase}
+            modelName={phaseModel}
+            image={phaseImage}
+            style={[styles.bubble, styles.ginto]}
+          />
         )}
         {messages.length === 1 && (
           <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>

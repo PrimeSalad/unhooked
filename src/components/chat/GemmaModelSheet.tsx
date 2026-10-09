@@ -7,6 +7,7 @@ import {
   hasAndroidLocalAiRuntime,
   inspectAndroidDevice,
   setAndroidPerformanceMode,
+  setAndroidProcessor,
   startAndroidLocalModel,
   warmAndroidLocalModel,
 } from '@/ai/androidLocalAi';
@@ -21,6 +22,7 @@ import {
   type LocalModelChoice,
   type LocalModelId,
   type PerformanceMode,
+  type ProcessorChoice,
 } from '@/ai/localModels';
 import {
   cancelModelDownload,
@@ -36,6 +38,13 @@ const PERFORMANCE_OPTIONS: { value: PerformanceMode; label: string }[] = [
   { value: 'balanced', label: 'Balanced' },
   { value: 'max', label: 'Max' },
 ];
+
+const PROCESSOR_CAPTIONS: Record<ProcessorChoice, string> = {
+  auto: 'Picks the fastest chip that works on this phone.',
+  npu: 'Runs on the NPU, falls back to GPU or CPU.',
+  gpu: 'Graphics chip. Fast on most phones.',
+  cpu: 'Slowest, but works everywhere.',
+};
 
 const PROFILE_GROUPS = [
   {
@@ -93,7 +102,9 @@ export function GemmaModelSheet({
   const [error, setError] = useState<string | null>(null);
   const performance = useSettings((s) => s.localAiPerformance);
   const setLocalAiPerformance = useSettings((s) => s.setLocalAiPerformance);
-  const switchingPerformance = useRef(false);
+  const processor = useSettings((s) => s.localAiProcessor);
+  const setLocalAiProcessor = useSettings((s) => s.setLocalAiProcessor);
+  const switchingEngine = useRef(false);
   const mounted = useRef(false);
 
   const nativeAvailable = hasAndroidLocalAiRuntime();
@@ -102,6 +113,14 @@ export function GemmaModelSheet({
     () => (deviceReady && device ? recommendLocalModel(device) : null),
     [device, deviceReady],
   );
+  const processorOptions = useMemo(() => {
+    const options: { value: ProcessorChoice; label: string }[] = [
+      { value: 'auto', label: 'Auto' },
+    ];
+    if (device?.npuReady) options.push({ value: 'npu', label: 'NPU' });
+    options.push({ value: 'gpu', label: 'GPU' }, { value: 'cpu', label: 'CPU' });
+    return options;
+  }, [device?.npuReady]);
 
   useEffect(() => {
     mounted.current = true;
@@ -189,14 +208,23 @@ export function GemmaModelSheet({
     [nativeAvailable, onBackendChange, onModelChoiceChange],
   );
 
-  const switchPerformance = async (mode: PerformanceMode) => {
-    if (switchingPerformance.current || mode === performance) return;
-    switchingPerformance.current = true;
-    const label = PERFORMANCE_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
-    setLocalAiPerformance(mode);
+  // One guarded switch for both engine preferences: persist, tell native, then re-warm
+  // the running model so the change applies without a restart.
+  const switchEngine = async (options: {
+    current: string;
+    next: string;
+    persist: () => void;
+    applyNative: () => Promise<unknown>;
+    runningMessage: (backend: string) => string;
+    idleMessage: string;
+    errorMessage: string;
+  }) => {
+    if (switchingEngine.current || options.next === options.current) return;
+    switchingEngine.current = true;
+    options.persist();
     setError(null);
     try {
-      if (nativeAvailable) await setAndroidPerformanceMode(mode);
+      if (nativeAvailable) await options.applyNative();
       if (runtime?.ready) {
         await warmAndroidLocalModel(modelChoice);
         const nextRuntime = await getAndroidRuntimeStatus();
@@ -204,21 +232,43 @@ export function GemmaModelSheet({
         setRuntime(nextRuntime);
         onBackendChange(nextRuntime?.backend ?? null);
         setMessage(
-          nextRuntime?.backend
-            ? `Now running on ${nextRuntime.backend} · ${label}`
-            : `Performance set to ${label}.`,
+          nextRuntime?.backend ? options.runningMessage(nextRuntime.backend) : options.idleMessage,
         );
       } else {
-        setMessage(`Performance set to ${label}.`);
+        setMessage(options.idleMessage);
       }
     } catch (e) {
       if (mounted.current) {
-        setError(e instanceof Error ? e.message : 'Performance could not be changed.');
+        setError(e instanceof Error ? e.message : options.errorMessage);
       }
     } finally {
-      switchingPerformance.current = false;
+      switchingEngine.current = false;
     }
   };
+
+  const switchPerformance = (mode: PerformanceMode) => {
+    const label = PERFORMANCE_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
+    return switchEngine({
+      current: performance,
+      next: mode,
+      persist: () => setLocalAiPerformance(mode),
+      applyNative: () => setAndroidPerformanceMode(mode),
+      runningMessage: (backend) => `Now running on ${backend} · ${label}`,
+      idleMessage: `Performance set to ${label}.`,
+      errorMessage: 'Performance could not be changed.',
+    });
+  };
+
+  const switchProcessor = (choice: ProcessorChoice) =>
+    switchEngine({
+      current: processor,
+      next: choice,
+      persist: () => setLocalAiProcessor(choice),
+      applyNative: () => setAndroidProcessor(choice),
+      runningMessage: (backend) => `Now running on ${backend}`,
+      idleMessage: `Processor set to ${choice.toUpperCase()}.`,
+      errorMessage: 'Processor could not be changed.',
+    });
 
   const confirmDownload = (modelId: LocalModelId) => {
     const profile = LOCAL_MODEL_BY_ID[modelId];
@@ -299,6 +349,10 @@ export function GemmaModelSheet({
               onPress={() => void handleUseAutomaticFit()}
             />
           </View>
+          <Text variant="caption" color={colors.textMuted}>
+            Auto picks per message: photos use a vision model, text keeps the model
+            already loaded.
+          </Text>
           {device?.chipset ? (
             <Text variant="caption" color={colors.textMuted}>
               Chip: {device.chipset}
@@ -311,7 +365,7 @@ export function GemmaModelSheet({
               </Text>
               {!device.npuReady ? (
                 <Text variant="caption" color={colors.textMuted}>
-                  This build can&apos;t run models on it yet. Max still tries it, then falls back to GPU.
+                  This build can&apos;t run models on it yet, so Auto uses the GPU.
                 </Text>
               ) : null}
             </>
@@ -330,7 +384,7 @@ export function GemmaModelSheet({
               />
               <Text variant="caption" color={colors.textMuted}>
                 {performance === 'max'
-                  ? 'Uses the fastest chip it can, including the NPU. Faster replies, more battery and heat.'
+                  ? 'Uses every CPU core when running on CPU. Faster, more battery and heat.'
                   : 'Saves battery and keeps your phone cool.'}
               </Text>
               {performance === 'max' &&
@@ -341,6 +395,19 @@ export function GemmaModelSheet({
                   Battery is low. Balanced will last longer.
                 </Text>
               ) : null}
+            </View>
+          ) : null}
+          {Platform.OS === 'android' ? (
+            <View style={{ gap: spacing.xs }}>
+              <Text variant="strong">Processor</Text>
+              <Segmented
+                value={processor}
+                onChange={(v) => void switchProcessor(v)}
+                options={processorOptions}
+              />
+              <Text variant="caption" color={colors.textMuted}>
+                {PROCESSOR_CAPTIONS[processor]}
+              </Text>
             </View>
           ) : null}
           {recommendedModelId ? (
