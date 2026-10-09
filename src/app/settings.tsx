@@ -8,6 +8,8 @@ import {
   Button,
   Card,
   Field,
+  Group,
+  GroupRow,
   Row,
   Screen,
   ScreenHeader,
@@ -185,6 +187,15 @@ export default function SettingsScreen() {
           />
         </Row>
       </Card>
+
+      <Group>
+        <GroupRow
+          icon="help"
+          title="Help and safety"
+          subtitle="Hotlines and where to report"
+          onPress={() => router.push('/help')}
+        />
+      </Group>
 
       <Button label="Delete all my data" kind="ghost" icon="trash" onPress={confirmDelete} />
     </Screen>

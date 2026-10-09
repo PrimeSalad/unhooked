@@ -13,7 +13,7 @@ AI-in-Health wellness app (Debt · Spend · Scroll) built around one loop:
 - **Log meaningful actions** with `logEvent` (`src/db/events.ts`). Insights and metrics read only the event log.
 - **Schema changes:** append a new step in `src/db/migrations.ts` and bump `DATABASE_VERSION`; never edit a shipped step.
 - **Stubs:** functions throwing `TODO(Pn)` and `it.todo` tests mark Phase *n* work — replace both together.
-- **Current scope:** the Help & Safety UI and `/help` route were removed from the design. Do not reintroduce them from the historical `initalplan.md`. Verify fixed crisis contact numbers still used by Ask Ginto against official sources before demo.
+- **Help & Safety stays** (a hackathon requirement): `/help` lists the hotlines and report links in `src/constants/resources.ts`, one tap from Today, Debt and Settings. Keep it simple; do not remove it. Verify every resource and the crisis numbers used by Ask Ginto against official sources before demo (set `verifiedOn`).
 
 ## Commands
 ```bash
