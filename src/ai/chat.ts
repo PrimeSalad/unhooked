@@ -84,7 +84,7 @@ export function isCrisis(input: string): boolean {
 }
 
 export const CRISIS_REPLY =
-  'I am really glad you told me. You deserve support from a real person right now. Please call the NCMH Crisis Hotline at 1553, or 911 if you are in danger. You can also open Help and safety from the Today screen.';
+  'I am really glad you told me. You deserve support from a real person right now. Please call the NCMH Crisis Hotline at 1553, or 911 if you are in danger.';
 
 const GENERIC_REPLY =
   'I can help with your budget, debts, purchases and scrolling. Try "Can I afford ₱1,500?", "What is due this month?" or "How much did I scroll today?"';
@@ -103,7 +103,7 @@ export function localReplyOrNull(input: string, c: ChatContext): string | null {
   if (
     has(t, 'stress', 'anxious', 'pagod', 'tired', 'overwhelm', 'sad', 'malungkot', 'kinakabahan')
   ) {
-    return 'That sounds heavy. Let us keep today small: one breath, one decision at a time. If money is part of it, I can show you exactly what is due so it feels less foggy. And if it gets too much, Help and safety has people you can call.';
+    return 'That sounds heavy. Let us keep today small: one breath, one decision at a time. If money is part of it, I can show you exactly what is due so it feels less foggy. If it feels too much, consider reaching out to someone you trust.';
   }
 
   if (has(t, 'afford', 'kaya ko', 'bilhin', 'buy', 'bibili', 'purchase')) {
