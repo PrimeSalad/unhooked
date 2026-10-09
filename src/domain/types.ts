@@ -38,6 +38,7 @@ export interface Evidence {
   imageUri: string | null; // local file in app document dir
   messageText: string | null;
   riskLevel: RiskLevel | null;
+  note: string | null;
   createdAt: ISODate;
 }
 

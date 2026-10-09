@@ -5,21 +5,24 @@ import * as Crypto from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { Centavos } from '@/domain/money';
-import { balances, dueBy, type DebtBalance } from '@/domain/repayment';
+import { dueBy, endOfMonthDate, type DebtBalance } from '@/domain/repayment';
 import type {
-  Debt,
-  DebtDirection,
-  Payment,
   PlannedPurchase,
   PurchaseStatus,
-  RiskLevel,
   ScrollOutcome,
   ScrollSession,
   WellnessCheckIn,
 } from '@/domain/types';
 
 import { logEvent } from './events';
+import { listDebts } from './debts';
+import { evidenceSummary } from './evidence';
 import { bumpData } from './useDbQuery';
+
+export { addDebt, addPayment, closeDebt, deleteDebt, listDebts } from './debts';
+export type { NewDebt } from './debts';
+export { addEvidence, deleteEvidence, evidenceSummary, listEvidence } from './evidence';
+export { endOfMonthDate } from '@/domain/repayment';
 
 const now = () => new Date().toISOString();
 const uuid = () => Crypto.randomUUID();
@@ -35,135 +38,6 @@ function daysAgo(n: number): string {
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - n);
   return d.toISOString();
-}
-
-export function endOfMonthDate(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-}
-
-// ---------- Debts ----------
-
-interface DebtRow {
-  id: string;
-  direction: DebtDirection;
-  counterparty: string;
-  principal: number;
-  interest_rate_pct: number | null;
-  due_date: string | null;
-  terms: string | null;
-  notes: string | null;
-  created_at: string;
-  closed_at: string | null;
-}
-
-const toDebt = (r: DebtRow): Debt => ({
-  id: r.id,
-  direction: r.direction,
-  counterparty: r.counterparty,
-  principal: r.principal,
-  interestRatePct: r.interest_rate_pct,
-  dueDate: r.due_date,
-  terms: r.terms,
-  notes: r.notes,
-  createdAt: r.created_at,
-  closedAt: r.closed_at,
-});
-
-export async function listDebts(db: SQLiteDatabase): Promise<DebtBalance[]> {
-  const rows = await db.getAllAsync<DebtRow>('SELECT * FROM debts ORDER BY created_at DESC');
-  const pays = await db.getAllAsync<{
-    id: string;
-    debt_id: string;
-    amount: number;
-    paid_at: string;
-    note: string | null;
-  }>('SELECT * FROM payments');
-  const payments: Payment[] = pays.map((p) => ({
-    id: p.id,
-    debtId: p.debt_id,
-    amount: p.amount,
-    paidAt: p.paid_at,
-    note: p.note,
-  }));
-  return balances(rows.map(toDebt), payments);
-}
-
-export interface NewDebt {
-  direction: DebtDirection;
-  counterparty: string;
-  principal: Centavos;
-  dueDate: string | null;
-  interestRatePct: number | null;
-  notes: string | null;
-}
-
-export async function addDebt(db: SQLiteDatabase, d: NewDebt): Promise<void> {
-  const id = uuid();
-  await db.runAsync(
-    `INSERT INTO debts (id, direction, counterparty, principal, interest_rate_pct, due_date, notes, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    id,
-    d.direction,
-    d.counterparty,
-    d.principal,
-    d.interestRatePct,
-    d.dueDate,
-    d.notes,
-    now(),
-  );
-  await logEvent(db, 'debt_added', { direction: d.direction });
-  bumpData();
-}
-
-export async function addPayment(db: SQLiteDatabase, debtId: string, amount: Centavos) {
-  await db.runAsync(
-    'INSERT INTO payments (id, debt_id, amount, paid_at) VALUES (?, ?, ?, ?)',
-    uuid(),
-    debtId,
-    amount,
-    now(),
-  );
-  await logEvent(db, 'payment_recorded', { amount });
-  bumpData();
-}
-
-export async function deleteDebt(db: SQLiteDatabase, debtId: string) {
-  await db.runAsync('DELETE FROM debts WHERE id = ?', debtId);
-  bumpData();
-}
-
-// ---------- Evidence ----------
-
-export async function evidenceSummary(db: SQLiteDatabase) {
-  const row = await db.getFirstAsync<{ n: number; lenders: number }>(
-    'SELECT COUNT(*) AS n, COUNT(DISTINCT lender) AS lenders FROM evidence',
-  );
-  return { count: row?.n ?? 0, lenders: row?.lenders ?? 0 };
-}
-
-export async function addEvidence(
-  db: SQLiteDatabase,
-  e: {
-    lender: string;
-    imageUri?: string | null;
-    messageText?: string | null;
-    riskLevel?: RiskLevel | null;
-  },
-) {
-  await db.runAsync(
-    `INSERT INTO evidence (id, lender, incident_date, image_uri, message_text, risk_level, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    uuid(),
-    e.lender,
-    now(),
-    e.imageUri ?? null,
-    e.messageText ?? null,
-    e.riskLevel ?? null,
-    now(),
-  );
-  await logEvent(db, 'evidence_added', { kind: e.imageUri ? 'screenshot' : 'message' });
-  bumpData();
 }
 
 // ---------- Purchases ----------

@@ -59,6 +59,8 @@ describe('pause facts from records', () => {
       amount: toCentavos(2000),
       owedTotal: toCentavos(7500),
       dueThisMonth: toCentavos(3000),
+      spentThisMonth: 0,
+      budget,
       nextDueLabel: '',
       checkIn: null,
     });
@@ -67,6 +69,7 @@ describe('pause facts from records', () => {
       amount: toCentavos(2000),
       owedTotal: toCentavos(7500),
       dueThisMonth: toCentavos(3000),
+      remainingBudget: toCentavos(6000),
     });
     expect(result.facts).not.toHaveProperty('projectedDue');
   });

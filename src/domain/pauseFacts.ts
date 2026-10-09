@@ -21,9 +21,22 @@ const positiveCentavos = (value: number | null | undefined): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 
 export function borrowPauseFacts(
-  input: SharedInput & { amount: number; owedTotal: number; dueThisMonth: number },
+  input: SharedInput & {
+    amount: number;
+    owedTotal: number;
+    dueThisMonth: number;
+    spentThisMonth: number;
+    budget: BudgetProfile | null;
+  },
 ): PauseFactResult {
   const amount = positiveCentavos(input.amount) ? input.amount : null;
+  const remainingBudget = input.budget
+    ? input.budget.monthlyIncome -
+      input.budget.monthlyFixedBills -
+      input.budget.savingsGoalMonthly -
+      input.spentThisMonth -
+      input.dueThisMonth
+    : null;
   return {
     title: amount === null ? 'Before you borrow' : `Before you borrow ${formatPHP(amount)}`,
     item: '',
@@ -31,6 +44,9 @@ export function borrowPauseFacts(
       ...(amount === null ? {} : { amount }),
       ...(positiveCentavos(input.owedTotal) ? { owedTotal: input.owedTotal } : {}),
       ...(positiveCentavos(input.dueThisMonth) ? { dueThisMonth: input.dueThisMonth } : {}),
+      ...(remainingBudget !== null && Number.isSafeInteger(remainingBudget)
+        ? { remainingBudget }
+        : {}),
       ...(input.nextDueLabel ? { nextDueLabel: input.nextDueLabel } : {}),
     },
     checkIn: input.checkIn,

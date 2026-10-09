@@ -64,8 +64,9 @@ function borrow(f: PauseContext['facts'], tone: Tone): Omit<Reflection, 'tone' |
   const amount = recordedAmount(f.amount);
   const owedTotal = recordedAmount(f.owedTotal);
   const dueThisMonth = recordedAmount(f.dueThisMonth);
+  const remainingBudget = recordedAmount(f.remainingBudget);
   const lines: LabeledLine[] = [];
-  if (amount !== null && amount > 0)
+  if (remainingBudget === null && amount !== null && amount > 0)
     lines.push({ certainty: 'fact', text: `You are considering ${formatPHP(amount)}.` });
   if (owedTotal !== null && owedTotal > 0) {
     lines.push({
@@ -77,6 +78,15 @@ function borrow(f: PauseContext['facts'], tone: Tone): Omit<Reflection, 'tone' |
     lines.push({
       certainty: 'fact',
       text: `Your records show ${formatPHP(dueThisMonth)} due by month-end.`,
+    });
+  }
+  if (remainingBudget !== null && lines.length < 3) {
+    lines.push({
+      certainty: 'estimate',
+      text:
+        remainingBudget >= 0
+          ? `Based on what you entered, about ${formatPHP(remainingBudget)} remains after bills, savings, tracked spending and dues this month.`
+          : `Based on what you entered, this month may be ${formatPHP(-remainingBudget)} short after bills, savings, tracked spending and dues.`,
     });
   }
   if (lines.length < 3 && typeof f.nextDueLabel === 'string' && f.nextDueLabel)

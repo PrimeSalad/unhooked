@@ -35,26 +35,36 @@ export default function NewDebtScreen() {
   const [due, setDue] = useState<Due>('two');
   const [interest, setInterest] = useState('');
   const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const principal = parsePesoInput(amount);
   const valid = who.trim().length > 0 && !!principal;
   const lent = direction === 'lent';
 
   const save = async () => {
-    if (!valid || !principal) return;
-    const pct = Number(interest);
-    await addDebt(db, {
-      direction,
-      counterparty: who.trim(),
-      principal,
-      dueDate: dueDate[due](),
-      interestRatePct: interest && Number.isFinite(pct) ? pct : null,
-      notes: note.trim() || null,
-    });
-    goBack();
-    showToast(
-      lent ? 'Saved. I will help you remember.' : 'Saved. I will remind you before it is due.',
-    );
+    if (!valid || !principal || busy) return;
+    setBusy(true);
+    try {
+      const pct = Number(interest);
+      await addDebt(db, {
+        direction,
+        counterparty: who.trim(),
+        principal,
+        dueDate: dueDate[due](),
+        interestRatePct: interest && Number.isFinite(pct) ? pct : null,
+        notes: note.trim() || null,
+      });
+      goBack();
+      showToast(
+        lent
+          ? 'Saved. I will help you remember.'
+          : 'Saved. You can review it here before it is due.',
+      );
+    } catch {
+      showToast('Could not save this record. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -112,7 +122,7 @@ export default function NewDebtScreen() {
         value={note}
         onChangeText={setNote}
       />
-      <Button label="Save" disabled={!valid} onPress={() => void save()} />
+      <Button label="Save" disabled={!valid || busy} onPress={() => void save()} />
     </Screen>
   );
 }

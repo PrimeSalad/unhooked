@@ -1,4 +1,13 @@
-import { balances, dueBy, monthsToClear, orderDebts } from '../repayment';
+import {
+  balances,
+  dueBy,
+  endOfMonthDate,
+  monthsToClear,
+  orderDebts,
+  planRepayment,
+  politeReminder,
+  repaymentReminderDate,
+} from '../repayment';
 import type { Debt, Payment } from '../types';
 
 const debt = (over: Partial<Debt>): Debt => ({
@@ -33,6 +42,10 @@ describe('repayment', () => {
     expect(b).toMatchObject({ outstanding: 0, progress: 1 });
   });
 
+  it('uses the local calendar for month-end, including the final day', () => {
+    expect(endOfMonthDate(new Date(2026, 9, 9))).toBe('2026-10-31');
+  });
+
   it('avalanche orders by interest desc; snowball by outstanding asc', () => {
     const list = balances(
       [
@@ -62,5 +75,42 @@ describe('repayment', () => {
     const list = balances([debt({})], []);
     expect(monthsToClear(list, 0)).toBeNull();
     expect(monthsToClear(list, 30000)).toBe(4);
+  });
+
+  it('plans only debts I owe and warns when this month is unaffordable', () => {
+    const list = balances(
+      [
+        debt({ id: 'soon', principal: 80000, dueDate: '2026-10-15' }),
+        debt({ id: 'later', principal: 40000, dueDate: '2026-12-01' }),
+        debt({ id: 'lent', direction: 'lent', principal: 20000 }),
+      ],
+      [],
+    );
+    const plan = planRepayment(list, 50000, 'due_date', new Date(2026, 9, 9));
+    expect(plan.ordered.map((item) => item.debt.id)).toEqual(['soon', 'later']);
+    expect(plan.totalOutstanding).toBe(120000);
+    expect(plan.dueThisMonth).toBe(80000);
+    expect(plan.months).toBe(3);
+    expect(plan.firstMonth).toEqual([{ debtId: 'soon', amount: 50000 }]);
+    expect(plan.warning).toContain('more than this monthly amount');
+  });
+
+  it('keeps the reminder gentle and does not promise a repayment date', () => {
+    expect(politeReminder(' Bea ', 45000)).toContain('Hi Bea,');
+    expect(politeReminder('Bea', 45000)).toContain('₱450');
+    expect(politeReminder('Bea', 45000)).not.toMatch(/must|immediately|guarantee/i);
+  });
+
+  it('warns when a later due date may exceed the monthly plan', () => {
+    const list = balances([debt({ id: 'later', principal: 150000, dueDate: '2026-11-15' })], []);
+    const plan = planRepayment(list, 50000, 'due_date', new Date(2026, 9, 9));
+    expect(plan.warning).toContain('2026-11-15');
+  });
+
+  it('schedules a local reminder the day before, but not for past or invalid dates', () => {
+    const now = new Date(2026, 9, 9, 8);
+    expect(repaymentReminderDate('2026-10-15', now)).toEqual(new Date(2026, 9, 14, 9));
+    expect(repaymentReminderDate('2026-10-09', now)).toBeNull();
+    expect(repaymentReminderDate('2026-02-30', now)).toBeNull();
   });
 });

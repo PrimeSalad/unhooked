@@ -65,7 +65,7 @@ describe('local reflection templates', () => {
       },
       {
         kind: 'borrow',
-        facts: { amount: 200000, owedTotal: 750000, dueThisMonth: 300000 },
+        facts: { amount: 200000, owedTotal: 750000, dueThisMonth: 300000, remainingBudget: 600000 },
         latestCheckIn: null,
       },
       { kind: 'scroll', facts: { app: 'TikTok', minutes: 37 }, latestCheckIn: null },
@@ -90,6 +90,17 @@ describe('local reflection templates', () => {
       expect(reflection.lines.length).toBeLessThanOrEqual(3);
       expect(reflection.headlineCertainty).toMatch(/^(suggestion|estimate)$/);
     }
+  });
+
+  it('labels the borrowing budget calculation as an estimate', async () => {
+    const reflection = await localProvider.reflect({
+      kind: 'borrow',
+      facts: { amount: 200000, dueThisMonth: 300000, remainingBudget: 600000 },
+      latestCheckIn: null,
+    });
+    expect(reflection.lines).toContainEqual(
+      expect.objectContaining({ certainty: 'estimate', text: expect.stringContaining('₱6,000') }),
+    );
   });
 
   it('does not display a fabricated price or amount when a fact is absent', async () => {

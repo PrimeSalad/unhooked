@@ -3,8 +3,13 @@
 
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { deleteAllEvidenceImages, deleteEvidenceImage } from '@/lib/evidenceFiles';
+import { cancelAllReminders } from '@/lib/notifications';
+
+import { migrateLegacyEvidenceImages } from './evidence';
+
 export const DATABASE_NAME = 'unhooked.db';
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 
 const steps: Record<number, string> = {
   1: `
@@ -95,6 +100,7 @@ const steps: Record<number, string> = {
       UNIQUE (kind, target)
     );
   `,
+  3: `ALTER TABLE evidence ADD COLUMN note TEXT;`,
 };
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
@@ -102,6 +108,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
   let current = row?.user_version ?? 0;
   if (current >= DATABASE_VERSION) {
     await db.execAsync('PRAGMA foreign_keys = ON;');
+    await migrateLegacyEvidenceImages(db);
     return;
   }
   while (current < DATABASE_VERSION) {
@@ -112,14 +119,23 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
     current = next;
   }
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+  await migrateLegacyEvidenceImages(db);
 }
 
 /** Privacy control: wipes every user record. Used by Settings → "Delete all my data". */
 export async function deleteAllData(db: SQLiteDatabase): Promise<void> {
+  const imageRows = await db.getAllAsync<{ image_uri: string }>(
+    'SELECT image_uri FROM evidence WHERE image_uri IS NOT NULL',
+  );
   await db.execAsync(`
     DELETE FROM payments; DELETE FROM evidence; DELETE FROM debts;
     DELETE FROM purchases; DELETE FROM scroll_sessions;
     DELETE FROM checkins; DELETE FROM events; DELETE FROM block_rules;
   `);
-  // TODO(P2): also delete evidence image files from the document directory.
+  try {
+    for (const row of imageRows) deleteEvidenceImage(row.image_uri);
+    deleteAllEvidenceImages();
+  } finally {
+    await cancelAllReminders();
+  }
 }

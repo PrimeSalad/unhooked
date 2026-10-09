@@ -15,7 +15,7 @@
 | Safety | On-device message detector (English + Taglish) with highlights; Help |
 | Ask Ginto | On-device answers from the user's numbers; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
 | Phase 4B native | `AppGuardService` (usage events → shield deep link), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested |
-| Still open | Evidence PDF export, repayment planner screen, seed demo data, Taglish copy, device test of 4B, Play declarations |
+| Still open | Phase 2 device tap-through/PDF sharing, seed demo data, Taglish copy, device test of 4B, Play declarations |
 **Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone.
 
 ---
@@ -169,17 +169,18 @@ The pause uses real on-device records and deterministic local templates. Gemma a
 **Done when:** each tab's trigger button opens a pause, countdown blocks decisions, decision is in the `events` table.
 
 ### Phase 2 — Debt
-- [ ] `src/db/debts.ts` repository: create/list/close debts, add payments, list with balances.
-- [ ] Implement `domain/repayment.ts` (`balances`, `planRepayment`: due-date / avalanche / snowball, unrealistic-plan warning) + replace `it.todo`s.
-- [ ] Debt tab: segmented **I owe / Owed to me** list, outstanding total, next due date; add-debt form; record partial payment.
-- [ ] Repayment planner screen: budget input → ordered plan, months-to-clear, warning (labeled *estimate*).
-- [ ] Money owed to you: "Draft a polite reminder" (template, copy to clipboard/share).
-- [ ] Repayment reminders: local notification the day before `dueDate`.
-- [ ] **Debt Evidence Pack**: pick screenshots (`expo-image-picker`) → copy into app document dir → tag lender + incident date + note → list grouped by lender/date → **Export PDF** (`expo-print` → `expo-sharing`). Include a cover page with dates and a disclaimer.
-- [ ] **Borrowing pause**: "I'm thinking of borrowing" → amount input → facts = upcoming repayments this month, remaining budget → `/pause?kind=borrow`.
-- [ ] `deleteAllData` also deletes evidence image files.
+- [x] `src/db/debts.ts` repository: create/list/close debts, add payments, list with balances.
+- [x] Implement `domain/repayment.ts` (`balances`, `planRepayment`: due-date / avalanche / snowball, unrealistic-plan warning) + tests.
+- [x] Debt tab: segmented **I owe / Owed to me** list, outstanding total, next due date; add-debt form; record partial payment.
+- [x] Repayment planner screen: budget input → ordered plan, months-to-clear, warning (labeled *estimate*).
+- [x] Money owed to you: "Draft a polite reminder" (template, shareable text).
+- [x] Repayment reminders: local notification the day before `dueDate`.
+- [x] **Debt Evidence Pack** (phone app): pick screenshots (`expo-image-picker`) → copy into app document dir → tag lender + incident date + note → list grouped by lender/date → **Export PDF** (`expo-print` → `expo-sharing`). Include a cover page with dates and a disclaimer. Web can list saved messages but cannot export the pack.
+- [x] **Borrowing pause**: "I'm thinking of borrowing" → amount input → facts = upcoming repayments this month, remaining budget → `/pause?kind=borrow`.
+- [x] `deleteAllData` also deletes evidence image files.
 
 **Done when:** demo script steps D1–D3 (§5) work end to end.
+**Verification remaining:** tap through D1–D3 and PDF sharing in Expo Go on a phone; automated checks, Expo Doctor and Android bundling pass.
 
 ### Phase 3 — Spend
 - [ ] Budget onboarding (monthly income, fixed bills, savings goal, pay schedule: monthly **or 15th/30th**) → `settings.budget`. Change `BudgetProfile.payday` to support twice-monthly pay (persona Ana).

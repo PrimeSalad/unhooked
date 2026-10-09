@@ -1,8 +1,7 @@
-import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, Platform, Share, StyleSheet, View } from 'react-native';
 
 import {
   Avatar,
@@ -21,10 +20,10 @@ import {
   Text,
 } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
-import { addEvidence, addPayment, deleteDebt, emptyOverview, getOverview } from '@/db/repo';
+import { addPayment, deleteDebt, emptyOverview, getOverview } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 import { formatPHP, parsePesoInput } from '@/domain/money';
-import type { DebtBalance } from '@/domain/repayment';
+import { politeReminder, type DebtBalance } from '@/domain/repayment';
 import { dueLabel, isUrgent } from '@/lib/format';
 import { useSession } from '@/store/session';
 
@@ -32,18 +31,27 @@ function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
   const [amount, setAmount] = useState('');
+  const [busy, setBusy] = useState(false);
   const value = parsePesoInput(amount);
   if (!target) return null;
   const lent = target.debt.direction === 'lent';
 
   const save = async (c: number) => {
-    await addPayment(db, target.debt.id, Math.min(c, target.outstanding));
-    onClose();
-    showToast(
-      c >= target.outstanding
-        ? `${target.debt.counterparty} is settled. Well done.`
-        : 'Payment recorded.',
-    );
+    if (busy) return;
+    setBusy(true);
+    try {
+      await addPayment(db, target.debt.id, Math.min(c, target.outstanding));
+      onClose();
+      showToast(
+        c >= target.outstanding
+          ? `${target.debt.counterparty} is settled. Well done.`
+          : 'Payment recorded.',
+      );
+    } catch {
+      showToast('Could not record the payment. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -62,21 +70,50 @@ function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose
         onChangeText={setAmount}
         autoFocus
       />
-      <Button label="Save payment" disabled={!value} onPress={() => value && void save(value)} />
+      <Button
+        label="Save payment"
+        disabled={!value || busy}
+        onPress={() => value && void save(value)}
+      />
       <Button
         label={`Settle all ${formatPHP(target.outstanding)}`}
         kind="outline"
+        disabled={busy}
         onPress={() => void save(target.outstanding)}
       />
+      {lent ? (
+        <Button
+          label="Draft a polite reminder"
+          kind="outline"
+          onPress={() => {
+            void Share.share({
+              message: politeReminder(target.debt.counterparty, target.outstanding),
+            }).catch(() => showToast('Could not open sharing on this device.'));
+          }}
+        />
+      ) : null}
       <Button
         label="Delete this record"
         kind="ghost"
         size="sm"
         icon="trash"
-        onPress={async () => {
-          await deleteDebt(db, target.debt.id);
-          onClose();
-          showToast('Record deleted.');
+        onPress={() => {
+          const remove = () => {
+            void deleteDebt(db, target.debt.id)
+              .then(() => {
+                onClose();
+                showToast('Record deleted.');
+              })
+              .catch(() => showToast('Could not delete this record.'));
+          };
+          if (Platform.OS === 'web') {
+            if (globalThis.confirm?.('Delete this debt and its payment history?')) remove();
+            return;
+          }
+          Alert.alert('Delete this record?', 'Its payment history will also be removed.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: remove },
+          ]);
         }}
       />
     </Sheet>
@@ -84,8 +121,6 @@ function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose
 }
 
 export default function DebtScreen() {
-  const db = useSQLiteContext();
-  const showToast = useSession((s) => s.showToast);
   const { data: o, loaded } = useDbQuery(getOverview, emptyOverview);
   const [tab, setTab] = useState<'owed' | 'lent'>('owed');
   const [paying, setPaying] = useState<DebtBalance | null>(null);
@@ -98,16 +133,6 @@ export default function DebtScreen() {
   const principal = mine.reduce((s, b) => s + b.debt.principal, 0);
   const paid = mine.reduce((s, b) => s + b.paid, 0);
   const owedTab = tab === 'owed';
-
-  const addScreenshot = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
-    if (res.canceled || !res.assets[0]) return;
-    await addEvidence(db, {
-      lender: o.nextDue?.debt.counterparty ?? 'Unsorted',
-      imageUri: res.assets[0].uri,
-    });
-    showToast('Saved to your private Evidence Pack.');
-  };
 
   const row = (b: DebtBalance) => (
     <GroupRow
@@ -190,6 +215,11 @@ export default function DebtScreen() {
                 ? ` · ${formatPHP(o.dueThisMonth)} due this month`
                 : ''}
             </Text>
+            {owedTab && o.nextDue ? (
+              <Text variant="caption" color="rgba(255,255,255,0.85)">
+                Next: {o.nextDue.debt.counterparty} · {dueLabel(o.nextDue.debt.dueDate)}
+              </Text>
+            ) : null}
           </View>
 
           {open.length > 0 && (
@@ -202,6 +232,13 @@ export default function DebtScreen() {
               <Group>{settled.map(row)}</Group>
             </Section>
           )}
+          {owedTab && open.length > 0 ? (
+            <Button
+              label="Make a repayment plan"
+              kind="outline"
+              onPress={() => router.push('/repayment-plan')}
+            />
+          ) : null}
         </>
       )}
 
@@ -217,14 +254,7 @@ export default function DebtScreen() {
                 ? `${o.evidence.count} saved · ${o.evidence.lenders} ${o.evidence.lenders === 1 ? 'lender' : 'lenders'} · private`
                 : 'Keep threatening messages and screenshots safe'
             }
-            trailing={
-              <IconButton
-                icon="add"
-                label="Add a screenshot"
-                tone={colors.track}
-                onPress={() => void addScreenshot()}
-              />
-            }
+            onPress={() => router.push('/evidence-pack')}
           />
           <GroupRow
             icon="shield"

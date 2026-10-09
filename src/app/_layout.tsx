@@ -59,6 +59,8 @@ export default function RootLayout() {
         <Stack.Screen name="break" options={{ animation: 'fade' }} />
         <Stack.Screen name="check-in" options={{ presentation: 'modal' }} />
         <Stack.Screen name="debt-new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="repayment-plan" />
+        <Stack.Screen name="evidence-pack" />
         <Stack.Screen name="borrow" options={{ presentation: 'modal' }} />
         <Stack.Screen name="chat" />
         <Stack.Screen name="spend-check" />

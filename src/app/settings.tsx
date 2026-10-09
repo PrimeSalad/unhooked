@@ -58,12 +58,16 @@ export default function SettingsScreen() {
   };
 
   const wipe = async () => {
-    await deleteAllData(db);
-    await syncGuard([]);
-    bumpData();
-    s.reset();
-    router.dismissTo('/');
-    showToast('All your data was deleted from this phone.');
+    try {
+      await deleteAllData(db);
+      await syncGuard([]);
+      bumpData();
+      s.reset();
+      router.dismissTo('/');
+      showToast('All your data was deleted from this phone.');
+    } catch {
+      showToast('Some data could not be removed. Please try again.');
+    }
   };
 
   const confirmDelete = () => {
