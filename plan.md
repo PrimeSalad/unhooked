@@ -8,12 +8,12 @@
 | Area | State |
 |---|---|
 | Today, Debt, Spend, Scroll, Insights | Real data from SQLite; empty states; real-app hierarchy (large titles, dark hero, grouped lists, icon grid); floating tab bar with a center pause button |
-| AI Pause, Unhooked | Facts from the user's records → `localProvider` templates, labeled lines, real countdown, haptic |
+| AI Pause, Unhooked | Facts from the user's records → `localProvider` templates (instant), then the on-device LiteRT-LM model (Gemma 3 / Qwen / Gemma 4 via `generateOnce`) rephrases headline + suggestion during the countdown; `src/ai/guard.ts` rejects any reply with an unrecorded number or shame word and keeps the template; `pause_phrased` event logs source/backend/latency; labeled lines, real countdown, haptic |
 | Debt | Add owed/lent, payments, settle, delete, borrowing pause, Evidence Pack (screenshots + saved messages) |
 | Spend | Budget, purchase check (affordability, cheaper option, BNPL true cost), 24h cooling with reminder, recent |
 | Scroll | Guards (apps + sites, schedules, Pause/Strict), Unhook timer, scroll timer with check-in, stats |
 | Safety | On-device message detector (English + Taglish) with highlights; Help |
-| Ask Ginto | Qwen 2.5 1.5B on device, with Gemma 3 1B when memory is tight; optional microphone and reminder permissions after onboarding; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
+| Ask Ginto | Qwen 2.5 1.5B on device, with Gemma 3 1B when memory is tight; rules compute (`localReplyOrNull`), the model phrases; whole-word intent matching; crisis wording never reaches a model; 20 s inference timeout; number-provenance guard falls back to the rules' reply; optional microphone and reminder permissions after onboarding; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
 | Phase 4B native | `AppGuardService` (usage events → shield deep link), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested |
 | Still open | Phase 2–3 phone tap-through (PDF sharing and cooling reminder), seed demo data, Taglish copy, device test of 4B, Play declarations |
 **Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone.
@@ -195,14 +195,14 @@ The pause uses real on-device records and deterministic local templates. Gemma a
 **Done when:** the full §5 user journey (S1–S5) runs without touching code.
 **Verification remaining:** tap through S1–S5 and the 24-hour notification on a phone; typecheck, lint, tests, Android/web bundles pass.
 
-### Phase 4 — Scroll
-- [ ] Implement `domain/scroll.ts` + tests.
-- [ ] App picker (Facebook, TikTok, Instagram, YouTube, X, custom) + per-session limit (default `settings.scrollLimitMinutes`).
-- [ ] Session runner: start → timer → local notification at the limit (works when the app is backgrounded) → opens `/pause?kind=scroll`.
-- [ ] Manual entry fallback ("I scrolled 45 min on TikTok last night").
-- [ ] Break suggestions (walk, stretch, water, unfinished task, offline activity) — rotate, never repeat twice in a row; log `break_taken`.
-- [ ] Habit insights: longest sessions, time-of-day histogram, breaks taken this week.
-- [ ] Honest copy: "Unhooked can't see other apps automatically yet — start a session when you open one."
+### Phase 4 — Scroll ✅
+- [x] Implement `domain/scroll.ts` + tests.
+- [x] App picker (Facebook, TikTok, Instagram, YouTube, X, custom name via "Other") + per-session limit (default `settings.scrollLimitMinutes`).
+- [x] Session runner: start → timer → local notification at the limit (works when the app is backgrounded) → opens `/pause?kind=scroll`.
+- [x] Manual entry fallback ("I scrolled 45 min on TikTok last night" → `logPastSession`).
+- [x] Break suggestions (walk, stretch, water, unfinished task, offline activity) — rotate via `pickBreakIdea`, never repeat twice in a row (`settings.lastBreakIdea`); log `break_taken`.
+- [x] Habit insights: longest session this week, part-of-day histogram, breaks taken this week.
+- [x] Honest copy: "Unhooked cannot see other apps automatically yet — start a session when you open one."
 
 ### Phase 4B — App & website blocking (Android only, dev build)
 The user picks which apps and websites get a "hook guard". Opening one shows Ginto's pause (R1) instead of the app or site. This is a speed bump the user sets up for themselves, not parental control. **It needs native code, so it does not run in Expo Go.** It ships in a development build (`npx expo run:android` or `eas build --profile development`) and the Expo Go demo must still work without it.

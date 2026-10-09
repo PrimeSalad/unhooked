@@ -9,11 +9,14 @@ export function CountdownRing({
   seconds,
   size = 244,
   stroke = 6,
+  track = 'rgba(255,246,236,0.12)',
   children,
 }: {
   seconds: number;
   size?: number;
   stroke?: number;
+  /** Unfilled ring color; the default suits the dark pause screen. */
+  track?: string;
   children?: ReactNode;
 }) {
   const r = (size - stroke) / 2;
@@ -44,14 +47,7 @@ export function CountdownRing({
         height={size}
         style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}
       >
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="rgba(255,246,236,0.12)"
-          strokeWidth={stroke}
-        />
+        <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
         <Circle
           cx={size / 2}
           cy={size / 2}

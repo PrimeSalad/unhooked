@@ -267,6 +267,12 @@ export default function DebtScreen() {
             subtitle="See how another loan fits your month"
             onPress={() => router.push('/borrow')}
           />
+          <GroupRow
+            icon="help"
+            title="Help and safety"
+            subtitle="Hotlines and where to report harassment"
+            onPress={() => router.push('/help')}
+          />
         </Group>
       </Section>
 

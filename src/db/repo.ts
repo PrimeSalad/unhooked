@@ -6,6 +6,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { Centavos } from '@/domain/money';
 import { dueBy, endOfMonthDate, type DebtBalance } from '@/domain/repayment';
+import { partOfDay, type PartOfDay } from '@/domain/scroll';
 import type {
   PlannedPurchase,
   ScrollOutcome,
@@ -87,6 +88,29 @@ export async function startSession(db: SQLiteDatabase, app: string, limitMinutes
   bumpData();
 }
 
+/**
+ * Manual entry ("I scrolled 45 min on TikTok last night"). The session is stored already
+ * ended, so it feeds stats without a timer or a check-in.
+ */
+export async function logPastSession(
+  db: SQLiteDatabase,
+  app: string,
+  minutes: number,
+  endedAt: Date,
+) {
+  const startedAt = new Date(endedAt.getTime() - minutes * 60000).toISOString();
+  await db.runAsync(
+    'INSERT INTO scroll_sessions (id, app, started_at, ended_at, limit_minutes) VALUES (?, ?, ?, ?, ?)',
+    uuid(),
+    app,
+    startedAt,
+    endedAt.toISOString(),
+    minutes,
+  );
+  await logEvent(db, 'scroll_session_started', { app, limitMinutes: minutes, manual: true });
+  bumpData();
+}
+
 export async function setSessionOutcome(db: SQLiteDatabase, id: string, outcome: ScrollOutcome) {
   await db.runAsync('UPDATE scroll_sessions SET outcome = ? WHERE id = ?', outcome, id);
   await logEvent(db, 'scroll_checkin_answered', { outcome });
@@ -121,17 +145,28 @@ export async function scrollStats(db: SQLiteDatabase) {
   const today = await sessionsSince(db, startOfToday());
   const week = await sessionsSince(db, daysAgo(6));
   const hours = new Map<number, number>();
+  const byPartOfDay: Record<PartOfDay, number> = {
+    night: 0,
+    morning: 0,
+    afternoon: 0,
+    evening: 0,
+  };
   for (const s of week) {
     const h = new Date(s.startedAt).getHours();
-    hours.set(h, (hours.get(h) ?? 0) + sessionMinutes(s, at));
+    const mins = sessionMinutes(s, at);
+    hours.set(h, (hours.get(h) ?? 0) + mins);
+    byPartOfDay[partOfDay(h)] += mins;
   }
   const peak = [...hours.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   return {
     todayMinutes: today.reduce((n, s) => n + sessionMinutes(s, at), 0),
     longestToday: Math.max(0, ...today.map((s) => sessionMinutes(s, at))),
     weekMinutes: week.reduce((n, s) => n + sessionMinutes(s, at), 0),
+    longestWeek: Math.max(0, ...week.map((s) => sessionMinutes(s, at))),
     weekSessions: week.length,
     peakHour: peak,
+    byPartOfDay,
+    breaksWeek: await countEvents(db, 'break_taken', daysAgo(6)),
   };
 }
 
@@ -244,7 +279,16 @@ export const emptyOverview: Overview = {
   nextDue: null,
   cooling: [],
   spentThisMonth: 0,
-  scroll: { todayMinutes: 0, longestToday: 0, weekMinutes: 0, weekSessions: 0, peakHour: null },
+  scroll: {
+    todayMinutes: 0,
+    longestToday: 0,
+    weekMinutes: 0,
+    longestWeek: 0,
+    weekSessions: 0,
+    peakHour: null,
+    byPartOfDay: { night: 0, morning: 0, afternoon: 0, evening: 0 },
+    breaksWeek: 0,
+  },
   dodgedToday: 0,
   breaksToday: 0,
   evidence: { count: 0, lenders: 0 },

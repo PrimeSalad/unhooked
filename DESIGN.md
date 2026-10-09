@@ -41,7 +41,8 @@ Banned: purple-to-blue gradients, pure black, cold gray shadows, and using red f
 - Ginto must match the original logo's soft 3D toy finish.
 - Silhouette: round head-dominant body, split tail, upright dorsal fin, two rounded pectoral fins.
 - Surface: warm gold gradient, layered tail-side scales, soft highlights; never a flat orange oval.
-- Face remains an animated overlay so all nine moods stay readable at small sizes.
+- Face remains an animated overlay so all eleven moods stay readable at small sizes. `hooked` (caught on the line, tugging; onboarding level 1) and `dive` (nose down, swimming off) joined the original nine.
+- On web the app renders inside a 430 px `PhoneFrame`; layout math uses `useFrameWidth()`, never the window width.
 - One Ginto per screen. Ginto accompanies and reacts; Ginto never scolds.
 - Hook is the only sharp visual element.
 

@@ -3,7 +3,7 @@
 import { Icon } from '@/components/Icon';
 import type { IconName } from '@/components/Icon';
 import { router } from 'expo-router';
-import { useEffect, type ReactNode, useState } from 'react';
+import { Children, isValidElement, useEffect, type ReactNode, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ginto, type GintoMood } from '@/components/mascot/Ginto';
 import { colors, fonts, layout, motion, radius, shadow, spacing } from '@/constants/theme';
 import type { Certainty } from '@/domain/types';
+import { keyboardBehavior } from '@/hooks/useKeyboard';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export type { IconName } from '@/components/Icon';
@@ -93,14 +94,19 @@ export function Text({
 
 // ---------- Layout ----------
 
-/** Fades + rises children in on mount (450 ms, 14 px). */
+/**
+ * Fades children in on mount (450 ms). `from="bottom"` rises 14 px (default);
+ * `from="right"` slides in 24 px, for step changes. Give it a `key` to replay.
+ */
 export function Rise({
   children,
   delay = 0,
+  from = 'bottom',
   style,
 }: {
   children: ReactNode;
   delay?: number;
+  from?: 'bottom' | 'right';
   style?: StyleProp<ViewStyle>;
 }) {
   const reduced = useReducedMotion();
@@ -110,21 +116,27 @@ export function Rise({
       v.setValue(1);
       return;
     }
-    Animated.timing(v, {
+    const anim = Animated.timing(v, {
       toValue: 1,
       duration: motion.rise,
       delay,
       easing: Easing.bezier(0.2, 0.8, 0.2, 1),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
+    return () => anim.stop();
   }, [delay, reduced, v]);
+  const offset = v.interpolate({
+    inputRange: [0, 1],
+    outputRange: [from === 'right' ? 24 : 14, 0],
+  });
   return (
     <Animated.View
       style={[
         style,
         {
           opacity: v,
-          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+          transform: [from === 'right' ? { translateX: offset } : { translateY: offset }],
         },
       ]}
     >
@@ -147,18 +159,31 @@ export function Screen({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: bg }}
-      contentContainerStyle={{
-        paddingTop: insets.top + spacing.lg,
-        paddingHorizontal: spacing.xl,
-        paddingBottom: (tabs ? layout.tabBarSpace : insets.bottom) + spacing.xxxl,
-        gap,
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      {children}
-    </ScrollView>
+    <KeyboardAvoidingView behavior={keyboardBehavior} style={{ flex: 1, backgroundColor: bg }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: bg }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={{
+          paddingTop: insets.top + spacing.lg,
+          paddingHorizontal: spacing.xl,
+          paddingBottom: (tabs ? layout.tabBarSpace : insets.bottom) + spacing.xxxl,
+          gap,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Sections rise in one after another; sheets render in their own layer. */}
+        {Children.toArray(children).map((child, i) =>
+          isValidElement(child) && child.type !== Sheet ? (
+            <Rise key={child.key ?? i} delay={Math.min(i, 6) * 50}>
+              {child}
+            </Rise>
+          ) : (
+            child
+          ),
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -548,7 +573,7 @@ export function Field({
       </Text>
       <TextInput
         placeholderTextColor={colors.textFaint}
-        style={[formStyles.input, style]}
+        style={[formStyles.input, webNoOutline, style]}
         accessibilityLabel={label}
         {...input}
       />
@@ -657,10 +682,7 @@ export function Sheet({
       }}
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={keyboardBehavior} style={{ flex: 1 }}>
         <Pressable style={formStyles.scrim} onPress={onClose} accessibilityLabel="Close" />
         <Animated.View
           style={[
@@ -681,6 +703,9 @@ export function Sheet({
     </Modal>
   );
 }
+
+// Inputs show focus with their own border; drop the browser outline on web.
+const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null;
 
 const formStyles = StyleSheet.create({
   input: {

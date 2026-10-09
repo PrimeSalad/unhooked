@@ -9,13 +9,23 @@ import { fonts } from '@/constants/theme';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export type GintoMood =
-  'happy' | 'wave' | 'curious' | 'calm' | 'worried' | 'proud' | 'sleepy' | 'thinking' | 'brave';
+  | 'happy'
+  | 'wave'
+  | 'curious'
+  | 'calm'
+  | 'worried'
+  | 'proud'
+  | 'sleepy'
+  | 'thinking'
+  | 'brave'
+  | 'hooked'
+  | 'dive';
 
-type Extra = 'bubbles' | 'alert' | 'sweat' | 'splash' | 'zz' | 'think' | 'shield';
+type Extra = 'bubbles' | 'alert' | 'sweat' | 'splash' | 'zz' | 'think' | 'shield' | 'line';
 
 interface Traits {
   mouth: 'open' | 'o' | 'smile' | 'wavy' | 'big';
-  body: 'bob' | 'breathe' | 'jump' | 'shiver' | 'sway';
+  body: 'bob' | 'breathe' | 'jump' | 'shiver' | 'sway' | 'tug' | 'dive';
   fin: 'pec' | 'wave';
   look?: [number, number];
   brow?: 'worried' | 'brave';
@@ -57,6 +67,17 @@ const MOODS: Record<GintoMood, Traits> = {
     fin: 'pec',
     extras: ['shield'],
   },
+  // Caught: a line from above pulls at the mouth in short tugs; eyes up, brows worried.
+  hooked: {
+    look: [2, -5],
+    brow: 'worried',
+    mouth: 'o',
+    body: 'tug',
+    fin: 'wave',
+    extras: ['line', 'sweat'],
+  },
+  // Nose down, swimming away from the surface, bubbles trailing.
+  dive: { look: [-2, 4], mouth: 'smile', body: 'dive', fin: 'wave', extras: ['bubbles'] },
 };
 
 const VB_W = 220;
@@ -162,6 +183,8 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
   const jump = useCycle(1600, on && t.body === 'jump');
   const shiver = useCycle(2400, on && t.body === 'shiver');
   const sway = usePingPong(5000, on && t.body === 'sway');
+  const tug = useCycle(1800, on && t.body === 'tug', 0, Easing.inOut(Easing.quad));
+  const dive = usePingPong(2600, on && t.body === 'dive');
 
   const tail = usePingPong(1100, on);
   const dorsal = usePingPong(2200, on);
@@ -217,6 +240,27 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
         return [
           { translateY: sway.interpolate({ inputRange: [0, 1], outputRange: [0, 5 * k] }) },
           { rotate: sway.interpolate({ inputRange: [0, 1], outputRange: ['-5deg', '3deg'] }) },
+        ];
+      case 'tug':
+        return [
+          {
+            translateY: tug.interpolate({
+              inputRange: [0, 0.12, 0.3, 0.42, 0.6, 1],
+              outputRange: [0, -12 * k, -5 * k, -14 * k, -6 * k, 0],
+            }),
+          },
+          {
+            rotate: tug.interpolate({
+              inputRange: [0, 0.12, 0.42, 1],
+              outputRange: ['8deg', '13deg', '12deg', '8deg'],
+            }),
+          },
+        ];
+      case 'dive':
+        return [
+          { translateY: dive.interpolate({ inputRange: [0, 1], outputRange: [0, 10 * k] }) },
+          { translateX: dive.interpolate({ inputRange: [0, 1], outputRange: [0, -6 * k] }) },
+          { rotate: dive.interpolate({ inputRange: [0, 1], outputRange: ['-20deg', '-26deg'] }) },
         ];
       default:
         return [
@@ -379,6 +423,13 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
               <Circle cx={169} cy={101} r={1.8} fill="#FFFDF4" opacity={0.7} />
             </G>
           </Layer>
+
+          {has('line') && (
+            <Layer>
+              <Path d="M167 0 V116" stroke="#FFD9A8" strokeWidth={2.4} strokeLinecap="round" />
+              <Path d="M167 112 V122 C167 131 157 132 156 125" {...line} strokeWidth={3.2} />
+            </Layer>
+          )}
 
           {/* Brows + mouth */}
           <Layer>

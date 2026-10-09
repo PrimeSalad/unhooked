@@ -8,8 +8,11 @@ import { emptyWeekWrap, weekWrap, type WeekWrap } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 import { formatPHP } from '@/domain/money';
 import { formatMinutes } from '@/domain/scroll';
-import { shortDate } from '@/lib/format';
 import { useSession } from '@/store/session';
+
+// since is a local midnight stored as UTC ISO; read it back in local time.
+const sinceLabel = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 
 const DAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -19,7 +22,7 @@ function hourLabel(h: number): string {
 
 function shareText(w: WeekWrap): string {
   return [
-    `My week on Unhooked (${shortDate(w.since)} to today)`,
+    `My week on Unhooked (${sinceLabel(w.since)} to today)`,
     `Kept by waiting: ${formatPHP(w.kept)}`,
     `Repaid: ${formatPHP(w.paid)}`,
     `Hooks dodged: ${w.dodged}`,
@@ -42,7 +45,7 @@ export default function WrappedScreen() {
 
   return (
     <Screen tabs={false}>
-      <ScreenHeader back title="This week" subtitle={`${shortDate(w.since)} to today`} />
+      <ScreenHeader back title="This week" subtitle={`${sinceLabel(w.since)} to today`} />
 
       <View style={{ gap: 2 }}>
         <Text variant="caption">Kept by waiting</Text>

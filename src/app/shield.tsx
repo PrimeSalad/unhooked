@@ -4,12 +4,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { goHome } from '../../modules/unhooked-guard';
 
 import { DotPattern } from '@/components/DotPattern';
+import { useFrameWidth } from '@/hooks/useFrame';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
 import { CountdownRing } from '@/components/pause/CountdownRing';
@@ -44,7 +45,7 @@ export default function ShieldScreen() {
 
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const width = useFrameWidth();
   const showToast = useSession((s) => s.showToast);
   const base = useSettings((s) => s.pauseSeconds);
   const timerUntil = useSettings((s) => s.timerUntil);

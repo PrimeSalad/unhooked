@@ -115,7 +115,8 @@ const GB = 1_000_000_000;
 const STORAGE_HEADROOM = 400_000_000;
 
 export function recommendLocalModel(device: AndroidDeviceProfile | null): LocalModelId {
-  if (!device?.totalMemoryBytes) return 'qwen2.5-1.5b';
+  // Unknown hardware: the lightest model is the one most likely to start.
+  if (!device?.totalMemoryBytes) return 'gemma3-1b';
 
   const totalRam = device.totalMemoryBytes;
   const availableRam = device.availableMemoryBytes ?? totalRam;

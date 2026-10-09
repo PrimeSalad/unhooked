@@ -54,7 +54,7 @@ export default function InsightsScreen() {
                       borderTopRightRadius: 8,
                       borderBottomLeftRadius: 4,
                       borderBottomRightRadius: 4,
-                      backgroundColor: today ? colors.text : d.n ? colors.accent : colors.track,
+                      backgroundColor: d.n ? (today ? colors.text : colors.accent) : colors.track,
                     }}
                   />
                   <Text variant="caption">{'SMTWTFS'[d.date.getDay()]}</Text>

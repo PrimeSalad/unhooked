@@ -21,6 +21,7 @@ interface SettingsState {
   guardOn: boolean; // master switch for app & website guards
   timerUntil: string | null; // Unhook timer: guarded apps blocked until this time
   fadeAfterMin: number; // doomscroll fade: minutes in a guarded app before the screen washes out (0 = off)
+  lastBreakIdea: string | null; // last break suggestion shown, so we never repeat it
   setOnboarded: (v: boolean) => void;
   setName: (v: string) => void;
   setBudget: (b: BudgetProfile | null) => void;
@@ -32,6 +33,7 @@ interface SettingsState {
   setGuardOn: (v: boolean) => void;
   setTimerUntil: (iso: string | null) => void;
   setFadeAfterMin: (m: number) => void;
+  setLastBreakIdea: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -47,6 +49,7 @@ const defaults = {
   guardOn: true,
   timerUntil: null as string | null,
   fadeAfterMin: 15,
+  lastBreakIdea: null as string | null,
 };
 
 export const useSettings = create<SettingsState>()(
@@ -64,6 +67,7 @@ export const useSettings = create<SettingsState>()(
       setGuardOn: (guardOn) => set({ guardOn }),
       setTimerUntil: (timerUntil) => set({ timerUntil }),
       setFadeAfterMin: (fadeAfterMin) => set({ fadeAfterMin }),
+      setLastBreakIdea: (lastBreakIdea) => set({ lastBreakIdea }),
       reset: () => set(defaults),
     }),
     {

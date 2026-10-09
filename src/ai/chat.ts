@@ -19,7 +19,7 @@ export interface ChatMessage {
 
 /** What Ginto can say about a photo without the cloud. */
 export function localImageReply(): string {
-  return 'I can only read photos with Smarter Ask Ginto turned on. If this is a threatening message from a collector, tap "Save as evidence" so it stays safe on your phone, or paste its text in Scan message.';
+  return 'I cannot read photos on this phone yet. If this is a threatening message from a collector, tap "Save as evidence" so it stays safe on your phone, or paste its text in Scan message.';
 }
 
 export interface ChatContext {
@@ -50,35 +50,56 @@ export function contextSummary(c: ChatContext): string {
   return lines.join('\n');
 }
 
-const has = (t: string, ...words: string[]) => words.some((w) => t.includes(w));
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Whole-word matching: "spend it" must not match "end it", "Lazada" must not match "sad".
+const has = (t: string, ...words: string[]) =>
+  words.some((w) => new RegExp(`(^|[^a-z0-9ñ])${escapeRe(w)}(?![a-z0-9ñ])`, 'i').test(t));
 
-function findAmount(text: string) {
-  const m = text.match(/(?:₱|php|p)?\s?(\d[\d,]*(?:\.\d{1,2})?)\s?(k)?/i);
+const AMOUNT = /(\d[\d,]*(?:\.\d{1,2})?)\s?(k)?(?![\d,])/i;
+
+export function findAmount(text: string) {
+  // Prefer an explicitly marked peso amount ("₱1,500", "PHP 2k", "P500"); else the first number.
+  const marked = text.match(new RegExp(`(?:₱|php|\\bp)\\s?${AMOUNT.source}`, 'i'));
+  const m = marked ?? text.match(AMOUNT);
   if (!m?.[1]) return null;
   const base = parsePesoInput(m[1]);
   if (base === null) return null;
   return m[2] ? base * 1000 : base;
 }
 
+/** Crisis wording always gets the fixed hotline answer; it is never handed to a language model. */
+export function isCrisis(input: string): boolean {
+  return has(
+    input.toLowerCase(),
+    'suicide',
+    'kill myself',
+    'end it',
+    'end it all',
+    'mamatay',
+    'magpakamatay',
+    'patayin ko sarili',
+    'self-harm',
+    'saktan ang sarili',
+  );
+}
+
+export const CRISIS_REPLY =
+  'I am really glad you told me. You deserve support from a real person right now. Please call the NCMH Crisis Hotline at 1553, or 911 if you are in danger. You can also open Help and safety from the Today screen.';
+
+const GENERIC_REPLY =
+  'I can help with your budget, debts, purchases and scrolling. Try "Can I afford ₱1,500?", "What is due this month?" or "How much did I scroll today?"';
+
 /** On-device answers. Short, warm, and only ever about the user's own numbers. */
 export function localReply(input: string, c: ChatContext): string {
+  return localReplyOrNull(input, c) ?? GENERIC_REPLY;
+}
+
+/** Same as localReply, but null when no intent matched (so a model is not fed the generic help text). */
+export function localReplyOrNull(input: string, c: ChatContext): string | null {
   const t = input.toLowerCase();
   const o = c.overview;
 
-  if (
-    has(
-      t,
-      'suicide',
-      'kill myself',
-      'end it',
-      'mamatay',
-      'patayin ko sarili',
-      'self-harm',
-      'saktan ang sarili',
-    )
-  ) {
-    return 'I am really glad you told me. You deserve support from a real person right now. Please call the NCMH Crisis Hotline at 1553, or 911 if you are in danger. You can also open Help and safety from the Today screen.';
-  }
+  if (isCrisis(input)) return CRISIS_REPLY;
   if (
     has(t, 'stress', 'anxious', 'pagod', 'tired', 'overwhelm', 'sad', 'malungkot', 'kinakabahan')
   ) {
@@ -158,7 +179,7 @@ export function localReply(input: string, c: ChatContext): string {
     return `Hi${c.name ? `, ${c.name}` : ''}! I am Ginto. Ask me things like "Can I afford ₱2,000?", "What do I owe?" or "How much did I scroll today?"`;
   }
 
-  return 'I can help with your budget, debts, purchases and scrolling. Try "Can I afford ₱1,500?", "What is due this month?" or "How much did I scroll today?"';
+  return null;
 }
 
 export const CLOUD_URL = process.env.EXPO_PUBLIC_GINTO_API_URL ?? '';
