@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { BudgetProfile } from '@/domain/types';
-import type { LocalModelChoice, PerformanceMode } from '@/ai/localModels';
+import type { LocalModelChoice, PerformanceMode, ProcessorChoice } from '@/ai/localModels';
 
 import { settingsStorage } from './storage';
 
@@ -18,6 +18,7 @@ interface SettingsState {
   cloudAiEnabled: boolean; // opt-in only: Ask Ginto through Claude
   localAiModel: LocalModelChoice; // auto picks a model fit from the current Android device
   localAiPerformance: PerformanceMode; // balanced favors battery; max tries the NPU first
+  localAiProcessor: ProcessorChoice; // auto picks the fastest chip that works
   permissionsReviewed: boolean; // microphone and reminder disclosure has been shown
   guardOn: boolean; // master switch for app & website guards
   timerUntil: string | null; // Unhook timer: guarded apps blocked until this time
@@ -31,6 +32,7 @@ interface SettingsState {
   setCloudAi: (v: boolean) => void;
   setLocalAiModel: (v: LocalModelChoice) => void;
   setLocalAiPerformance: (v: PerformanceMode) => void;
+  setLocalAiProcessor: (v: ProcessorChoice) => void;
   setPermissionsReviewed: (v: boolean) => void;
   setGuardOn: (v: boolean) => void;
   setTimerUntil: (iso: string | null) => void;
@@ -48,6 +50,7 @@ const defaults = {
   cloudAiEnabled: false,
   localAiModel: 'auto' as LocalModelChoice,
   localAiPerformance: 'balanced' as PerformanceMode,
+  localAiProcessor: 'auto' as ProcessorChoice,
   permissionsReviewed: false,
   guardOn: true,
   timerUntil: null as string | null,
@@ -67,6 +70,7 @@ export const useSettings = create<SettingsState>()(
       setCloudAi: (cloudAiEnabled) => set({ cloudAiEnabled }),
       setLocalAiModel: (localAiModel) => set({ localAiModel }),
       setLocalAiPerformance: (localAiPerformance) => set({ localAiPerformance }),
+      setLocalAiProcessor: (localAiProcessor) => set({ localAiProcessor }),
       setPermissionsReviewed: (permissionsReviewed) => set({ permissionsReviewed }),
       setGuardOn: (guardOn) => set({ guardOn }),
       setTimerUntil: (timerUntil) => set({ timerUntil }),

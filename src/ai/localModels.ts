@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 export type LocalModelId = 'qwen3-0.6b' | 'qwen2.5-1.5b' | 'gemma4-e2b' | 'gemma4-e4b';
 export type LocalModelChoice = 'auto' | LocalModelId;
 export type PerformanceMode = 'balanced' | 'max';
+export type ProcessorChoice = 'auto' | 'npu' | 'gpu' | 'cpu';
 
 export type AndroidDeviceProfile = {
   manufacturer: string | null;
@@ -172,7 +173,17 @@ export function pickLocalModel(
   recommended: LocalModelId,
   installed: ReadonlySet<LocalModelId>,
   needs: 'any' | 'text' | 'vision' = 'any',
+  loaded: LocalModelId | null = null,
 ): LocalModelId | null {
+  // Auto keeps the model already in memory when it fits the need: switching the engine
+  // to another file costs a multi-second reload.
+  if (choice === 'auto' && loaded != null && installed.has(loaded)) {
+    const satisfies =
+      needs === 'any' ||
+      (needs === 'vision' && isVisionModel(loaded)) ||
+      (needs === 'text' && !isVisionModel(loaded));
+    if (satisfies) return loaded;
+  }
   const preferred = choice === 'auto' ? recommended : choice;
   if (needs === 'vision') {
     if (installed.has(preferred) && isVisionModel(preferred)) return preferred;

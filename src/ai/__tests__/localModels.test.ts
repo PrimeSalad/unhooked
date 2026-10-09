@@ -60,6 +60,48 @@ describe('pickLocalModel', () => {
       pickLocalModel('gemma4-e4b', 'gemma4-e2b', set('gemma4-e2b', 'gemma4-e4b'), 'vision'),
     ).toBe('gemma4-e4b');
   });
+
+  it('auto keeps the already-loaded model to avoid an engine reload', () => {
+    expect(
+      pickLocalModel(
+        'auto',
+        'qwen2.5-1.5b',
+        set('qwen2.5-1.5b', 'gemma4-e2b'),
+        'any',
+        'gemma4-e2b',
+      ),
+    ).toBe('gemma4-e2b');
+  });
+
+  it('auto ignores the loaded model when the need does not match', () => {
+    expect(
+      pickLocalModel(
+        'auto',
+        'qwen2.5-1.5b',
+        set('qwen2.5-1.5b', 'gemma4-e2b'),
+        'vision',
+        'qwen2.5-1.5b',
+      ),
+    ).toBe('gemma4-e2b');
+  });
+
+  it('an explicit choice ignores the loaded model', () => {
+    expect(
+      pickLocalModel(
+        'qwen2.5-1.5b',
+        'qwen2.5-1.5b',
+        set('qwen2.5-1.5b', 'gemma4-e2b'),
+        'any',
+        'gemma4-e2b',
+      ),
+    ).toBe('qwen2.5-1.5b');
+  });
+
+  it('ignores a loaded model that is not installed', () => {
+    expect(
+      pickLocalModel('auto', 'qwen2.5-1.5b', set('qwen2.5-1.5b'), 'any', 'gemma4-e2b'),
+    ).toBe('qwen2.5-1.5b');
+  });
 });
 
 describe('planModelDownload', () => {

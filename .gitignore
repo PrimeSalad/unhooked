@@ -42,3 +42,6 @@ yarn-error.*
 
 # native module build output
 modules/*/android/build/
+
+# sherpa-onnx AAR fetched at build time (fetchSherpaOnnx task)
+modules/ginto-local-ai/android/libs/

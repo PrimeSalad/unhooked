@@ -18,7 +18,10 @@ export interface ChatMessage {
 }
 
 /** What Ginto can say about a photo without the cloud. */
-export function localImageReply(): string {
+export function localImageReply(hasVisionModel = false): string {
+  if (hasVisionModel) {
+    return 'I couldn’t finish reading this photo on your phone. The model may still be starting, so try again in a moment. If this is a threatening message from a collector, tap "Save as evidence" so it stays safe on your phone, or paste its text in Scan message.';
+  }
   return 'To read photos privately on this phone, download Gemma 4 in Ginto’s chat settings (needs a phone with 6 GB+ RAM). If this is a threatening message from a collector, tap "Save as evidence" so it stays safe on your phone, or paste its text in Scan message.';
 }
 

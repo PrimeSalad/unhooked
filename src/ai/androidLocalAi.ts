@@ -8,6 +8,7 @@ import type {
   LocalModelChoice,
   LocalModelId,
   PerformanceMode,
+  ProcessorChoice,
 } from './localModels';
 import {
   LOCAL_MODELS,
@@ -24,6 +25,7 @@ type RuntimeStatus = {
   backendNote: string | null;
   modelPath: string | null;
   performanceMode?: PerformanceMode;
+  processor?: ProcessorChoice;
 };
 
 type NativeDeviceInfo = Partial<AndroidDeviceProfile>;
@@ -59,6 +61,7 @@ type GintoLocalAiNativeModule = {
   ): Promise<LocalGeneration>;
   analyzeMessageRisk?(modelUri: string, message: string): Promise<LocalGeneration>;
   setPerformanceMode?(mode: PerformanceMode): Promise<RuntimeStatus>;
+  setProcessor?(p: ProcessorChoice): Promise<RuntimeStatus>;
   isOnDeviceSpeechRecognitionAvailable?(): boolean;
   recognizeSpeech?(languageTag: string): Promise<OnDeviceSpeechResult>;
   recognizeMultilingualSpeech?(modelDirectory: string): Promise<OnDeviceSpeechResult>;
@@ -71,6 +74,12 @@ const NativeLocalAi = requireOptionalNativeModule<GintoLocalAiNativeModule>('Gin
 
 /** Local inference is unbounded by nature; the UI always has a deterministic fallback. */
 export const LOCAL_AI_TIMEOUT_MS = 20_000;
+
+/** Engine start is a file mmap + compile: generous, and no longer billed to the reply. */
+export const MODEL_START_TIMEOUT_MS = 90_000;
+
+/** Reading a photo is slower than text; give vision turns a wider window. */
+export const IMAGE_REPLY_TIMEOUT_MS = 60_000;
 
 export class LocalAiTimeout extends Error {
   constructor(ms: number) {
@@ -226,6 +235,17 @@ export async function setAndroidPerformanceMode(
   }
 }
 
+/** Same serialized swap as setAndroidPerformanceMode, for the processor preference. */
+export async function setAndroidProcessor(p: ProcessorChoice): Promise<RuntimeStatus | null> {
+  if (!hasAndroidLocalAiRuntime() || !NativeLocalAi?.setProcessor) return null;
+  const set = NativeLocalAi.setProcessor;
+  try {
+    return await enqueueGeneration(() => set(p));
+  } catch {
+    return null;
+  }
+}
+
 async function installedModels(): Promise<Set<LocalModelId>> {
   const results = await Promise.all(
     LOCAL_MODELS.map(async (profile) => {
@@ -247,6 +267,14 @@ export async function startAndroidLocalModel(modelId: LocalModelId): Promise<Run
   return NativeLocalAi.startModel(uri, isVisionModel(modelId));
 }
 
+/** The model file the native engine currently holds, matched against the catalog. */
+async function loadedModelId(): Promise<LocalModelId | null> {
+  const status = await getAndroidRuntimeStatus();
+  const path = status?.ready ? status.modelPath : null;
+  if (!path) return null;
+  return LOCAL_MODELS.find((m) => path.endsWith(m.fileName))?.id ?? null;
+}
+
 export interface InstalledModel {
   modelId: LocalModelId;
   uri: string;
@@ -262,12 +290,17 @@ export async function resolveInstalledModel(
   choice: LocalModelChoice,
   needs: 'any' | 'text' | 'vision' = 'any',
 ): Promise<InstalledModel | null> {
-  const device = await inspectAndroidDevice();
+  const [device, installed, loaded] = await Promise.all([
+    inspectAndroidDevice(),
+    installedModels(),
+    loadedModelId(),
+  ]);
   const modelId = pickLocalModel(
     choice,
     recommendLocalModel(device),
-    await installedModels(),
+    installed,
     needs,
+    loaded,
   );
   if (!modelId) return null;
   const uri = modelUri(modelId);
@@ -311,6 +344,7 @@ export async function generateAndroidLocalReply(
   computedAnswer?: string | null,
   imageUri?: string,
   strict = false,
+  onPhase?: (phase: 'loading' | 'thinking', modelId: LocalModelId) => void,
 ): Promise<(LocalGeneration & { modelId: LocalModelId }) | null> {
   if (!hasAndroidLocalAiRuntime() || !NativeLocalAi) return null;
 
@@ -343,16 +377,27 @@ export async function generateAndroidLocalReply(
     '',
     `User's message: ${message}`,
   ].join('\n');
-  const result = await enqueueGeneration(() =>
-    withTimeout(
+  // One job: start the model (separate, longer timeout) only when the engine holds a
+  // different file, then generate. Model load time no longer eats the reply timeout.
+  const result = await enqueueGeneration(async () => {
+    if ((await loadedModelId()) !== model.modelId) {
+      onPhase?.('loading', model.modelId);
+      await withTimeout(
+        NativeLocalAi.startModel(model.uri, isVisionModel(model.modelId)),
+        MODEL_START_TIMEOUT_MS,
+      );
+    }
+    onPhase?.('thinking', model.modelId);
+    return withTimeout(
       NativeLocalAi.generate(
         model.uri,
         prompt,
         imageUri ?? null,
         isVisionModel(model.modelId),
       ),
-    ),
-  );
+      imageUri ? IMAGE_REPLY_TIMEOUT_MS : LOCAL_AI_TIMEOUT_MS,
+    );
+  });
   return { ...result, modelId: model.modelId };
 }
 

@@ -41,6 +41,7 @@ class GintoLocalAiModule : Module() {
   private var activeBackend: String? = null
   private var backendNote: String? = null
   private var performanceMode = "balanced"
+  private var processor = "auto"
   private var speechRecognizer: SpeechRecognizer? = null
   private var speechPromise: Promise? = null
   private var speechFallbackTried = false
@@ -65,6 +66,17 @@ class GintoLocalAiModule : Module() {
         require(mode in listOf("balanced", "max")) { "Unknown performance mode." }
         if (mode != performanceMode) {
           performanceMode = mode
+          closeRuntime()
+        }
+        runtimeStatus()
+      }
+    }
+
+    AsyncFunction("setProcessor") { p: String ->
+      runtimeLock.withLock {
+        require(p in listOf("auto", "npu", "gpu", "cpu")) { "Unknown processor." }
+        if (p != processor) {
+          processor = p
           closeRuntime()
         }
         runtimeStatus()
@@ -247,6 +259,7 @@ class GintoLocalAiModule : Module() {
     "backendNote" to backendNote,
     "modelPath" to modelPath,
     "performanceMode" to performanceMode,
+    "processor" to processor,
   )
 
   /**
@@ -367,17 +380,23 @@ class GintoLocalAiModule : Module() {
     }
   }
 
-  /** Max tries a detected NPU even when unproven; Balanced only when its dispatch library is bundled. */
+  /**
+   * NPU without a bundled dispatch library silently compiles onto CPU while reporting NPU,
+   * so it is only attempted once npuReady is confirmed — in every performance mode.
+   */
   private fun backendAttempts(): List<String> {
     val emulator = Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish"
     val (npuName, npuReady) = detectNpu()
     val npu = when {
-      emulator || npuName == null -> null
-      performanceMode == "max" || npuReady ->
-        if (npuName == "Google Tensor TPU") "tpu" else "npu"
-      else -> null
+      emulator || !npuReady || npuName == null -> null
+      npuName == "Google Tensor TPU" -> "tpu"
+      else -> "npu"
     }
-    return listOfNotNull(npu, "gpu", "cpu")
+    return when (processor) {
+      "cpu" -> listOf("cpu")
+      "gpu" -> listOf("gpu", "cpu")
+      else -> listOfNotNull(npu, "gpu", "cpu")
+    }
   }
 
   private fun backendFor(name: String): Backend = when (name) {
