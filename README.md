@@ -1,11 +1,13 @@
 # Unhooked
 
+> **Judges:** start with [**SUBMISSION.md**](./SUBMISSION.md), the whole app mapped to each judging criterion with the code that proves it.
+
 **Pause. Understand. Decide.** A local-AI wellness assistant for Filipinos juggling online loans, pay-later installments and late-night doomscrolling.
 
 Unhooked steps in at the moment of a risky decision (borrowing, checking out, opening a shopping or social app) with a **real 10-second pause**, a reflection **written on the phone by an on-device language model from the user's own records**, and practical options. The user always makes the final call. Nothing leaves the phone unless the user explicitly opts in.
 
 - **Local AI:** Gemma 3 1B / Qwen 2.5 1.5B / Gemma 4 E2B–E4B running through **LiteRT-LM** on the phone (NPU → GPU → CPU fallback), plus on-device ML Kit OCR and a transparent rules engine. See [Local AI implementation](#2-local-ai-implementation).
-- **Verified by tests:** `npm run check` runs typecheck, lint and **97 Jest tests** across 22 suites (money, affordability, BNPL, repayment, message risk, blocking, event insights, and the AI output guard).
+- **Verified by tests:** `npm run check` runs typecheck, lint and **119 Jest tests** across 23 suites (money, affordability, BNPL, repayment, message risk, blocking, event insights, and the AI output guard).
 - **Target user:** Ana, 24, a BPO agent on a budget Android phone with 3 online loans and 2 SPayLater plans, paid on the 15th and 30th. See [plan.md → Target users](./plan.md#target-users).
 
 ---
@@ -35,7 +37,7 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 
 | Question | Answer |
 |---|---|
-| Does it work? | `npm run check` is green: TypeScript strict + `noUncheckedIndexedAccess`, ESLint, **97 tests / 22 suites**. Android bundle exports cleanly. |
+| Does it work? | `npm run check` is green: TypeScript strict + `noUncheckedIndexedAccess`, ESLint, **119 tests / 23 suites**. Android bundle exports cleanly. |
 | How are the models integrated? | Through a typed native module with graceful degradation: `requireOptionalNativeModule('GintoLocalAi')` returns safe fallbacks in Expo Go / iOS / web. Inference calls are wrapped in a **20 s timeout** (`withTimeout`), the pause uses a **fresh conversation per reflection** (`generateOnce`) so chat history never leaks into a pause, and the chat uses a persistent conversation grounded in a records summary. Model selection falls back to **any installed model** rather than failing silently. |
 | Sophistication | **Rules compute, model phrases**: every number in model output is checked for provenance against the computed facts (`src/ai/guard.ts`, `src/ai/pausePhrasing.ts`, tested in `src/ai/__tests__/guard.test.ts`). Crisis wording (`isCrisis`) bypasses every model and returns the hotline. Money is integer centavos end-to-end. Payday Shield reads Android usage events in a foreground service and deep-links to the pause when a guarded app opens; a local DNS-only `VpnService` guards websites without routing traffic anywhere ([`modules/unhooked-guard`](./modules/unhooked-guard)). |
 | Live-demo reliability | Every AI path has an instant deterministic fallback, so the demo never blocks on inference: the template renders immediately and the model's phrasing swaps in when it lands. Events (`pause_shown`, `pause_phrased`, `pause_decision`) are logged to SQLite for the Insights tab. |
