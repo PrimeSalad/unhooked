@@ -148,7 +148,7 @@ export default function EvidencePackScreen() {
             keyboardType="numbers-and-punctuation"
           />
           {incidentDate && !isValidIncidentDate(incidentDate) ? (
-            <Text variant="caption" color={colors.error}>
+            <Text variant="caption" color={colors.danger}>
               Enter a real date as YYYY-MM-DD.
             </Text>
           ) : null}

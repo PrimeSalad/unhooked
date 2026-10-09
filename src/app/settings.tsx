@@ -3,11 +3,11 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Alert, Platform, Switch, View } from 'react-native';
 
+import { CLOUD_URL } from '@/ai/chat';
 import { Button, Card, Field, Row, Screen, ScreenHeader, Segmented, Text } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
 import { deleteAllData } from '@/db/migrations';
-import { loadDemoData } from '@/db/seed';
 import { isGuardAvailable, syncGuard } from '@/lib/guard';
 import { bumpData } from '@/db/useDbQuery';
 import { parsePesoInput, toPesos } from '@/domain/money';
@@ -51,6 +51,20 @@ export default function SettingsScreen() {
     showToast('Saved.');
   };
 
+  const enableCloud = (on: boolean) => {
+    if (!on) return s.setCloudAi(false);
+    const msg =
+      'Ginto will send your questions and a numbers-only summary (totals, due dates, minutes) to Claude through your Ginto server. Names of lenders, messages and screenshots never leave this phone.';
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.(msg)) s.setCloudAi(true);
+      return;
+    }
+    Alert.alert('Use Claude for Ask Ginto?', msg, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Turn on', onPress: () => s.setCloudAi(true) },
+    ]);
+  };
+
   const wipe = async () => {
     try {
       await deleteAllData(db);
@@ -83,8 +97,8 @@ export default function SettingsScreen() {
       <Card tone={colors.shell} flat>
         <Text variant="strong">Your data stays on this phone</Text>
         <Text variant="small">
-          Debts, purchases, screenshots and check-ins are stored only on this device. No account and
-          no server.
+          Debts, purchases, screenshots and check-ins are stored only on this device. No account, no
+          server, unless you turn on Claude below.
         </Text>
       </Card>
 
@@ -140,6 +154,27 @@ export default function SettingsScreen() {
       <Card style={{ gap: spacing.sm }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
+            <Text variant="strong">Smarter Ask Ginto (Claude)</Text>
+            <Text variant="caption">
+              {CLOUD_URL
+                ? 'Off by default. Only numbers are shared.'
+                : 'Needs a Ginto server. See README.'}
+            </Text>
+          </View>
+          <Switch
+            value={s.cloudAiEnabled}
+            disabled={!CLOUD_URL}
+            onValueChange={enableCloud}
+            trackColor={{ true: colors.primary, false: colors.track }}
+            thumbColor={colors.white}
+            accessibilityLabel="Use Claude for Ask Ginto"
+          />
+        </Row>
+      </Card>
+
+      <Card style={{ gap: spacing.sm }}>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
             <Text variant="strong">App and website guards</Text>
             <Text variant="caption">
               {isGuardAvailable()
@@ -159,20 +194,6 @@ export default function SettingsScreen() {
           />
         </Row>
       </Card>
-
-      {__DEV__ && (
-        <Button
-          label="Load demo data (Ana)"
-          kind="outline"
-          size="sm"
-          onPress={async () => {
-            await loadDemoData(db);
-            await syncGuard(await listRules(db));
-            router.dismissTo('/');
-            showToast('Demo loaded: Ana, 3 debts, a cooling purchase, a week of scrolling.');
-          }}
-        />
-      )}
 
       <Button label="Delete all my data" kind="ghost" icon="trash" onPress={confirmDelete} />
     </Screen>

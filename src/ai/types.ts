@@ -18,27 +18,6 @@ export interface LabeledLine {
   certainty: Certainty;
 }
 
-export type PressureBand = 'steady' | 'watch' | 'high';
-
-export interface LocalModelFactor {
-  key: string;
-  label: string;
-  /** Normalized 0–1 feature value used by the model. */
-  value: number;
-  /** Positive contribution to the final logit, rounded for explainability. */
-  contribution: number;
-}
-
-export interface LocalInference {
-  score: number; // 0–100 pressure estimate; never a diagnosis
-  band: PressureBand;
-  summary: string;
-  recommendedAction: string;
-  factors: LocalModelFactor[];
-  signalCount: number;
-  modelVersion: 'ginto-jitai-v1';
-}
-
 export interface Reflection {
   headline: string; // one sentence, no shame language
   headlineCertainty: Certainty;
@@ -46,8 +25,6 @@ export interface Reflection {
   suggestions: LabeledLine[]; // 1–3 practical options
   tone: Tone;
   source: 'local' | 'cloud';
-  /** Explainable output from the tiny on-device intervention model. */
-  inference?: LocalInference;
 }
 
 export interface Insight {

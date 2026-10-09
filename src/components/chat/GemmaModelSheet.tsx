@@ -212,7 +212,7 @@ export function GemmaModelSheet({ visible, onClose }: { visible: boolean; onClos
       {state === 'ready' || state === 'error' ? (
         <>
           {error ? (
-            <Text variant="small" color={colors.error}>
+            <Text variant="small" color={colors.danger}>
               {error}
             </Text>
           ) : null}
