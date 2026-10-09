@@ -1,14 +1,17 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text as RNText, View } from 'react-native';
 
 import { Button, Card, Field, Rise, Row, Screen, ScreenHeader, Tag, Text } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { analyzeAndroidMessageRisk, supportsAndroidMessageRiskAnalysis } from '@/ai/androidLocalAi';
 import { logEvent } from '@/db/events';
+import { listNumberReports } from '@/db/numberReports';
 import { addEvidence } from '@/db/repo';
+import { useDbQuery } from '@/db/useDbQuery';
 import { assessMessage, highlightParts, type MessageRisk } from '@/domain/messageRisk';
+import { matchesInText, summarizeNumbers } from '@/domain/numberLog';
 import { useSession } from '@/store/session';
 
 const SAMPLE =
@@ -22,6 +25,8 @@ const LEVEL = {
 
 export default function MessageCheckScreen() {
   const db = useSQLiteContext();
+  const { data: numberReports } = useDbQuery(listNumberReports, []);
+  const numberSummaries = useMemo(() => summarizeNumbers(numberReports), [numberReports]);
   const showToast = useSession((s) => s.showToast);
   const [text, setText] = useState('');
   const [lender, setLender] = useState('');
@@ -67,7 +72,8 @@ export default function MessageCheckScreen() {
       if (analysis) setAiText(analysis.text);
       else setAiStatus('Download a text model in Chat settings.');
     } catch {
-      if (requestId === analysisId.current) setAiStatus('Local analysis is unavailable. Try again.');
+      if (requestId === analysisId.current)
+        setAiStatus('Local analysis is unavailable. Try again.');
     } finally {
       if (requestId === analysisId.current) setAnalyzing(false);
     }
@@ -134,6 +140,8 @@ export default function MessageCheckScreen() {
     showToast('Saved to your private Evidence Pack.');
   };
 
+  const loggedNumbers = result ? matchesInText(result.text, numberSummaries) : [];
+
   return (
     <Screen tabs={false}>
       <ScreenHeader
@@ -159,26 +167,30 @@ export default function MessageCheckScreen() {
           onPress={() => void pasteAndAnalyze()}
           style={{ flex: 1 }}
         />
-        {!text && (
-          <Button
-            label="Sample"
-            kind="ghost"
-            size="sm"
-            icon="file"
-            onPress={addSample}
-          />
-        )}
+        {!text && <Button label="Sample" kind="ghost" size="sm" icon="file" onPress={addSample} />}
       </Row>
-      {!!text.trim() && (
-        <Button
-          label="Analyze risk"
-          icon="shield"
-          onPress={() => void check()}
-        />
-      )}
+      {!!text.trim() && <Button label="Analyze risk" icon="shield" onPress={() => void check()} />}
 
       {result && (
         <Rise style={{ gap: spacing.md }}>
+          {loggedNumbers.length ? (
+            <Card tone={colors.surfaceMuted} flat style={{ gap: spacing.sm }}>
+              <Tag certainty="fact" label="From your number log" />
+              <Text variant="strong">
+                {loggedNumbers.length === 1 ? 'A number in this text' : 'Numbers in this text'}{' '}
+                matches your saved reports.
+              </Text>
+              {loggedNumbers.map((entry) => (
+                <Text key={entry.number} variant="small" selectable>
+                  {entry.number} · last seen {entry.lastSeenOn}
+                  {entry.agentName ? ` · noted as ${entry.agentName}` : ''}
+                </Text>
+              ))}
+              <Text variant="caption">
+                The match does not prove who sent this message; it may be a payment number.
+              </Text>
+            </Card>
+          ) : null}
           <Row style={{ justifyContent: 'space-between' }}>
             <View style={[styles.level, { backgroundColor: LEVEL[result.risk.level].bg }]}>
               <Text variant="strong" color={LEVEL[result.risk.level].fg}>
@@ -194,9 +206,13 @@ export default function MessageCheckScreen() {
               {aiText ? <Tag label="Local text model" tone="records" /> : null}
             </Row>
             {analyzing ? (
-              <Text variant="small" color={colors.text}>Analyzing message on this phone…</Text>
+              <Text variant="small" color={colors.text}>
+                Analyzing message on this phone…
+              </Text>
             ) : aiText ? (
-              <Text variant="small" color={colors.text}>{aiText}</Text>
+              <Text variant="small" color={colors.text}>
+                {aiText}
+              </Text>
             ) : (
               <Text variant="small">{aiStatus ?? 'Preparing local analysis…'}</Text>
             )}

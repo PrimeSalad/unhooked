@@ -34,10 +34,21 @@ export interface Evidence {
   id: ID;
   debtId: ID | null;
   lender: string;
+  agentName: string | null;
   incidentDate: ISODate;
   imageUri: string | null; // local file in app document dir
   messageText: string | null;
   riskLevel: RiskLevel | null;
+  note: string | null;
+  createdAt: ISODate;
+}
+
+/** A number the user explicitly chose to record as suspicious. */
+export interface NumberReport {
+  id: ID;
+  number: string; // normalized Philippine mobile number, +639XXXXXXXXX
+  agentName: string | null;
+  seenOn: string; // local YYYY-MM-DD
   note: string | null;
   createdAt: ISODate;
 }
@@ -94,6 +105,9 @@ export type AppEventType =
   | 'payment_recorded'
   | 'repayment_plan_viewed'
   | 'evidence_added'
+  | 'number_reported'
+  | 'number_log_imported'
+  | 'number_removed'
   | 'purchase_evaluated'
   | 'purchase_saved_for_later'
   | 'bnpl_calculated'

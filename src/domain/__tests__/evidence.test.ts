@@ -5,6 +5,7 @@ const evidence: Evidence = {
   id: 'one',
   debtId: null,
   lender: '<Collector>',
+  agentName: '<Agent>',
   incidentDate: '2026-10-09',
   imageUri: null,
   messageText: '<script>alert(1)</script>',
@@ -24,6 +25,7 @@ it('includes a cover disclaimer and safely escapes saved text', () => {
   expect(html).toContain('Incident dates: 2026-10-09 to 2026-10-09');
   expect(html).toContain('not a legal finding');
   expect(html).toContain('&lt;Collector&gt;');
+  expect(html).toContain('&lt;Agent&gt;');
   expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   expect(html).not.toContain('<script>');
   expect(html).toContain('Called &amp; threatened');

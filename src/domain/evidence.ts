@@ -49,6 +49,7 @@ export function buildEvidencePdfHtml(items: EvidencePdfItem[], generatedAt = new
             ? '<p>Screenshot file unavailable for this export.</p>'
             : '';
       return `${lenderHeading}<article><p class="date">${escapeHtml(evidence.incidentDate.slice(0, 10))}</p>
+        ${evidence.agentName ? `<p><strong>Possible agent (user saved):</strong> ${escapeHtml(evidence.agentName)}</p>` : ''}
         ${evidence.note ? `<p><strong>Note:</strong> ${escapeHtml(evidence.note)}</p>` : ''}
         ${evidence.messageText ? `<p class="message">${escapeHtml(evidence.messageText)}</p>` : ''}
         ${image}</article>`;
