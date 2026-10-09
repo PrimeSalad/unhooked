@@ -26,8 +26,6 @@ import { normalizeDomain } from '@/domain/blocking';
 import { isGuardAvailable } from '@/lib/guard';
 import { useSession } from '@/store/session';
 
-const SUGGESTED = ['tiktok.com', 'facebook.com', 'youtube.com', 'shopee.ph', 'lazada.com.ph'];
-
 export default function SitesScreen() {
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
@@ -65,7 +63,7 @@ export default function SitesScreen() {
 
       <Field
         label="Website"
-        placeholder="Paste a link, like shopee.ph"
+        placeholder="Paste a website link"
         value={text}
         onChangeText={setText}
         autoCapitalize="none"
@@ -105,26 +103,6 @@ export default function SitesScreen() {
           </Group>
         </Section>
       )}
-
-      <Section title="Suggestions">
-        <Group>
-          {SUGGESTED.filter((d) => !sites.some((s) => s.target === d)).map((d) => (
-            <GroupRow
-              key={d}
-              leading={<Avatar label={d} />}
-              title={d}
-              trailing={
-                <IconButton
-                  icon="add"
-                  label={`Guard ${d}`}
-                  tone={colors.track}
-                  onPress={() => void add(d)}
-                />
-              }
-            />
-          ))}
-        </Group>
-      </Section>
 
       <Text variant="caption" style={{ lineHeight: 18 }}>
         This is a speed bump, not a lock. Some browsers&apos; Secure DNS or another VPN can get
