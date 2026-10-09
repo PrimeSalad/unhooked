@@ -6,13 +6,13 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 
-import { Ginto } from '@/components/mascot/Ginto';
 import {
   Avatar,
   Button,
   Chips,
   Group,
   GroupRow,
+  IconChip,
   LargeTitle,
   ProgressBar,
   Row,
@@ -34,6 +34,10 @@ import { isGuardAvailable, syncGuard } from '@/lib/guard';
 import { cancelReminder, remindIn } from '@/lib/notifications';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
+
+/** "8:42 PM" for a timestamp. */
+const clockTime = (ms: number) =>
+  new Date(ms).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
 
 const TIMER_OPTIONS = ['15', '30', '60', '120'] as const;
 const SESSION_APPS = ['TikTok', 'Facebook', 'Instagram', 'YouTube', 'X', 'Other'] as const;
@@ -74,6 +78,11 @@ export default function ScrollScreen() {
   const appRules = rules.filter((r) => r.kind === 'app');
   const siteRules = rules.filter((r) => r.kind === 'site');
   const native = isGuardAvailable();
+  const enabledApps = appRules.filter((r) => r.enabled).map((r) => r.label);
+  const guardedNames =
+    enabledApps.length <= 2
+      ? enabledApps.join(', ') || 'no apps on'
+      : `${enabledApps.slice(0, 2).join(', ')} +${enabledApps.length - 2}`;
 
   const startTimer = async () => {
     if (!appRules.length) {
@@ -96,73 +105,54 @@ export default function ScrollScreen() {
     <Screen>
       <LargeTitle eyebrow="Use your feed on purpose" title="Scroll" />
 
-      {/* Hero: Unhook timer (Opal-style focus session) */}
-      <View style={styles.hero}>
+      {/* Unhook timer: one clear number, when it ends, what it pauses. */}
+      <View style={styles.timerCard}>
+        <Row style={{ alignItems: 'center' }}>
+          <IconChip
+            icon="lock"
+            bg={timerOn ? colors.text : colors.surfaceMuted}
+            fg={timerOn ? colors.bg : colors.text}
+            size={40}
+          />
+          <View style={{ flex: 1 }}>
+            <Text variant="strong">Unhook timer</Text>
+            <Text variant="caption">
+              {timerOn ? 'Running' : 'Pause your guarded apps for a while'}
+            </Text>
+          </View>
+          {timerOn ? <View style={styles.liveDot} /> : null}
+        </Row>
+
+        <View style={{ gap: 2 }}>
+          <Text variant="display" style={{ fontSize: 44, lineHeight: 50, letterSpacing: -1.5 }}>
+            {timerOn ? formatClock(timerLeft) : formatMinutes(Number(timerMin))}
+          </Text>
+          <Text variant="small" color={colors.textMuted}>
+            {appRules.length
+              ? `${timerOn ? 'Ends' : 'Until'} ${clockTime(timerOn ? timerMs : now.getTime() + Number(timerMin) * 60000)} · ${guardedNames}`
+              : 'No apps to pause yet'}
+          </Text>
+        </View>
+
         {timerOn ? (
-          <>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <Text variant="eyebrow" color={colors.pauseMuted} style={{ fontSize: 11 }}>
-                Unhooked
-              </Text>
-              <View style={styles.liveDot} />
-            </Row>
-            <Row style={{ alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <Text variant="display" color="#FFF6EC" style={{ fontSize: 52, lineHeight: 56 }}>
-                  {formatClock(timerLeft)}
-                </Text>
-                <Text variant="small" color="#D9BFA8">
-                  {appRules.filter((r) => r.enabled).length} apps paused until the timer ends
-                </Text>
-              </View>
-              <Ginto mood="calm" size={96} />
-            </Row>
-            <Button
-              label="End early"
-              kind="outlineLight"
-              size="sm"
-              onPress={() => void stopTimer()}
-            />
-          </>
+          <Button label="End early" kind="outline" onPress={() => void stopTimer()} />
         ) : (
           <>
-            <Row style={{ alignItems: 'center' }}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="eyebrow" color={colors.pauseMuted} style={{ fontSize: 11 }}>
-                  Unhook timer
-                </Text>
-                <Text variant="heading" color="#FFF6EC" style={{ fontSize: 22, lineHeight: 28 }}>
-                  Need a real break from your feed?
-                </Text>
-                <Text variant="small" color="#D9BFA8">
-                  Your guarded apps pause until the timer ends.
-                </Text>
-              </View>
-              <Ginto mood="sleepy" size={88} />
-            </Row>
-            <View style={styles.timerChips}>
-              {TIMER_OPTIONS.map((m) => {
-                const active = m === timerMin;
-                return (
-                  <Text
-                    key={m}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => setTimerMin(m)}
-                    variant="strong"
-                    color={active ? colors.text : '#FFF6EC'}
-                    style={[styles.timerChip, active && { backgroundColor: colors.accent }]}
-                  >
-                    {formatMinutes(Number(m))}
-                  </Text>
-                );
-              })}
-            </View>
-            <Button
-              label={appRules.length ? 'Start Unhook timer' : 'Pick apps to guard first'}
-              icon="lock"
-              onPress={() => void startTimer()}
+            <Segmented
+              value={timerMin}
+              onChange={setTimerMin}
+              options={TIMER_OPTIONS.map((m) => ({ value: m, label: formatMinutes(Number(m)) }))}
             />
+            {appRules.length ? (
+              <Button label="Start timer" kind="ink" onPress={() => void startTimer()} />
+            ) : (
+              <Button
+                label="Choose apps to guard"
+                kind="outline"
+                icon="add"
+                onPress={() => router.push('/block/apps')}
+              />
+            )}
           </>
         )}
       </View>
@@ -531,23 +521,15 @@ function RuleSheet({ rule, onClose }: { rule: GuardRule | null; onClose: () => v
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    backgroundColor: colors.lagoonDeep,
-    borderRadius: radius.xxl,
+  timerCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
-  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
-  timerChips: { flexDirection: 'row', gap: spacing.sm },
-  timerChip: {
-    flex: 1,
-    textAlign: 'center',
-    paddingVertical: 10,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(242,251,252,0.12)',
-    overflow: 'hidden',
-    fontSize: 14,
-  },
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
