@@ -3,7 +3,6 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Alert, Platform, Switch, View } from 'react-native';
 
-import { AgentModelCard } from '@/components/chat/AgentModelCard';
 import {
   Button,
   Card,
@@ -150,8 +149,6 @@ export default function SettingsScreen() {
           />
         </Card>
       ) : null}
-
-      <AgentModelCard />
 
       <Card style={{ gap: spacing.md }}>
         <Text variant="strong">Pause length</Text>

@@ -25,7 +25,7 @@ import {
   type ProcessorChoice,
 } from '@/ai/localModels';
 import {
-  cancelModelDownload,
+  pauseModelDownload,
   readPartialProgress,
   startModelDownload,
   useModelDownloads,
@@ -477,25 +477,44 @@ export function GemmaModelSheet({
                       This model needs more RAM than this phone has.
                     </Text>
                   ) : null}
-                  {thisDownload ? (
-                    <View style={styles.progressGroup}>
-                      <ProgressBar value={thisDownload.value} height={10} />
-                      <Text variant="caption">
-                        Downloading · {Math.round(thisDownload.value * 100)}% · {model.sizeLabel}
-                      </Text>
+                  <View style={styles.progressGroup}>
+                    <ProgressBar
+                      value={
+                        installed[modelId]
+                          ? 1
+                          : (thisDownload?.value ?? partial[modelId] ?? 0)
+                      }
+                      height={10}
+                      color={installed[modelId] ? colors.success : colors.primary}
+                    />
+                    <Text variant="caption">
+                      {installed[modelId]
+                        ? 'Finished · 100%'
+                        : thisDownload
+                          ? `Downloading · ${Math.round(thisDownload.value * 100)}%`
+                          : (partial[modelId] ?? 0) > 0
+                            ? `Paused · ${Math.round((partial[modelId] ?? 0) * 100)}%`
+                            : 'Not downloaded · 0%'}
+                    </Text>
+                    {thisDownload ? (
                       <Text variant="caption" color={colors.textMuted}>
-                        You can leave this screen. The download keeps going.
+                        You can leave this screen. Pause keeps the part already saved.
                       </Text>
-                      <Button
-                        label="Cancel download"
-                        kind="ghost"
-                        size="sm"
-                        onPress={() => {
-                          setPartial((previous) => ({ ...previous, [modelId]: 0 }));
-                          void cancelModelDownload();
-                        }}
-                      />
-                    </View>
+                    ) : null}
+                  </View>
+                  {thisDownload ? (
+                    <Button
+                      label="Pause"
+                      kind="ghost"
+                      size="sm"
+                      onPress={() => {
+                        setPartial((previous) => ({
+                          ...previous,
+                          [modelId]: thisDownload.value,
+                        }));
+                        void pauseModelDownload();
+                      }}
+                    />
                   ) : (
                     <Button
                       label={
@@ -508,7 +527,7 @@ export function GemmaModelSheet({
                                 ? 'Start this model'
                                 : 'Use this model'
                               : (partial[modelId] ?? 0) > 0
-                                ? `Resume download · ${Math.round((partial[modelId] ?? 0) * 100)}%`
+                                ? 'Continue'
                                 : `Download · ${model.sizeLabel}`
                       }
                       kind={isSelected || isRecommended ? 'ink' : 'ghost'}

@@ -141,6 +141,15 @@ export async function startModelDownload(modelId: LocalModelId): Promise<void> {
   }
 }
 
+/** Stop the active transfer and keep the .partial file so it can resume. */
+export async function pauseModelDownload(): Promise<void> {
+  const current = task;
+  cancelRequested = true;
+  task = null;
+  useModelDownloads.setState({ active: null, error: null });
+  if (current) await current.pauseAsync().catch(() => undefined);
+}
+
 export async function cancelModelDownload(): Promise<void> {
   const current = task;
   const modelId = useModelDownloads.getState().active?.modelId;
