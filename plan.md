@@ -100,6 +100,8 @@ src/
   ai/                     ← ReflectionProvider interface, local provider, templates, insights
   store/                  ← zustand: settings (budget, limits, pause length, cloud opt-in)
   lib/                    ← notifications, evidence export, haptics wrappers  (create as needed)
+modules/
+  unhooked-guard/         ← Phase 4B local Expo module (Kotlin): installed apps, usage access, shield, local DNS VPN. Android only.
 ```
 
 **Data flow for every intervention**
@@ -188,6 +190,47 @@ The one screen that must be flawless; every module reuses it. The UI is done (Ph
 - [ ] Habit insights: longest sessions, time-of-day histogram, breaks taken this week.
 - [ ] Honest copy: "Unhooked can't see other apps automatically yet — start a session when you open one."
 
+### Phase 4B — App & website blocking (Android only, dev build)
+The user picks which apps and websites get a "hook guard". Opening one shows Ginto's pause (R1) instead of the app or site. This is a speed bump the user sets up for themselves, not parental control. **It needs native code, so it does not run in Expo Go.** It ships in a development build (`npx expo run:android` or `eas build --profile development`) and the Expo Go demo must still work without it.
+
+**Policy-safe approach.** Choose the least intrusive Android API for each job and avoid the APIs Google Play restricts most:
+
+| Job | Use | Do **not** use (why) |
+|---|---|---|
+| List installed apps | `<queries>` with an `android.intent.action.MAIN` + `android.intent.category.LAUNCHER` intent, then `PackageManager.queryIntentActivities`. This returns launchable apps only. | `QUERY_ALL_PACKAGES`: a high-risk permission that needs a Play declaration, and an app blocker doesn't qualify. |
+| Know which app is open | `UsageStatsManager.queryEvents` (activity-resumed events). The user grants **Usage access** in system Settings. | `AccessibilityService`: Play allows it only for real accessibility tools, so it needs a declaration and is often rejected. Android 17 also lets users block non-accessibility tools from using it. |
+| Show the pause over the blocked app | Launch Unhooked's own full-screen shield activity. The user grants **Display over other apps** (`SYSTEM_ALERT_WINDOW`), which also exempts us from background-activity-start limits. | Drawing fake system UI, or covering the screen with no way out. |
+| Keep watching in the background | A foreground service with a discreet, permanent notification ("Unhooked is on", never anything about debt or blocking). Android 14+ requires a `foregroundServiceType` (`specialUse` with a subtype property), and it must be declared in Play Console. | Hidden background polling, wake locks, or `RECEIVE_BOOT_COMPLETED` tricks the user wasn't told about. |
+| Block websites | A **local-only** `VpnService` that answers DNS only for the user's listed domains and passes everything else through untouched. No traffic leaves the device through us, nothing is logged, and no remote server is used. Requires the Play Console VpnService declaration (VPN isn't core functionality; declare it under app usage tracking) and an in-app disclosure. | Reading browser URLs through Accessibility, routing traffic to a server, or ad or content filtering beyond the user's list. |
+
+**If Play rejects the VpnService declaration**, drop website blocking from the Play build and keep app blocking. The fallback is to let the user add browsers to the app block list and say so honestly.
+
+**Native code lives in a local Expo module** at `modules/unhooked-guard` (Kotlin, Expo Modules API). Its own `AndroidManifest.xml` is merged into the app by Gradle, so **never hand-edit `android/`** and **never** add `QUERY_ALL_PACKAGES` or an accessibility service. Add each permission in the step that needs it.
+
+**Tasks**
+- [x] **Step 1: module + installed apps + permission checks.** `modules/unhooked-guard` exposes `getLaunchableApps(includeIcons)`, which returns `{ packageName, label, iconBase64, category, isEssential }`. `isEssential` marks the default dialer, default SMS app and Settings. It also exposes `hasUsageAccess()` / `openUsageAccessSettings()` and `canDrawOverlays()` / `openOverlaySettings()`. The module manifest adds only the `<queries>` launcher intent, `PACKAGE_USAGE_STATS` and `SYSTEM_ALERT_WINDOW`. The JS wrapper returns safe fallbacks when the module is missing (Expo Go, iOS, web).
+- [ ] `src/domain/blocking.ts` (pure, tested):
+  - `normalizeDomain(input)`: accepts anything the user types or pastes (`https://www.TikTok.com/@x?y`, `m.facebook.com`, `shopee.ph/`) and returns a bare lowercase host (`tiktok.com`). Strip the scheme, `www.`/`m.`, path, query and port. Reject IPs, empty input, `localhost` and invalid hosts with a gentle error.
+  - `matchesDomain(host, rules)`: a rule covers its subdomains (`tiktok.com` blocks `vt.tiktok.com`), but not look-alikes (`nottiktok.com`).
+  - `isGuardActive(rule, now)`: always on, or a user schedule such as "10 PM–6 AM", including windows that cross midnight. Use local time.
+  - `NEVER_BLOCK`: Unhooked itself, any app the native side marks `isEssential` (phone, SMS, Settings), and the domains in `src/constants/resources.ts` (help must stay reachable, R5). Pickers hide these, and rules skip them.
+- [ ] Migration v2 (append a step and bump `DATABASE_VERSION`): `block_rules (id, kind 'app'|'site', target, label, mode 'pause'|'strict', schedule_json, enabled, created_at)`. Store **only the apps the user selected**, never the full installed-app list. Add the `src/db/blockRules.ts` repository and these `AppEventType` values: `block_rule_added`, `block_rule_removed`, `block_shield_shown`, `block_decision { kind, decision, secondsViewed }`.
+- [ ] **App picker screen** (`src/app/block/apps.tsx`): shows **all launchable apps** with icon and name, sorted A–Z, with a search box and optional filter chips (Social · Video · Games · Other) from `ApplicationInfo.category`. Android has no "shopping" category, so shopping apps are found by search. **Nothing is preselected.** The user ticks the apps to guard, then picks a mode and schedule for each. Rows are at least 48dp.
+- [ ] **Website screen** (`src/app/block/sites.tsx`): a text field where the user types or pastes a link, then "Add". Show the normalized domain back ("Will guard **shopee.ph** and its subpages") before saving. The list supports remove and an enable toggle. Validation errors use plain language.
+- [ ] **Permission onboarding** (one screen per permission, shown just before it's needed). Each screen says what the permission is, why Unhooked needs it, and that the data stays on the phone. It has an explicit **Allow** button (affirmative consent, per Play's prominent-disclosure rule) and a **Not now** option that still leaves the app usable. Then deep-link to the matching system setting and re-check when the user returns.
+- [ ] **Guard service**: a foreground service (`FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE` with a subtype property, `POST_NOTIFICATIONS`) that reads usage events every ~1 s **only while the screen is on**. When an enabled, in-schedule app comes to the front, it launches the shield. Expose `startGuard(rules)` / `stopGuard()` and a shield-result event.
+- [ ] **Shield screen**: Ginto + hook + countdown with a scroll-style reflection (labeled, R3), using these options:
+  - **Pause mode (default):** *Close it* · *Take a break* · *Open anyway* (enabled after the countdown; R4, the user decides). *Open anyway* lets the app through for the session length the user picked (default 10 min).
+  - **Strict mode (opt-in, user-chosen):** *Open anyway* appears only after a longer pause (default 60 s) and asks "Still want to open it?" once more. It is never a hard lock, so the user can always turn a rule off in Unhooked.
+  - Always show "Need to talk to someone?" → `/help` (R5).
+- [ ] **Web guard**: a local DNS-only `VpnService` (`BIND_VPN_SERVICE`) with `startWebGuard(domains)` / `stopWebGuard()`. A blocked lookup gets "no such host" and a notification offers the shield.
+- [ ] Guard on/off master switch in Settings, plus "Delete all data" stops both services and clears `block_rules`.
+- [ ] iOS: hide the feature completely. Screen Time APIs need the Family Controls entitlement, which is out of scope. In Expo Go, show "Available in the full Android app", not a crash.
+- [ ] Honest copy: "This is a speed bump, not a lock. Some browsers' Secure DNS or another VPN can get around website guards, and you can always turn a guard off."
+- [ ] Play Console checklist before release: the foreground-service `specialUse` declaration, the VpnService declaration, a privacy policy and Data safety form saying installed-app and usage data are processed **on device only, not collected or shared**, and a store-listing line describing the guard.
+
+**Done when:** on a real Android phone (dev build), the user picks TikTok from their installed apps and adds `shopee.ph`. Opening either shows the shield with a working countdown, each decision is in `events`, and turning the guard off restores normal behavior immediately.
+
 ### Phase 5 — Insights, Today dashboard, Wellness check-in
 - [ ] Check-in modal (stress / mood / fatigue, 1–5, optional) → `checkins` table; latest check-in feeds `PauseContext.latestCheckIn` → tone.
 - [ ] `src/ai/insights.ts`: rule-based insight generators over the event log (≥ 1 per module + daily summary), each labeled; dismiss → `insight_dismissed`, don't show again for 7 days.
@@ -204,12 +247,12 @@ The one screen that must be flawless; every module reuses it. The UI is done (Ph
 
 ### Phase 7 — Stretch (only after Phases 1–6 demo cleanly)
 - [ ] **Cloud reflections (opt-in):** tiny proxy (e.g. Cloudflare Worker / Vercel function) holding the Anthropic API key; app sends only the pre-computed `facts` (no names, no message text). Use the official `@anthropic-ai/sdk` on the server, model `claude-opus-5-5`, low effort, structured output matching `Reflection`. Fall back to `localProvider` on any error/offline. Show a disclosure before first use (R2).
-- [ ] Android usage-stats integration via a dev build (config plugin) for automatic scroll detection.
+- [ ] Automatic scroll detection: reuse the Phase 4B `unhooked-guard` usage-stats module to start Scroll sessions automatically (dev build only).
 - [ ] Filipino / Taglish copy.
 - [ ] Dark mode (tokens are ready; add a dark palette).
 
 ### Explicitly deferred (from spec §18)
-Automatic detection across every app · background monitoring needing unsupported permissions · SMS/call interception · predictive behavioral models · bank integrations · automated repayment/collection · claims of definitive fraud detection.
+Automatic detection across every app · background monitoring through Accessibility or `QUERY_ALL_PACKAGES` (Phase 4B uses only user-granted Usage access, overlay and a local VPN, with disclosure) · SMS/call interception · predictive behavioral models · bank integrations · automated repayment/collection · claims of definitive fraud detection.
 
 ---
 
@@ -265,4 +308,6 @@ These measure **engagement**, not health outcomes — say so in the pitch.
 | AI text sounds preachy or overconfident | Template-based local provider; copy checklist; `CertaintyTag` everywhere. |
 | Wrong hotline numbers in a crisis | `verifiedOn` field; Phase 6 verification task blocks the demo. |
 | Notification behavior differs in Expo Go | Test local notifications early in Phase 3; fall back to in-app banners. |
+| Play rejects the blocker (VpnService / foreground-service declarations) | Least-intrusive APIs only (no Accessibility, no `QUERY_ALL_PACKAGES`); prominent in-app disclosure; on-device only; drop website guard and keep app guard if needed. |
+| Blocking feels punishing or traps the user | Pause mode by default, *Open anyway* after the countdown, strict mode opt-in, help and dialer never blocked, guard can always be turned off. |
 | Scope creep | Phases 1–6 are the MVP. Nothing from Phase 7 until the demo script runs end to end. |

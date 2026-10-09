@@ -161,18 +161,32 @@ function Layer({
   );
 }
 
-function FinGradient() {
+function GintoDefs() {
   return (
     <Defs>
       <LinearGradient id="gintoFin" x1="0" y1="0" x2="1" y2="1">
-        <Stop offset="0" stopColor="#FFCB7E" />
-        <Stop offset="1" stopColor="#FF8A1F" />
+        <Stop offset="0" stopColor="#FFE58B" />
+        <Stop offset="0.42" stopColor="#FFB52F" />
+        <Stop offset="1" stopColor="#F36A0A" />
       </LinearGradient>
-      <RadialGradient id="gintoBody" cx="62%" cy="30%" r="78%">
-        <Stop offset="0" stopColor="#FFD992" />
-        <Stop offset="0.45" stopColor="#FFA63D" />
-        <Stop offset="0.8" stopColor="#FF8214" />
-        <Stop offset="1" stopColor="#EC6206" />
+      <RadialGradient id="gintoBody" cx="68%" cy="35%" r="76%">
+        <Stop offset="0" stopColor="#FFF0A6" />
+        <Stop offset="0.34" stopColor="#FFC23F" />
+        <Stop offset="0.7" stopColor="#FF8B13" />
+        <Stop offset="1" stopColor="#E95705" />
+      </RadialGradient>
+      <LinearGradient id="gintoBelly" x1="0" y1="0" x2="0.85" y2="1">
+        <Stop offset="0" stopColor="#FFF7C8" stopOpacity={0.82} />
+        <Stop offset="1" stopColor="#FFD76A" stopOpacity={0.08} />
+      </LinearGradient>
+      <LinearGradient id="gintoScale" x1="0" y1="0" x2="1" y2="1">
+        <Stop offset="0" stopColor="#FFD64F" />
+        <Stop offset="1" stopColor="#FF790D" />
+      </LinearGradient>
+      <RadialGradient id="gintoEye" cx="36%" cy="28%" r="72%">
+        <Stop offset="0" stopColor="#5B3A20" />
+        <Stop offset="0.34" stopColor="#241207" />
+        <Stop offset="1" stopColor="#0E0703" />
       </RadialGradient>
     </Defs>
   );
@@ -367,73 +381,93 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
         )}
 
         <Layer origin={pct(68, 112)} style={rot(tail, '-10deg', '10deg')}>
-          <FinGradient />
+          <GintoDefs />
           <Path
-            d="M68 112 C 50 84, 20 66, 12 90 C 8 104, 22 110, 32 112 C 22 114, 8 122, 14 136 C 22 158, 50 140, 68 112 Z"
+            d="M72 112 C55 89 30 69 13 76 C3 80 6 94 15 103 C22 111 29 113 38 113 C27 118 17 129 14 140 C11 152 22 158 35 152 C54 143 65 128 72 112 Z"
             fill="url(#gintoFin)"
           />
-          <Path d="M62 110 L24 86 M62 111 L18 100 M62 114 L18 126 M62 115 L26 140" {...ray} />
+          <Path
+            d="M65 108 C51 96 37 86 21 83 M65 111 C48 106 34 102 16 101 M65 115 C47 120 31 128 19 142 M65 117 C53 130 44 141 34 149"
+            {...ray}
+          />
         </Layer>
 
         <Layer origin={pct(112, 64)} style={rot(dorsal, '0deg', '-7deg')}>
-          <FinGradient />
+          <GintoDefs />
           <Path
-            d="M86 66 C 84 38, 108 22, 132 30 C 148 36, 152 50, 146 64 Z"
+            d="M88 69 C88 43 106 23 127 28 C145 32 154 49 149 66 C130 59 108 60 88 69 Z"
             fill="url(#gintoFin)"
           />
-          <Path d="M100 62 L104 36 M114 60 L124 34 M128 60 L140 42" {...ray} />
+          <Path
+            d="M99 64 C100 52 105 40 110 33 M115 61 C119 48 126 37 132 32 M131 62 C138 53 143 46 146 42"
+            {...ray}
+          />
         </Layer>
 
         <Layer origin={pct(170, 112)} style={rot(side, '0deg', '14deg')}>
-          <FinGradient />
+          <GintoDefs />
           <Path
-            d="M170 104 C 192 94, 204 118, 186 130 C 178 134, 170 126, 170 118 Z"
+            d="M174 108 C196 100 208 117 201 132 C196 143 184 146 177 136 C171 128 170 117 174 108 Z"
             fill="url(#gintoFin)"
           />
+          <Path d="M180 113 C188 116 194 123 198 132 M178 120 C185 126 189 133 190 140" {...ray} />
         </Layer>
 
         <Layer>
-          <FinGradient />
-          <Ellipse
-            cx={118}
-            cy={110}
-            rx={62}
-            ry={56}
-            transform="rotate(-10 118 110)"
+          <GintoDefs />
+          <Path
+            d="M57 111 C58 81 76 59 105 53 C139 45 177 57 193 82 C210 109 198 143 171 158 C144 173 102 169 77 150 C63 139 56 126 57 111 Z"
             fill="url(#gintoBody)"
           />
+          {/* Layered scales keep the silhouette unmistakably fish-like at small sizes. */}
           <Path
-            d="M66 104 a9 9 0 0 0 18 0 M70 124 a9 9 0 0 0 18 0 M80 86 a9 9 0 0 0 18 0 M84 106 a9 9 0 0 0 18 0 M88 126 a9 9 0 0 0 18 0 M78 144 a9 9 0 0 0 18 0"
-            stroke="#E86A0C"
-            strokeWidth={2.4}
+            d="M64 95 C73 84 87 82 97 91 C94 101 83 108 69 107 Z M61 113 C72 102 87 102 96 112 C91 122 78 127 64 124 Z M68 132 C79 122 93 123 101 133 C95 143 84 147 74 143 Z"
+            fill="url(#gintoScale)"
+            opacity={0.72}
+          />
+          <Path
+            d="M84 78 C94 69 108 69 117 78 C113 89 103 95 90 93 Z M88 99 C99 88 114 89 122 99 C117 110 105 115 93 111 Z M91 121 C102 110 117 111 125 121 C120 132 108 137 96 133 Z M88 143 C98 134 112 135 119 145 C113 153 102 157 93 153 Z"
+            fill="#FF9818"
+            opacity={0.55}
+          />
+          <Path
+            d="M111 153 C136 164 171 151 188 127 C181 151 156 166 128 168 C121 166 115 160 111 153 Z"
+            fill="url(#gintoBelly)"
+          />
+          <Path
+            d="M115 78 C108 92 108 111 117 127"
+            stroke="#E96A0B"
+            strokeWidth={2.2}
             strokeLinecap="round"
-            opacity={0.4}
+            opacity={0.34}
             fill="none"
           />
-          <Ellipse cx={146} cy={132} rx={30} ry={19} fill="#FFE3B4" opacity={0.32} />
           <Ellipse
-            cx={130}
-            cy={74}
-            rx={24}
-            ry={9}
-            transform="rotate(-16 130 74)"
+            cx={146}
+            cy={69}
+            rx={29}
+            ry={10}
+            transform="rotate(-12 146 69)"
             fill="#FFFFFF"
-            opacity={0.38}
+            opacity={0.34}
           />
-          <Ellipse cx={118} cy={122} rx={7} ry={4} fill="#FF5E5E" opacity={0.32} />
-          <Ellipse cx={176} cy={114} rx={6} ry={3.6} fill="#FF5E5E" opacity={0.32} />
+          <Ellipse cx={129} cy={128} rx={8} ry={4.5} fill="#FF6555" opacity={0.26} />
+          <Ellipse cx={184} cy={119} rx={6.5} ry={3.8} fill="#FF6555" opacity={0.27} />
         </Layer>
 
         <Layer
           origin={pct(110, 140)}
           style={t.fin === 'wave' ? rot(fin, '-8deg', '-58deg') : rot(fin, '0deg', '16deg')}
         >
-          <FinGradient />
+          <GintoDefs />
           <Path
-            d="M104 138 C 92 160, 104 180, 126 174 C 140 170, 140 152, 128 140 Z"
+            d="M111 135 C93 148 88 168 102 178 C116 187 137 176 141 158 C138 147 127 139 111 135 Z"
             fill="url(#gintoFin)"
           />
-          <Path d="M110 142 L106 166 M118 142 L120 170 M124 144 L132 164" {...ray} />
+          <Path
+            d="M114 141 C107 152 103 164 104 176 M122 143 C119 155 120 169 116 179 M130 147 C132 156 131 166 128 174"
+            {...ray}
+          />
         </Layer>
 
         {/* Eyes */}
@@ -447,30 +481,31 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
             }}
           >
             <G transform={`translate(${lx} ${ly})`}>
-              <Ellipse cx={130} cy={104} rx={11} ry={12.5} fill="#1C0E05" />
-              <Circle cx={134} cy={99} r={4} fill="#FFFFFF" />
-              <Circle cx={126.5} cy={109} r={1.8} fill="#FFFFFF" />
-              <Ellipse cx={164} cy={97} rx={10.5} ry={12} fill="#1C0E05" />
-              <Circle cx={168} cy={92} r={3.8} fill="#FFFFFF" />
-              <Circle cx={160.5} cy={102} r={1.7} fill="#FFFFFF" />
+              <GintoDefs />
+              <Ellipse cx={137} cy={103} rx={13} ry={15} fill="url(#gintoEye)" />
+              <Circle cx={141} cy={97} r={4.8} fill="#FFFFFF" />
+              <Circle cx={132.5} cy={109} r={2} fill="#FFFFFF" opacity={0.7} />
+              <Ellipse cx={173} cy={95} rx={11.5} ry={14} fill="url(#gintoEye)" />
+              <Circle cx={176.5} cy={89.5} r={4.3} fill="#FFFFFF" />
+              <Circle cx={169} cy={101} r={1.8} fill="#FFFFFF" opacity={0.7} />
             </G>
           </Layer>
         ) : (
           <Layer>
             {t.eyes === 'sleepy' && (
               <G>
-                <Ellipse cx={130} cy={106} rx={11} ry={10} fill="#1C0E05" />
-                <Ellipse cx={164} cy={99} rx={10.5} ry={9.5} fill="#1C0E05" />
-                <Path d="M118 106 A 12 12 0 0 1 142 106 Z" fill="#FFA43C" />
-                <Path d="M152.5 99 A 11.5 11.5 0 0 1 175.5 99 Z" fill="#FFA43C" />
-                <Path d="M118 106 H142 M152.5 99 H175.5" {...line} strokeWidth={2.6} />
+                <Ellipse cx={137} cy={105} rx={13} ry={11} fill="#1C0E05" />
+                <Ellipse cx={173} cy={97} rx={11.5} ry={10} fill="#1C0E05" />
+                <Path d="M123 105 A 14 13 0 0 1 151 105 Z" fill="#FFAA32" />
+                <Path d="M160.5 97 A 12.5 12 0 0 1 185.5 97 Z" fill="#FFB23B" />
+                <Path d="M123 105 H151 M160.5 97 H185.5" {...line} strokeWidth={2.6} />
               </G>
             )}
             {t.eyes === 'happy' && (
-              <Path d="M120 107 Q130 94 140 107 M154 100 Q164 87 174 100" {...line} />
+              <Path d="M123 107 Q137 90 151 107 M161 100 Q173 85 185 100" {...line} />
             )}
             {t.eyes === 'calm' && (
-              <Path d="M120 103 Q130 112 140 103 M154 96 Q164 105 174 96" {...line} />
+              <Path d="M123 103 Q137 114 151 103 M161 96 Q173 106 185 96" {...line} />
             )}
           </Layer>
         )}
@@ -478,28 +513,28 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
         {/* Brows + mouth */}
         <Layer>
           {t.brow === 'worried' && (
-            <Path d="M119 86 L137 80 M157 74 L173 80" {...line} strokeWidth={3} />
+            <Path d="M124 83 L147 77 M162 73 L182 79" {...line} strokeWidth={3} />
           )}
           {t.brow === 'brave' && (
-            <Path d="M119 80 L137 87 M157 81 L173 74" {...line} strokeWidth={3} />
+            <Path d="M124 78 L147 85 M162 80 L182 72" {...line} strokeWidth={3} />
           )}
           {t.mouth === 'open' && (
             <G>
-              <Path d="M140 118 Q148 134 157 117 Z" fill={mouthInk} />
-              <Ellipse cx={148.5} cy={125.5} rx={4.2} ry={2.6} fill="#F07A6A" />
+              <Path d="M154 119 Q163 136 173 117 Q164 121 154 119 Z" fill={mouthInk} />
+              <Ellipse cx={164} cy={128} rx={4.6} ry={2.8} fill="#F07A6A" />
             </G>
           )}
-          {t.mouth === 'o' && <Ellipse cx={148} cy={122} rx={4.2} ry={5.2} fill={mouthInk} />}
+          {t.mouth === 'o' && <Ellipse cx={164} cy={123} rx={4.7} ry={5.8} fill={mouthInk} />}
           {t.mouth === 'smile' && (
-            <Path d="M141 120 Q148 127 155 119" {...line} stroke="#8A2A12" strokeWidth={2.8} />
+            <Path d="M156 120 Q164 129 173 118" {...line} stroke="#8A2A12" strokeWidth={2.8} />
           )}
           {t.mouth === 'wavy' && (
-            <Path d="M140 124 q4 -4 8 0 t8 0" {...line} stroke="#8A2A12" strokeWidth={2.6} />
+            <Path d="M155 124 q4.5 -4 9 0 t9 0" {...line} stroke="#8A2A12" strokeWidth={2.6} />
           )}
           {t.mouth === 'big' && (
             <G>
-              <Path d="M136 116 Q148 142 161 115 Z" fill={mouthInk} />
-              <Ellipse cx={148.5} cy={128} rx={6} ry={3.4} fill="#F07A6A" />
+              <Path d="M151 116 Q164 144 178 114 Q165 120 151 116 Z" fill={mouthInk} />
+              <Ellipse cx={164.5} cy={130} rx={6.2} ry={3.5} fill="#F07A6A" />
             </G>
           )}
         </Layer>
