@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { BudgetProfile } from '@/domain/types';
-import type { LocalModelChoice } from '@/ai/localModels';
+import type { LocalModelChoice, PerformanceMode } from '@/ai/localModels';
 
 import { settingsStorage } from './storage';
 
@@ -17,6 +17,7 @@ interface SettingsState {
   pauseSeconds: number; // the real delay is the active ingredient (PNAS one sec study)
   cloudAiEnabled: boolean; // opt-in only: Ask Ginto through Claude
   localAiModel: LocalModelChoice; // auto picks a model fit from the current Android device
+  localAiPerformance: PerformanceMode; // balanced favors battery; max tries the NPU first
   guardOn: boolean; // master switch for app & website guards
   timerUntil: string | null; // Unhook timer: guarded apps blocked until this time
   fadeAfterMin: number; // doomscroll fade: minutes in a guarded app before the screen washes out (0 = off)
@@ -28,6 +29,7 @@ interface SettingsState {
   setPauseSeconds: (s: number) => void;
   setCloudAi: (v: boolean) => void;
   setLocalAiModel: (v: LocalModelChoice) => void;
+  setLocalAiPerformance: (v: PerformanceMode) => void;
   setGuardOn: (v: boolean) => void;
   setTimerUntil: (iso: string | null) => void;
   setFadeAfterMin: (m: number) => void;
@@ -43,6 +45,7 @@ const defaults = {
   pauseSeconds: 10,
   cloudAiEnabled: false,
   localAiModel: 'auto' as LocalModelChoice,
+  localAiPerformance: 'balanced' as PerformanceMode,
   guardOn: true,
   timerUntil: null as string | null,
   fadeAfterMin: 15,
@@ -60,6 +63,7 @@ export const useSettings = create<SettingsState>()(
       setPauseSeconds: (pauseSeconds) => set({ pauseSeconds }),
       setCloudAi: (cloudAiEnabled) => set({ cloudAiEnabled }),
       setLocalAiModel: (localAiModel) => set({ localAiModel }),
+      setLocalAiPerformance: (localAiPerformance) => set({ localAiPerformance }),
       setGuardOn: (guardOn) => set({ guardOn }),
       setTimerUntil: (timerUntil) => set({ timerUntil }),
       setFadeAfterMin: (fadeAfterMin) => set({ fadeAfterMin }),

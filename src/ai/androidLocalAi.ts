@@ -3,8 +3,19 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 
-import type { AndroidDeviceProfile, LocalModelChoice, LocalModelId } from './localModels';
-import { LOCAL_MODEL_BY_ID, LOCAL_MODELS, modelUri, recommendLocalModel } from './localModels';
+import type {
+  AndroidDeviceProfile,
+  LocalModelChoice,
+  LocalModelId,
+  PerformanceMode,
+} from './localModels';
+import {
+  LOCAL_MODELS,
+  isVisionModel,
+  modelUri,
+  pickLocalModel,
+  recommendLocalModel,
+} from './localModels';
 import { PAUSE_SYSTEM_INSTRUCTION } from './pausePhrasing';
 
 type RuntimeStatus = {
@@ -12,6 +23,7 @@ type RuntimeStatus = {
   backend: string | null;
   backendNote: string | null;
   modelPath: string | null;
+  performanceMode?: PerformanceMode;
 };
 
 type NativeDeviceInfo = Partial<AndroidDeviceProfile>;
@@ -25,11 +37,22 @@ type LocalGeneration = {
 type GintoLocalAiNativeModule = {
   inspectDevice(): Promise<NativeDeviceInfo>;
   getRuntimeStatus(): Promise<RuntimeStatus>;
-  startModel(modelUri: string): Promise<RuntimeStatus>;
-  generate(modelUri: string, prompt: string): Promise<LocalGeneration>;
+  startModel(modelUri: string, vision: boolean): Promise<RuntimeStatus>;
+  generate(
+    modelUri: string,
+    prompt: string,
+    imagePath: string | null,
+    vision: boolean,
+  ): Promise<LocalGeneration>;
   /** One-shot generation in a fresh conversation (does not touch the chat history). */
-  generateOnce?(modelUri: string, systemInstruction: string, prompt: string): Promise<LocalGeneration>;
+  generateOnce?(
+    modelUri: string,
+    systemInstruction: string,
+    prompt: string,
+    vision: boolean,
+  ): Promise<LocalGeneration>;
   analyzeMessageRisk?(modelUri: string, message: string): Promise<LocalGeneration>;
+  setPerformanceMode?(mode: PerformanceMode): Promise<RuntimeStatus>;
   closeModel(): void;
 };
 
@@ -67,6 +90,29 @@ export function supportsAndroidPausePhrasing(): boolean {
   return hasAndroidLocalAiRuntime() && NativeLocalAi?.generateOnce != null;
 }
 
+export function supportsPerformanceMode(): boolean {
+  return hasAndroidLocalAiRuntime() && NativeLocalAi?.setPerformanceMode != null;
+}
+
+/** Same capability gate as pause phrasing: one-shot analysis (insights, chat) needs generateOnce. */
+export function supportsAndroidAnalysis(): boolean {
+  return supportsAndroidPausePhrasing();
+}
+
+// LiteRT-LM runs a single engine per process; two concurrent JS calls would race on the
+// same native model. Serialize generation so at most one native call is in flight.
+// A rejected job resolves the chain slot so the next call still runs.
+let generationQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueGeneration<T>(job: () => Promise<T>): Promise<T> {
+  const run = generationQueue.then(job, job);
+  generationQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 export async function inspectAndroidDevice(): Promise<AndroidDeviceProfile | null> {
   if (Platform.OS !== 'android') return null;
 
@@ -85,6 +131,11 @@ export async function inspectAndroidDevice(): Promise<AndroidDeviceProfile | nul
     freeStorageBytes: native?.freeStorageBytes,
     androidVersion: native?.androidVersion ?? Device.osVersion,
     chipset: native?.chipset,
+    socManufacturer: native?.socManufacturer,
+    npuName: native?.npuName,
+    npuReady: native?.npuReady,
+    cpuCores: native?.cpuCores,
+    performanceMode: native?.performanceMode,
     accelerator: native?.accelerator,
     acceleratorNote: native?.acceleratorNote,
     runtimeAvailable: NativeLocalAi != null,
@@ -96,13 +147,41 @@ export async function getAndroidRuntimeStatus(): Promise<RuntimeStatus | null> {
   return NativeLocalAi.getRuntimeStatus().catch(() => null);
 }
 
+/**
+ * Switches the backend plan (Balanced / Max). Queued behind any in-flight generation so
+ * the engine swap can never race one. Returns null when the runtime or method is missing.
+ */
+export async function setAndroidPerformanceMode(
+  mode: PerformanceMode,
+): Promise<RuntimeStatus | null> {
+  if (!supportsPerformanceMode() || !NativeLocalAi?.setPerformanceMode) return null;
+  const setMode = NativeLocalAi.setPerformanceMode;
+  try {
+    return await enqueueGeneration(() => setMode(mode));
+  } catch {
+    return null;
+  }
+}
+
+async function installedModels(): Promise<Set<LocalModelId>> {
+  const results = await Promise.all(
+    LOCAL_MODELS.map(async (profile) => {
+      const uri = modelUri(profile.id);
+      if (!uri) return null;
+      const file = await FileSystem.getInfoAsync(uri).catch(() => null);
+      return file?.exists && (file.size ?? 0) >= profile.bytes ? profile.id : null;
+    }),
+  );
+  return new Set(results.filter((id): id is LocalModelId => id != null));
+}
+
 export async function startAndroidLocalModel(modelId: LocalModelId): Promise<RuntimeStatus> {
   if (!hasAndroidLocalAiRuntime() || !NativeLocalAi) {
     throw new Error('Install an Android development build to run local models.');
   }
   const uri = modelUri(modelId);
   if (!uri) throw new Error('The model storage location is unavailable.');
-  return NativeLocalAi.startModel(uri);
+  return NativeLocalAi.startModel(uri, isVisionModel(modelId));
 }
 
 export interface InstalledModel {
@@ -110,40 +189,26 @@ export interface InstalledModel {
   uri: string;
 }
 
-async function isInstalled(modelId: LocalModelId): Promise<InstalledModel | null> {
-  const uri = modelUri(modelId);
-  if (!uri) return null;
-  const file = await FileSystem.getInfoAsync(uri).catch(() => null);
-  return file?.exists && (file.size ?? 0) >= LOCAL_MODEL_BY_ID[modelId].bytes
-    ? { modelId, uri }
-    : null;
-}
-
 /**
  * Which downloaded model to run. The user's explicit choice wins when it is installed;
- * otherwise the device recommendation, then any installed model from lightest to heaviest.
- * Never silently returns null while a usable model is on disk.
+ * otherwise the device recommendation, then installed models no bigger than the
+ * recommendation (largest first), then any larger installed model (lightest first).
+ * Returns null only when nothing usable is on disk.
  */
 export async function resolveInstalledModel(
   choice: LocalModelChoice,
-  options: { textOnly?: boolean } = {},
+  needs: 'any' | 'text' | 'vision' = 'any',
 ): Promise<InstalledModel | null> {
   const device = await inspectAndroidDevice();
-  const recommended = recommendLocalModel(device);
-  const pool = LOCAL_MODELS.filter((m) => !options.textOnly || m.modality === 'Text').map(
-    (m) => m.id,
+  const modelId = pickLocalModel(
+    choice,
+    recommendLocalModel(device),
+    await installedModels(),
+    needs,
   );
-  const order = [
-    ...(choice !== 'auto' ? [choice] : []),
-    recommended,
-    ...pool,
-  ].filter((id, i, all) => pool.includes(id) && all.indexOf(id) === i);
-
-  for (const modelId of order) {
-    const installed = await isInstalled(modelId);
-    if (installed) return installed;
-  }
-  return null;
+  if (!modelId) return null;
+  const uri = modelUri(modelId);
+  return uri ? { modelId, uri } : null;
 }
 
 /** True when at least one model is downloaded; cheap enough to call at launch. */
@@ -156,41 +221,103 @@ export async function hasInstalledLocalModel(): Promise<boolean> {
  * Loads the chosen model into memory ahead of time so the first pause or chat turn does
  * not pay the cold start. Safe to call repeatedly; failures are swallowed.
  */
-export async function warmAndroidLocalModel(choice: LocalModelChoice): Promise<void> {
-  if (!hasAndroidLocalAiRuntime() || !NativeLocalAi) return;
-  const model = await resolveInstalledModel(choice).catch(() => null);
-  if (!model) return;
-  await NativeLocalAi.startModel(model.uri).catch(() => undefined);
+export async function warmAndroidLocalModel(
+  choice: LocalModelChoice,
+): Promise<string | null> {
+  try {
+    if (!hasAndroidLocalAiRuntime() || !NativeLocalAi) return null;
+    const model = await resolveInstalledModel(choice);
+    if (!model) return null;
+    const status = await NativeLocalAi.startModel(model.uri, isVisionModel(model.modelId));
+    return status.backend;
+  } catch {
+    return null;
+  }
+}
+
+export async function canAnswerImageLocally(modelChoice: LocalModelChoice): Promise<boolean> {
+  if (!hasAndroidLocalAiRuntime()) return false;
+  return (await resolveInstalledModel(modelChoice, 'vision')) != null;
 }
 
 export async function generateAndroidLocalReply(
   modelChoice: LocalModelChoice,
   question: string,
   contextSummary: string,
+  history: { role: 'user' | 'ginto'; text: string }[],
   computedAnswer?: string | null,
+  imageUri?: string,
+  strict = false,
 ): Promise<(LocalGeneration & { modelId: LocalModelId }) | null> {
   if (!hasAndroidLocalAiRuntime() || !NativeLocalAi) return null;
 
-  const model = await resolveInstalledModel(modelChoice);
+  const model = await resolveInstalledModel(modelChoice, imageUri ? 'vision' : 'any');
   if (!model) return null;
 
+  const message =
+    imageUri && !question
+      ? 'What is in this photo? If it is a bill, receipt, loan offer or a message from a lender or collector, list the key amounts, dates and any warning signs.'
+      : question;
+  const turns = history
+    .filter((m) => m.text.trim())
+    .slice(-6)
+    .map((m) => `${m.role === 'user' ? 'Them' : 'You'}: ${m.text.slice(0, 300)}`);
   const prompt = [
     'Current private app records (use only these numbers for personal facts):',
     contextSummary,
     ...(computedAnswer
       ? [
           '',
-          'The app already computed this answer from the records. Keep every number exactly as written; you may only make the wording warmer and shorter:',
+          'Facts the app computed for this question (use these numbers exactly):',
           computedAnswer,
         ]
       : []),
+    ...(turns.length ? ['', 'Conversation so far:', ...turns] : []),
     '',
-    'Reply in at most three short sentences. Do not introduce any amount, date or count that is not written above.',
+    strict
+      ? 'Your previous draft was rejected for using a number not written above or for being too long. Reply again in at most two short sentences. Only use numbers copied exactly from above; if a number is not there, say you do not have it yet.'
+      : "Answer the person's latest message using the records above. Reply in at most three short sentences. Do not introduce any amount, date or count that is not written above.",
     '',
-    `User's message: ${question}`,
+    `User's message: ${message}`,
   ].join('\n');
-  const result = await withTimeout(NativeLocalAi.generate(model.uri, prompt));
+  const result = await enqueueGeneration(() =>
+    withTimeout(
+      NativeLocalAi.generate(
+        model.uri,
+        prompt,
+        imageUri ?? null,
+        isVisionModel(model.modelId),
+      ),
+    ),
+  );
   return { ...result, modelId: model.modelId };
+}
+
+/**
+ * One-shot generation in a fresh conversation: insights and the pause use it so reads
+ * never inherit (or pollute) the Ask Ginto chat history. Serialized through
+ * enqueueGeneration; the timeout starts when the job actually runs, not while queued.
+ */
+export async function generateAndroidOnce(
+  modelChoice: LocalModelChoice,
+  systemInstruction: string,
+  prompt: string,
+  timeoutMs = LOCAL_AI_TIMEOUT_MS,
+): Promise<(LocalGeneration & { modelId: LocalModelId; ms: number }) | null> {
+  if (!supportsAndroidPausePhrasing() || !NativeLocalAi?.generateOnce) return null;
+  const generateOnce = NativeLocalAi.generateOnce;
+
+  const model = await resolveInstalledModel(modelChoice);
+  if (!model) return null;
+
+  const startedAt = Date.now();
+  const result = await enqueueGeneration(() =>
+    withTimeout(
+      generateOnce(model.uri, systemInstruction, prompt, isVisionModel(model.modelId)),
+      timeoutMs,
+    ),
+  );
+  return { ...result, modelId: model.modelId, ms: Date.now() - startedAt };
 }
 
 /**
@@ -202,17 +329,7 @@ export async function phraseAndroidPause(
   prompt: string,
   timeoutMs = LOCAL_AI_TIMEOUT_MS,
 ): Promise<(LocalGeneration & { modelId: LocalModelId; ms: number }) | null> {
-  if (!supportsAndroidPausePhrasing() || !NativeLocalAi?.generateOnce) return null;
-
-  const model = await resolveInstalledModel(modelChoice);
-  if (!model) return null;
-
-  const startedAt = Date.now();
-  const result = await withTimeout(
-    NativeLocalAi.generateOnce(model.uri, PAUSE_SYSTEM_INSTRUCTION, prompt),
-    timeoutMs,
-  );
-  return { ...result, modelId: model.modelId, ms: Date.now() - startedAt };
+  return generateAndroidOnce(modelChoice, PAUSE_SYSTEM_INSTRUCTION, prompt, timeoutMs);
 }
 
 /** Analyze copied text with an installed text-only model. Vision models are never selected here. */
@@ -221,7 +338,7 @@ export async function analyzeAndroidMessageRisk(
 ): Promise<(LocalGeneration & { modelId: LocalModelId }) | null> {
   if (!supportsAndroidMessageRiskAnalysis() || !NativeLocalAi?.analyzeMessageRisk) return null;
 
-  const model = await resolveInstalledModel('auto', { textOnly: true });
+  const model = await resolveInstalledModel('auto', 'text');
   if (!model) return null;
 
   const result = await withTimeout(NativeLocalAi.analyzeMessageRisk(model.uri, message));

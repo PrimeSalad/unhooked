@@ -10,6 +10,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 
+import { ModelDownloadHost } from '@/components/ModelDownloadPill';
 import { PhoneFrame } from '@/components/PhoneFrame';
 import { ToastHost } from '@/components/Toast';
 import { colors } from '@/constants/theme';
@@ -94,6 +95,7 @@ export default function RootLayout() {
           <Stack.Screen name="scan" />
         </Stack>
         <ToastHost />
+        <ModelDownloadHost />
       </DatabaseGate>
     </PhoneFrame>
   );

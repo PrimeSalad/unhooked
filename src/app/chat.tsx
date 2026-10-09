@@ -2,8 +2,9 @@
 
 import { Icon } from '@/components/Icon';
 import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -26,7 +27,11 @@ import {
   localReplyOrNull,
   type ChatMessage,
 } from '@/ai/chat';
-import { generateAndroidLocalReply } from '@/ai/androidLocalAi';
+import {
+  canAnswerImageLocally,
+  generateAndroidLocalReply,
+  warmAndroidLocalModel,
+} from '@/ai/androidLocalAi';
 import { allowedNumbers, vetModelText } from '@/ai/guard';
 import { Ginto } from '@/components/mascot/Ginto';
 import { GemmaModelSheet } from '@/components/chat/GemmaModelSheet';
@@ -50,6 +55,7 @@ const nextId = () => `m${Date.now()}-${seq++}`;
 export default function ChatScreen() {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
+  const { models } = useLocalSearchParams<{ models?: string }>();
   const name = useSettings((s) => s.name);
   const budget = useSettings((s) => s.budget);
   const cloudOn = useSettings((s) => s.cloudAiEnabled);
@@ -75,6 +81,24 @@ export default function ChatScreen() {
   const [showModelSettings, setShowModelSettings] = useState(false);
   const [activeBackend, setActiveBackend] = useState<string | null>(null);
 
+  // The download pill deep-links here with ?models=1 to open the sheet.
+  useEffect(() => {
+    if (models !== '1') return;
+    const timer = setTimeout(() => setShowModelSettings(true), 0);
+    return () => clearTimeout(timer);
+  }, [models]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    let mounted = true;
+    void warmAndroidLocalModel(localAiModel).then((backend) => {
+      if (mounted && backend) setActiveBackend(backend);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [localAiModel]);
+
   const pickPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -95,8 +119,10 @@ export default function ChatScreen() {
     const text = raw.trim();
     if ((!text && !photo) || typing) return;
     if (route === 'auto' && photo && !cloud && CLOUD_URL) {
-      setAskConsent(true);
-      return;
+      if (!(await canAnswerImageLocally(localAiModel))) {
+        setAskConsent(true);
+        return;
+      }
     }
     const useCloud = route === 'cloud' || (route === 'auto' && cloud);
     const userMsg: ChatMessage = { id: nextId(), role: 'user', text, image: photo ?? undefined };
@@ -122,24 +148,39 @@ export default function ChatScreen() {
       };
     } catch (e) {
       const fellBack = useCloud && e instanceof Error && e.message !== 'local';
-      if (!userMsg.image && !crisis) {
+      if (!crisis) {
         try {
-          const generation = await generateAndroidLocalReply(
+          // Prior turns only: the new message is already passed as the question.
+          const priorTurns = messages.filter((m) => m.id !== 'hello');
+          // Every number the model repeats must already exist in the records summary,
+          // the computed answer, or the user's own question. Otherwise keep the rules' reply.
+          // Photo amounts come from the user's own document, so they can't be provenance-checked.
+          const allowed = userMsg.image
+            ? 'any'
+            : allowedNumbers([summary, computed ?? '', text]);
+          let generation = await generateAndroidLocalReply(
             localAiModel,
             text,
             summary,
+            priorTurns,
             computed,
+            userMsg.image?.uri,
           );
+          if (generation && !vetModelText(generation.text, allowed, 700).ok) {
+            // One retry with a stricter instruction when the guard rejects the draft.
+            generation = await generateAndroidLocalReply(
+              localAiModel,
+              text,
+              summary,
+              priorTurns,
+              computed,
+              userMsg.image?.uri,
+              true,
+            );
+          }
           if (generation) {
             setActiveBackend(generation.backend);
-            // Every number the model repeats must already exist in the records summary,
-            // the computed answer, or the user's own question. Otherwise keep the rules' reply.
-            const verdict = vetModelText(
-              generation.text,
-              allowedNumbers([summary, computed ?? '', text]),
-              700,
-            );
-            if (verdict.ok) {
+            if (vetModelText(generation.text, allowed, 700).ok) {
               reply = {
                 id: nextId(),
                 role: 'ginto',
@@ -148,8 +189,9 @@ export default function ChatScreen() {
               };
             }
           }
-        } catch {
+        } catch (err) {
           // Model startup, inference failure or timeout: keep the deterministic offline answer.
+          if (__DEV__) console.warn('Local chat model failed', err);
         }
       }
 

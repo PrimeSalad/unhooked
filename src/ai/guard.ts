@@ -40,10 +40,14 @@ export function allowedNumbers(values: Iterable<string | number>): Set<string> {
 const SHAME = /\b(lazy|stupid|dumb|foolish|irresponsible|reckless|pathetic|shameful|ashamed|failure|weak|wasteful|tanga|bobo|gastador|walang kwenta)\b/i;
 const GUARANTEE = /\b(guarantee[ds]?|definitely will|will surely|promise[ds]? (?:you|that)|100%)\b/i;
 
-/** Accepts model text only when every number is provenanced and the tone rules hold. */
+/**
+ * Accepts model text only when every number is provenanced and the tone rules hold.
+ * Passing 'any' skips the number check — used for photo answers, whose amounts come
+ * from the user's own document rather than the records summary.
+ */
 export function vetModelText(
   text: string,
-  allowed: Set<string>,
+  allowed: Set<string> | 'any',
   maxChars = 320,
 ): GuardVerdict {
   const clean = text.trim();
@@ -51,6 +55,7 @@ export function vetModelText(
   if (clean.length > maxChars) return { ok: false, reason: 'too_long' };
   if (SHAME.test(clean)) return { ok: false, reason: 'shame' };
   if (GUARANTEE.test(clean)) return { ok: false, reason: 'guarantee' };
+  if (allowed === 'any') return { ok: true };
   for (const n of numbersIn(clean)) {
     if (!allowed.has(n) && !allowed.has(n.replace(/,/g, ''))) {
       return { ok: false, reason: 'unknown_number' };

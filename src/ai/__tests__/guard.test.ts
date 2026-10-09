@@ -19,6 +19,15 @@ describe('guard', () => {
     expect(vetModelText('Wait 2 days.', allowed)).toEqual({ ok: false, reason: 'unknown_number' });
   });
 
+  it("skips the number check for 'any' but still enforces tone and length", () => {
+    expect(vetModelText('The receipt totals ₱12,345 due in 7 days.', 'any')).toEqual({ ok: true });
+    expect(vetModelText('That ₱12,345 was wasteful of you.', 'any')).toEqual({
+      ok: false,
+      reason: 'shame',
+    });
+    expect(vetModelText('x'.repeat(400), 'any', 100)).toEqual({ ok: false, reason: 'too_long' });
+  });
+
   it('rejects shame words and guarantees', () => {
     const allowed = new Set<string>();
     expect(vetModelText('Stop being so irresponsible.', allowed).ok).toBe(false);

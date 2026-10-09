@@ -1,32 +1,46 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, ScrollView, useWindowDimensions, View } from 'react-native';
 
 import {
   getAndroidRuntimeStatus,
   hasAndroidLocalAiRuntime,
   inspectAndroidDevice,
+  setAndroidPerformanceMode,
   startAndroidLocalModel,
+  warmAndroidLocalModel,
 } from '@/ai/androidLocalAi';
 import {
   formatModelStorage,
   LOCAL_MODEL_BY_ID,
   LOCAL_MODELS,
-  modelPartialUri,
   modelUri,
   recommendLocalModel,
+  STORAGE_HEADROOM,
   type AndroidDeviceProfile,
   type LocalModelChoice,
   type LocalModelId,
+  type PerformanceMode,
 } from '@/ai/localModels';
-import { Button, IconButton, ProgressBar, Sheet, Text } from '@/components/ui';
+import {
+  cancelModelDownload,
+  readPartialProgress,
+  startModelDownload,
+  useModelDownloads,
+} from '@/ai/modelDownloads';
+import { Button, IconButton, ProgressBar, Segmented, Sheet, Text } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { useSettings } from '@/store/settings';
 
-const STORAGE_HEADROOM = 400_000_000;
+const PERFORMANCE_OPTIONS: { value: PerformanceMode; label: string }[] = [
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'max', label: 'Max' },
+];
+
 const PROFILE_GROUPS = [
   {
     title: 'Text-only',
-    ids: ['gemma3-1b', 'qwen2.5-1.5b'] as LocalModelId[],
+    ids: ['qwen3-0.6b', 'qwen2.5-1.5b'] as LocalModelId[],
   },
   {
     title: 'Text + vision',
@@ -41,8 +55,6 @@ type RuntimeStatus = {
   modelPath: string | null;
 };
 
-type DownloadProgress = { modelId: LocalModelId; value: number } | null;
-
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -52,7 +64,7 @@ type Props = {
 };
 
 const emptyInstalled = (): Record<LocalModelId, boolean> => ({
-  'gemma3-1b': false,
+  'qwen3-0.6b': false,
   'qwen2.5-1.5b': false,
   'gemma4-e2b': false,
   'gemma4-e4b': false,
@@ -72,14 +84,17 @@ export function GemmaModelSheet({
   const [device, setDevice] = useState<AndroidDeviceProfile | null>(null);
   const [installed, setInstalled] = useState<Record<LocalModelId, boolean>>(emptyInstalled);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
-  const [download, setDownload] = useState<DownloadProgress>(null);
+  const download = useModelDownloads((s) => s.active);
+  const downloadError = useModelDownloads((s) => s.error);
+  const completedDownload = useModelDownloads((s) => s.completed);
+  const [partial, setPartial] = useState<Partial<Record<LocalModelId, number>>>({});
   const [startingModelId, setStartingModelId] = useState<LocalModelId | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const task = useRef<FileSystem.DownloadResumable | null>(null);
+  const performance = useSettings((s) => s.localAiPerformance);
+  const setLocalAiPerformance = useSettings((s) => s.setLocalAiPerformance);
+  const switchingPerformance = useRef(false);
   const mounted = useRef(false);
-  const cancelRequested = useRef(false);
-  const lastProgressUpdate = useRef(0);
 
   const nativeAvailable = hasAndroidLocalAiRuntime();
   const deviceReady = Platform.OS === 'android' && device?.totalMemoryBytes != null;
@@ -95,167 +110,132 @@ export function GemmaModelSheet({
     };
   }, []);
 
+  const refresh = useCallback(async () => {
+    const [nextDevice, nextRuntime, modelChecks, freeStorageBytes, partialChecks] =
+      await Promise.all([
+          inspectAndroidDevice(),
+          getAndroidRuntimeStatus(),
+          Promise.all(
+            LOCAL_MODELS.map(async (model) => {
+              const uri = modelUri(model.id);
+              if (!uri) return [model.id, false] as const;
+              const info = await FileSystem.getInfoAsync(uri).catch(() => null);
+              return [model.id, Boolean(info?.exists && (info.size ?? 0) >= model.bytes)] as const;
+            }),
+          ),
+          Platform.OS === 'android'
+            ? FileSystem.getFreeDiskStorageAsync().catch(() => undefined)
+            : Promise.resolve(undefined),
+          Promise.all(
+            LOCAL_MODELS.map(
+              async (model) => [model.id, await readPartialProgress(model.id)] as const,
+            ),
+          ),
+        ]);
+    if (!mounted.current) return;
+
+    setDevice(
+      nextDevice
+        ? { ...nextDevice, freeStorageBytes: freeStorageBytes ?? nextDevice.freeStorageBytes }
+        : null,
+    );
+    setRuntime(nextRuntime);
+    if (nextRuntime?.backend) onBackendChange(nextRuntime.backend);
+    setInstalled(Object.fromEntries(modelChecks) as Record<LocalModelId, boolean>);
+    setPartial(Object.fromEntries(partialChecks) as Record<LocalModelId, number>);
+  }, [onBackendChange]);
+
   useEffect(() => {
     if (!visible) return;
-
-    let alive = true;
-    const refresh = async () => {
-      const [nextDevice, nextRuntime, modelChecks, freeStorageBytes] = await Promise.all([
-        inspectAndroidDevice(),
-        getAndroidRuntimeStatus(),
-        Promise.all(
-          LOCAL_MODELS.map(async (model) => {
-            const uri = modelUri(model.id);
-            if (!uri) return [model.id, false] as const;
-            const info = await FileSystem.getInfoAsync(uri).catch(() => null);
-            return [model.id, Boolean(info?.exists && (info.size ?? 0) >= model.bytes)] as const;
-          }),
-        ),
-        Platform.OS === 'android'
-          ? FileSystem.getFreeDiskStorageAsync().catch(() => undefined)
-          : Promise.resolve(undefined),
-      ]);
-      if (!alive || !mounted.current) return;
-
-      setDevice(
-        nextDevice
-          ? { ...nextDevice, freeStorageBytes: freeStorageBytes ?? nextDevice.freeStorageBytes }
-          : null,
-      );
-      setRuntime(nextRuntime);
-      if (nextRuntime?.backend) onBackendChange(nextRuntime.backend);
-      setInstalled(Object.fromEntries(modelChecks) as Record<LocalModelId, boolean>);
-    };
-
     void refresh();
     const interval = setInterval(() => void refresh(), 30_000);
-    return () => {
-      alive = false;
-      clearInterval(interval);
-    };
-  }, [visible, onBackendChange]);
+    return () => clearInterval(interval);
+  }, [visible, refresh]);
 
-  const activateModel = async (modelId: LocalModelId) => {
-    if (!nativeAvailable) {
-      setError('Install an Android development build to run LiteRT-LM models.');
-      return;
-    }
-    setStartingModelId(modelId);
-    setMessage(null);
-    setError(null);
-    try {
-      const nextRuntime = await startAndroidLocalModel(modelId);
-      setRuntime(nextRuntime);
-      onBackendChange(nextRuntime.backend);
-      onModelChoiceChange(modelId);
-      setMessage(
-        nextRuntime.backend
-          ? `${LOCAL_MODEL_BY_ID[modelId].name} is ready on ${nextRuntime.backend}.`
-          : `${LOCAL_MODEL_BY_ID[modelId].name} is ready.`,
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'This model could not start on this phone.');
-    } finally {
-      setStartingModelId(null);
-    }
-  };
+  // Refresh when a download settles or completes elsewhere so installed/partial update.
+  const wasActive = useRef(download != null);
+  useEffect(() => {
+    const settled = wasActive.current && download == null;
+    wasActive.current = download != null;
+    if (completedDownload != null || settled) void refresh();
+  }, [completedDownload, download, refresh]);
 
-  const downloadModel = async (modelId: LocalModelId) => {
-    if (!nativeAvailable || Platform.OS !== 'android') {
-      setError('Downloads and local inference require an Android development build.');
-      return;
-    }
-
-    const profile = LOCAL_MODEL_BY_ID[modelId];
-    const uri = modelUri(modelId);
-    const partialUri = modelPartialUri(modelId);
-    const directory = uri ? uri.slice(0, uri.lastIndexOf('/') + 1) : null;
-    if (!uri || !partialUri || !directory) {
-      setError('Model storage is not available on this device.');
-      return;
-    }
-
-    cancelRequested.current = false;
-    lastProgressUpdate.current = 0;
-    setError(null);
-    setMessage(null);
-    setDownload({ modelId, value: 0 });
-    let activeTask: FileSystem.DownloadResumable | null = null;
-
-    try {
-      const freeBytes = device?.freeStorageBytes ?? (await FileSystem.getFreeDiskStorageAsync());
-      if (freeBytes < profile.bytes + STORAGE_HEADROOM) {
-        throw new Error(
-          `Free up space first. Keep at least ${formatModelStorage(profile.bytes + STORAGE_HEADROOM)} available.`,
-        );
+  const activateModel = useCallback(
+    async (modelId: LocalModelId) => {
+      if (!nativeAvailable) {
+        setError('Install an Android development build to run LiteRT-LM models.');
+        return;
       }
-
-      const directoryInfo = await FileSystem.getInfoAsync(directory);
-      if (!directoryInfo.exists) {
-        await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
-      }
-      await FileSystem.deleteAsync(partialUri, { idempotent: true });
-
-      activeTask = FileSystem.createDownloadResumable(
-        profile.url,
-        partialUri,
-        {},
-        ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
-          if (!mounted.current) return;
-          const total = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : profile.bytes;
-          const value = Math.min(1, totalBytesWritten / total);
-          const now = Date.now();
-          if (now - lastProgressUpdate.current >= 300 || value >= 1) {
-            lastProgressUpdate.current = now;
-            setDownload({ modelId, value });
-          }
-        },
-      );
-      task.current = activeTask;
-
-      const result = await activeTask.downloadAsync();
-      if (!result || cancelRequested.current) return;
-      if (result.status < 200 || result.status >= 300) {
-        throw new Error(`The model host returned HTTP ${result.status}.`);
-      }
-
-      const downloaded = await FileSystem.getInfoAsync(partialUri);
-      if (!downloaded.exists || (downloaded.size ?? 0) < profile.bytes) {
-        throw new Error('The model download was incomplete. Check your connection and try again.');
-      }
-
-      await FileSystem.deleteAsync(uri, { idempotent: true });
-      await FileSystem.moveAsync({ from: partialUri, to: uri });
-      if (mounted.current) {
+      setStartingModelId(modelId);
+      setMessage(null);
+      setError(null);
+      try {
+        const nextRuntime = await startAndroidLocalModel(modelId);
         setInstalled((previous) => ({ ...previous, [modelId]: true }));
-        setDownload({ modelId, value: 1 });
+        setRuntime(nextRuntime);
+        onBackendChange(nextRuntime.backend);
+        onModelChoiceChange(modelId);
+        setMessage(
+          nextRuntime.backend
+            ? `${LOCAL_MODEL_BY_ID[modelId].name} is ready on ${nextRuntime.backend}.`
+            : `${LOCAL_MODEL_BY_ID[modelId].name} is ready.`,
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'This model could not start on this phone.');
+      } finally {
+        setStartingModelId(null);
       }
-      await activateModel(modelId);
+    },
+    [nativeAvailable, onBackendChange, onModelChoiceChange],
+  );
+
+  const switchPerformance = async (mode: PerformanceMode) => {
+    if (switchingPerformance.current || mode === performance) return;
+    switchingPerformance.current = true;
+    const label = PERFORMANCE_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
+    setLocalAiPerformance(mode);
+    setError(null);
+    try {
+      if (nativeAvailable) await setAndroidPerformanceMode(mode);
+      if (runtime?.ready) {
+        await warmAndroidLocalModel(modelChoice);
+        const nextRuntime = await getAndroidRuntimeStatus();
+        if (!mounted.current) return;
+        setRuntime(nextRuntime);
+        onBackendChange(nextRuntime?.backend ?? null);
+        setMessage(
+          nextRuntime?.backend
+            ? `Now running on ${nextRuntime.backend} · ${label}`
+            : `Performance set to ${label}.`,
+        );
+      } else {
+        setMessage(`Performance set to ${label}.`);
+      }
     } catch (e) {
-      if (cancelRequested.current) return;
-      await FileSystem.deleteAsync(partialUri, { idempotent: true }).catch(() => undefined);
       if (mounted.current) {
-        setError(e instanceof Error ? e.message : 'The model could not be downloaded.');
-        setDownload(null);
+        setError(e instanceof Error ? e.message : 'Performance could not be changed.');
       }
     } finally {
-      if (task.current === activeTask) task.current = null;
-      if (mounted.current && !cancelRequested.current) {
-        setDownload((current) => (current?.modelId === modelId ? null : current));
-      }
+      switchingPerformance.current = false;
     }
   };
 
   const confirmDownload = (modelId: LocalModelId) => {
     const profile = LOCAL_MODEL_BY_ID[modelId];
+    const resumable = (partial[modelId] ?? 0) > 0;
     Alert.alert(
-      `Download ${profile.name}?`,
-      `About ${profile.sizeLabel}. Keep ${formatModelStorage(profile.bytes + STORAGE_HEADROOM)} free.`,
+      resumable ? `Resume ${profile.name}?` : `Download ${profile.name}?`,
+      resumable
+        ? 'Picks up where it stopped.'
+        : `About ${profile.sizeLabel}. Keep ${formatModelStorage(profile.bytes + STORAGE_HEADROOM)} free.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Download',
-          onPress: () => void downloadModel(modelId),
+          text: resumable ? 'Resume' : 'Download',
+          onPress: () => {
+            setError(null);
+            void startModelDownload(modelId);
+          },
         },
       ],
     );
@@ -267,18 +247,6 @@ export function GemmaModelSheet({
     } else {
       confirmDownload(modelId);
     }
-  };
-
-  const cancelDownload = async () => {
-    const activeTask = task.current;
-    const modelId = download?.modelId;
-    if (!activeTask || !modelId) return;
-    cancelRequested.current = true;
-    task.current = null;
-    await activeTask.cancelAsync().catch(() => undefined);
-    const partialUri = modelPartialUri(modelId);
-    if (partialUri) await FileSystem.deleteAsync(partialUri, { idempotent: true }).catch(() => undefined);
-    if (mounted.current) setDownload(null);
   };
 
   const handleUseAutomaticFit = async () => {
@@ -330,6 +298,50 @@ export function GemmaModelSheet({
               onPress={() => void handleUseAutomaticFit()}
             />
           </View>
+          {device?.chipset ? (
+            <Text variant="caption" color={colors.textMuted}>
+              Chip: {device.chipset}
+            </Text>
+          ) : null}
+          {Platform.OS === 'android' && device?.npuName ? (
+            <>
+              <Text variant="caption">
+                NPU: {device.npuName} · {device.npuReady ? 'ready' : 'found'}
+              </Text>
+              {!device.npuReady ? (
+                <Text variant="caption" color={colors.textMuted}>
+                  This build can&apos;t run models on it yet. Max still tries it, then falls back to GPU.
+                </Text>
+              ) : null}
+            </>
+          ) : Platform.OS === 'android' && deviceReady ? (
+            <Text variant="caption" color={colors.textMuted}>
+              NPU: not found · uses GPU or CPU
+            </Text>
+          ) : null}
+          {Platform.OS === 'android' ? (
+            <View style={{ gap: spacing.xs }}>
+              <Text variant="strong">Performance</Text>
+              <Segmented
+                value={performance}
+                onChange={(v) => void switchPerformance(v)}
+                options={PERFORMANCE_OPTIONS}
+              />
+              <Text variant="caption" color={colors.textMuted}>
+                {performance === 'max'
+                  ? 'Uses the fastest chip it can, including the NPU. Faster replies, more battery and heat.'
+                  : 'Saves battery and keeps your phone cool.'}
+              </Text>
+              {performance === 'max' &&
+              device?.batteryPercent != null &&
+              device.batteryPercent < 20 &&
+              device.charging !== true ? (
+                <Text variant="caption" color={colors.textMuted}>
+                  Battery is low. Balanced will last longer.
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           {recommendedModelId ? (
             <View style={styles.recommendationRow}>
               <View style={{ flex: 1, gap: 2 }}>
@@ -364,6 +376,8 @@ export function GemmaModelSheet({
               const isSelected = modelChoice === modelId;
               const isRunning = runtime?.ready && runtime.backend && runtime.modelPath?.endsWith(model.fileName);
               const thisDownload = download?.modelId === modelId ? download : null;
+              const fitsDevice =
+                device?.totalMemoryBytes == null || model.bytes <= device.totalMemoryBytes / 2;
               return (
                 <View
                   key={model.id}
@@ -387,7 +401,12 @@ export function GemmaModelSheet({
                   <Text variant="small">{model.use}</Text>
                   {model.modality === 'Text + Vision' ? (
                     <Text variant="caption" color={colors.textMuted}>
-                      Image chat isn’t available yet.
+                      Reads photos privately on this phone.
+                    </Text>
+                  ) : null}
+                  {!fitsDevice ? (
+                    <Text variant="caption" color={colors.danger}>
+                      This model needs more RAM than this phone has.
                     </Text>
                   ) : null}
                   {thisDownload ? (
@@ -396,11 +415,17 @@ export function GemmaModelSheet({
                       <Text variant="caption">
                         Downloading · {Math.round(thisDownload.value * 100)}% · {model.sizeLabel}
                       </Text>
+                      <Text variant="caption" color={colors.textMuted}>
+                        You can leave this screen. The download keeps going.
+                      </Text>
                       <Button
                         label="Cancel download"
                         kind="ghost"
                         size="sm"
-                        onPress={() => void cancelDownload()}
+                        onPress={() => {
+                          setPartial((previous) => ({ ...previous, [modelId]: 0 }));
+                          void cancelModelDownload();
+                        }}
                       />
                     </View>
                   ) : (
@@ -414,7 +439,9 @@ export function GemmaModelSheet({
                               ? isSelected
                                 ? 'Start this model'
                                 : 'Use this model'
-                              : `Download · ${model.sizeLabel}`
+                              : (partial[modelId] ?? 0) > 0
+                                ? `Resume download · ${Math.round((partial[modelId] ?? 0) * 100)}%`
+                                : `Download · ${model.sizeLabel}`
                       }
                       kind={isSelected || isRecommended ? 'ink' : 'ghost'}
                       size="sm"
@@ -423,6 +450,7 @@ export function GemmaModelSheet({
                         download != null ||
                         isRunning === true ||
                         !nativeAvailable ||
+                        !fitsDevice ||
                         Platform.OS !== 'android'
                       }
                       onPress={() => chooseModel(modelId)}
@@ -435,7 +463,11 @@ export function GemmaModelSheet({
         ))}
 
         {message ? <Text variant="small" color={colors.success}>{message}</Text> : null}
-        {error ? <Text variant="small" color={colors.danger}>{error}</Text> : null}
+        {(error ?? downloadError?.message) ? (
+          <Text variant="small" color={colors.danger}>
+            {error ?? downloadError?.message}
+          </Text>
+        ) : null}
       </ScrollView>
     </Sheet>
   );

@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
 
-import { hasAndroidLocalAiRuntime, warmAndroidLocalModel } from '@/ai/androidLocalAi';
+import {
+  hasAndroidLocalAiRuntime,
+  setAndroidPerformanceMode,
+  warmAndroidLocalModel,
+} from '@/ai/androidLocalAi';
 import { useSettings, useSettingsHydrated } from '@/store/settings';
 
 /**
@@ -11,10 +15,16 @@ import { useSettings, useSettingsHydrated } from '@/store/settings';
 export function useWarmLocalModel(delayMs = 2500) {
   const hydrated = useSettingsHydrated();
   const choice = useSettings((s) => s.localAiModel);
+  const mode = useSettings((s) => s.localAiPerformance);
 
   useEffect(() => {
     if (!hydrated || !hasAndroidLocalAiRuntime()) return;
-    const timer = setTimeout(() => void warmAndroidLocalModel(choice), delayMs);
+    const timer = setTimeout(() => {
+      void (async () => {
+        await setAndroidPerformanceMode(mode);
+        await warmAndroidLocalModel(choice);
+      })();
+    }, delayMs);
     return () => clearTimeout(timer);
-  }, [hydrated, choice, delayMs]);
+  }, [hydrated, choice, mode, delayMs]);
 }
