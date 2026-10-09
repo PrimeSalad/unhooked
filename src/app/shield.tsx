@@ -13,7 +13,7 @@ import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
 import { CountdownRing } from '@/components/pause/CountdownRing';
-import { Button, Chips, goBack, Rise, Row, Sheet, Tag, Text } from '@/components/ui';
+import { Button, Chips, goBack, Rise, Row, Sheet, Tag, Text, TopBar } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { attemptsToday } from '@/db/blockRules';
 import { logEvent } from '@/db/events';
@@ -93,7 +93,8 @@ export default function ShieldScreen() {
         { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
       ]}
     >
-      <DotPattern color="#8CDCEB" opacity={0.1} gap={26} />
+      <DotPattern color="#FFF6EC" opacity={0.1} gap={26} />
+      <TopBar icon="close" dark onPress={() => void close()} />
       <Hook x={250} y={locked ? 96 : 60} shown={locked} />
 
       <View style={{ gap: 4, maxWidth: '70%' }}>

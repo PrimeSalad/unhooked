@@ -1,0 +1,108 @@
+// One icon set for the whole app: Lucide line icons, one weight, one color per context.
+
+import {
+  ArrowRight,
+  ArrowUp,
+  Calculator,
+  Calendar,
+  ChartColumn,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  CirclePlus,
+  CircleUser,
+  ExternalLink,
+  FileText,
+  Globe,
+  Hand,
+  Heart,
+  Hourglass,
+  House,
+  ImagePlus,
+  Images,
+  Leaf,
+  LifeBuoy,
+  Lock,
+  MessageCircle,
+  Moon,
+  Phone,
+  Play,
+  Plus,
+  Receipt,
+  Search,
+  Share,
+  ShieldCheck,
+  ShoppingBag,
+  Smartphone,
+  Sun,
+  Timer,
+  Trash2,
+  Wallet,
+  X,
+  type LucideIcon,
+} from 'lucide-react-native';
+import type { ColorValue } from 'react-native';
+
+const ICONS = {
+  add: Plus,
+  'add-circle': CirclePlus,
+  alert: CircleAlert,
+  'arrow-forward': ArrowRight,
+  'arrow-up': ArrowUp,
+  bag: ShoppingBag,
+  chart: ChartColumn,
+  calculator: Calculator,
+  calendar: Calendar,
+  phone: Phone,
+  chat: MessageCircle,
+  check: Check,
+  'check-circle': CircleCheck,
+  back: ChevronLeft,
+  forward: ChevronRight,
+  close: X,
+  file: FileText,
+  circle: Circle,
+  globe: Globe,
+  hand: Hand,
+  heart: Heart,
+  help: LifeBuoy,
+  home: House,
+  hourglass: Hourglass,
+  image: ImagePlus,
+  images: Images,
+  leaf: Leaf,
+  lock: Lock,
+  moon: Moon,
+  open: ExternalLink,
+  person: CircleUser,
+  device: Smartphone,
+  play: Play,
+  receipt: Receipt,
+  search: Search,
+  share: Share,
+  shield: ShieldCheck,
+  sun: Sun,
+  timer: Timer,
+  trash: Trash2,
+  wallet: Wallet,
+} satisfies Record<string, LucideIcon>;
+
+export type IconName = keyof typeof ICONS;
+
+export function Icon({
+  name,
+  size = 22,
+  color,
+  strokeWidth = 1.8,
+}: {
+  name: IconName;
+  size?: number;
+  color?: ColorValue;
+  strokeWidth?: number;
+}) {
+  const Cmp = ICONS[name];
+  return <Cmp size={size} color={color as string} strokeWidth={strokeWidth} />;
+}

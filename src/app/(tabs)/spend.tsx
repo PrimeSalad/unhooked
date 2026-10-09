@@ -101,7 +101,7 @@ export default function SpendScreen() {
           <View
             style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
           >
-            <Text variant="eyebrow" color="#5C2A0A" style={{ fontSize: 11 }}>
+            <Text variant="eyebrow" color={colors.textMuted} style={{ fontSize: 11 }}>
               Free to spend this month
             </Text>
             <Tag tone="estimate" />
@@ -112,19 +112,19 @@ export default function SpendScreen() {
           <View style={styles.heroRow}>
             <View style={{ flex: 1 }}>
               <Text variant="strong">{formatPHP(o.dueThisMonth)}</Text>
-              <Text variant="caption" color="#5C2A0A">
+              <Text variant="caption" color={colors.textMuted}>
                 Repayments due
               </Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text variant="strong">{formatPHP(o.spentThisMonth)}</Text>
-              <Text variant="caption" color="#5C2A0A">
+              <Text variant="caption" color={colors.textMuted}>
                 Bought this month
               </Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text variant="strong">{formatPHP(kept)}</Text>
-              <Text variant="caption" color="#5C2A0A">
+              <Text variant="caption" color={colors.textMuted}>
                 Kept by pausing
               </Text>
             </View>
@@ -149,7 +149,7 @@ export default function SpendScreen() {
               return (
                 <GroupRow
                   key={p.id}
-                  icon="hourglass-outline"
+                  icon="hourglass"
                   iconBg={left ? colors.shell : colors.spendSoft}
                   iconFg={left ? colors.lagoon : colors.spend}
                   title={p.item}
@@ -172,7 +172,7 @@ export default function SpendScreen() {
                 leading={
                   <Avatar
                     label={p.item}
-                    bg={p.status === 'skipped' ? '#E5F2EA' : colors.surfaceMuted}
+                    bg={p.status === 'skipped' ? '#F3ECE4' : colors.surfaceMuted}
                     fg={p.status === 'skipped' ? colors.success : colors.spend}
                   />
                 }
@@ -184,7 +184,7 @@ export default function SpendScreen() {
             ))
           ) : (
             <GroupRow
-              icon="receipt-outline"
+              icon="receipt"
               title="Nothing checked yet"
               subtitle="Before your next checkout, run it past me."
               onPress={() => router.push('/spend-check')}
@@ -196,13 +196,13 @@ export default function SpendScreen() {
       <Section title="Tools">
         <Group>
           <GroupRow
-            icon="calculator-outline"
+            icon="calculator"
             title="Pay-later true cost"
             subtitle="See what installments really add up to"
             onPress={() => router.push('/spend-check')}
           />
           <GroupRow
-            icon="chatbubble-ellipses-outline"
+            icon="chat"
             title="Ask Ginto"
             subtitle="“Can I afford ₱2,000 this week?”"
             onPress={() => router.push('/chat')}
@@ -217,7 +217,9 @@ export default function SpendScreen() {
 
 const styles = StyleSheet.create({
   hero: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.xxl,
     padding: spacing.xl,
     gap: spacing.sm,
@@ -225,7 +227,7 @@ const styles = StyleSheet.create({
   heroRow: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(42,22,8,0.15)',
+    borderTopColor: colors.border,
     paddingTop: spacing.md,
     marginTop: spacing.xs,
   },

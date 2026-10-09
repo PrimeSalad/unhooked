@@ -1,7 +1,7 @@
 // Pick apps to guard. Android lists the user's launchable apps (icons, A–Z, search, categories);
-// elsewhere a short list of common apps lets people set up guards before installing the app.
+// Only real, installed apps are shown; Expo Go and web explain why the list needs the Android build.
 
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useState } from 'react';
@@ -12,11 +12,20 @@ import {
   canDrawOverlays,
   getLaunchableApps,
   hasUsageAccess,
-  type AppCategory,
   type LaunchableApp,
 } from '../../../modules/unhooked-guard';
 
-import { Avatar, Button, Chips, goBack, IconButton, Segmented, Sheet, Text } from '@/components/ui';
+import {
+  Avatar,
+  Button,
+  Chips,
+  EmptyState,
+  goBack,
+  IconButton,
+  Segmented,
+  Sheet,
+  Text,
+} from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { addRules, listRules } from '@/db/blockRules';
 import { useDbQuery } from '@/db/useDbQuery';
@@ -24,25 +33,6 @@ import { NEVER_BLOCK_PACKAGES, type GuardMode } from '@/domain/blocking';
 import { isGuardAvailable } from '@/lib/guard';
 import { SCHEDULE_PRESETS, type PresetKey } from '@/lib/schedules';
 import { useSession } from '@/store/session';
-
-const COMMON: LaunchableApp[] = [
-  ['TikTok', 'com.zhiliaoapp.musically', 'video'],
-  ['Facebook', 'com.facebook.katana', 'social'],
-  ['Instagram', 'com.instagram.android', 'social'],
-  ['YouTube', 'com.google.android.youtube', 'video'],
-  ['X', 'com.twitter.android', 'social'],
-  ['Reddit', 'com.reddit.frontpage', 'social'],
-  ['Shopee', 'com.shopee.ph', 'other'],
-  ['Lazada', 'com.lazada.android', 'other'],
-  ['Mobile Legends', 'com.mobile.legends', 'game'],
-  ['Netflix', 'com.netflix.mediaclient', 'video'],
-].map(([label, packageName, category]) => ({
-  label: label!,
-  packageName: packageName!,
-  category: category as AppCategory,
-  iconBase64: null,
-  isEssential: false,
-}));
 
 type Filter = 'all' | 'social' | 'video' | 'game' | 'other';
 const FILTERS: { value: Filter; label: string }[] = [
@@ -60,7 +50,7 @@ export default function PickAppsScreen() {
   const native = isGuardAvailable();
   const { data: rules } = useDbQuery(listRules, []);
 
-  const [apps, setApps] = useState<LaunchableApp[]>(native ? [] : COMMON);
+  const [apps, setApps] = useState<LaunchableApp[]>([]);
   const [loading, setLoading] = useState(native);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -118,10 +108,48 @@ export default function PickAppsScreen() {
     );
   };
 
+  if (!native) {
+    return (
+      <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
+        <View style={styles.header}>
+          <IconButton icon="back" label="Back" onPress={goBack} />
+          <Text variant="heading">Guard apps</Text>
+        </View>
+        <View style={{ padding: spacing.xl, gap: spacing.lg }}>
+          <EmptyState
+            mood="thinking"
+            title="Your apps live in the Android app"
+            body="To list the apps installed on this phone and pause them, Unhooked needs its Android build. Expo Go and the web cannot see other apps."
+          />
+          <Text variant="small" color={colors.textMuted}>
+            Team setup: connect the phone with USB debugging on, then run{' '}
+            <Text variant="small" style={{ fontFamily: fonts.semibold }}>
+              npx expo run:android
+            </Text>
+            . Open Unhooked from the phone, then come back here.
+          </Text>
+          <Button
+            label="Guard a website instead"
+            kind="outline"
+            onPress={() => router.replace('/block/sites')}
+          />
+          <Button
+            label="Preview the pause"
+            kind="ghost"
+            size="sm"
+            onPress={() =>
+              router.push({ pathname: '/shield', params: { label: 'TikTok', preview: '1' } })
+            }
+          />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.header}>
-        <IconButton icon="chevron-back" label="Back" onPress={goBack} />
+        <IconButton icon="back" label="Back" onPress={goBack} />
         <View style={{ flex: 1 }}>
           <Text variant="heading">Guard apps</Text>
           <Text variant="caption">Pick the ones that pull you in. Nothing is preselected.</Text>
@@ -130,7 +158,7 @@ export default function PickAppsScreen() {
 
       <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md }}>
         <View style={styles.search}>
-          <Ionicons name="search" size={18} color={colors.textMuted} />
+          <Icon name="search" size={18} color={colors.textMuted} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -141,11 +169,6 @@ export default function PickAppsScreen() {
           />
         </View>
         <Chips value={filter} onChange={setFilter} options={FILTERS} />
-        {!native && (
-          <Text variant="caption">
-            Common apps shown. In the Android app you will see everything installed on your phone.
-          </Text>
-        )}
       </View>
 
       <FlatList
@@ -190,7 +213,7 @@ export default function PickAppsScreen() {
                 </Text>
               ) : (
                 <View style={[styles.check, on && styles.checkOn]}>
-                  {on ? <Ionicons name="checkmark" size={16} color={colors.bg} /> : null}
+                  {on ? <Icon name="check" size={16} color={colors.bg} /> : null}
                 </View>
               )}
             </Pressable>

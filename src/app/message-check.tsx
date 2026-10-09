@@ -15,8 +15,8 @@ const SAMPLE =
 
 const LEVEL = {
   high: { label: 'High risk', bg: colors.danger, fg: colors.white },
-  medium: { label: 'Some warning signs', bg: '#FFF1C9', fg: '#7A4A00' },
-  low: { label: 'Low risk', bg: '#E5F2EA', fg: '#1E5E3B' },
+  medium: { label: 'Some warning signs', bg: '#F3ECE4', fg: '#7A4A00' },
+  low: { label: 'Low risk', bg: '#F3ECE4', fg: '#1E5E3B' },
 } as const;
 
 export default function MessageCheckScreen() {
@@ -67,14 +67,14 @@ export default function MessageCheckScreen() {
           label="Try a sample message"
           kind="ghost"
           size="sm"
-          icon="document-text-outline"
+          icon="file"
           onPress={() => setText(SAMPLE)}
         />
       )}
       {!result && (
         <Button
           label="Check for warning signs"
-          icon="shield-checkmark-outline"
+          icon="shield"
           disabled={!text.trim()}
           onPress={check}
         />

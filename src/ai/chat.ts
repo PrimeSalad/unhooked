@@ -13,6 +13,13 @@ export interface ChatMessage {
   role: 'user' | 'ginto';
   text: string;
   source?: 'local' | 'cloud';
+  /** Photo the user attached. Kept in memory only; sent to Claude only with cloud AI on. */
+  image?: { uri: string; base64: string; mediaType: string };
+}
+
+/** What Ginto can say about a photo without the cloud. */
+export function localImageReply(): string {
+  return 'I can only read photos with Smarter Ask Ginto turned on. If this is a threatening message from a collector, tap "Save as evidence" so it stays safe on your phone, or paste its text in Scan message.';
 }
 
 export interface ChatContext {
@@ -162,10 +169,17 @@ export async function cloudReply(history: ChatMessage[], c: ChatContext): Promis
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       context: contextSummary(c),
-      messages: history.map((m) => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.text,
-      })),
+      // Only the newest photo travels; older turns go as text to keep requests small.
+      messages: history.map((m, i) => {
+        const latestImage = m.image && history.slice(i + 1).every((n) => !n.image);
+        return {
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.text,
+          ...(latestImage && m.image
+            ? { image: { mediaType: m.image.mediaType, data: m.image.base64 } }
+            : {}),
+        };
+      }),
     }),
   });
   if (!res.ok) throw new Error(`Ginto server error ${res.status}`);

@@ -20,6 +20,7 @@ Rules:
 - Never shame or lecture. Offer one or two practical options; the user decides.
 - You are not a doctor, lawyer or financial adviser. For crisis or self-harm, give the NCMH Crisis Hotline 1553 and 911 first.
 - For abusive lenders, suggest saving evidence in the app and reporting to the SEC.
+- If the user sends a photo or screenshot (a collector message, a product page, a pay-later offer, a receipt, a screen-time screen), read it and relate it to their numbers. For threatening or shaming messages, name the warning signs and suggest saving it to the Evidence Pack.
 - Plain text only. No markdown, no emoji.
 Latency-sensitive; begin your visible answer immediately.`;
 
@@ -37,7 +38,7 @@ async function readJson(req) {
   let raw = '';
   for await (const chunk of req) {
     raw += chunk;
-    if (raw.length > 64_000) throw new Error('Body too large');
+    if (raw.length > 8_000_000) throw new Error('Body too large');
   }
   return JSON.parse(raw);
 }
@@ -48,9 +49,35 @@ const server = http.createServer(async (req, res) => {
 
   try {
     const { context, messages } = await readJson(req);
+    const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    // Text history, plus at most one image (on the latest user turn that carries one).
     const history = (Array.isArray(messages) ? messages : [])
       .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-      .slice(-20);
+      .slice(-20)
+      .map((m) => {
+        const img = m.image;
+        if (
+          m.role !== 'user' ||
+          !img ||
+          !IMAGE_TYPES.includes(img.mediaType) ||
+          typeof img.data !== 'string'
+        ) {
+          return { role: m.role, content: m.content || '(photo)' };
+        }
+        return {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: img.mediaType, data: img.data },
+            },
+            {
+              type: 'text',
+              text: m.content || 'What do you see? Relate it to my money or habits.',
+            },
+          ],
+        };
+      });
     while (history.length && history[0].role !== 'user') history.shift();
     if (!history.length) return send(res, 400, { error: 'No user message' });
 

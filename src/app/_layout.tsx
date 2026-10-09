@@ -62,6 +62,7 @@ export default function RootLayout() {
         <Stack.Screen name="borrow" options={{ presentation: 'modal' }} />
         <Stack.Screen name="chat" />
         <Stack.Screen name="spend-check" />
+        <Stack.Screen name="fade-preview" options={{ animation: 'fade' }} />
         <Stack.Screen name="block/apps" />
         <Stack.Screen name="block/sites" />
         <Stack.Screen name="block/permissions" />

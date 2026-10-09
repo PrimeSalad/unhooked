@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ginto } from '@/components/mascot/Ginto';
-import { Button, Card, Rise, Row, Text } from '@/components/ui';
+import { Button, Card, Rise, Row, Text, TopBar } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { logBreak } from '@/db/repo';
 import { useSession } from '@/store/session';
@@ -37,6 +37,7 @@ export default function BreakScreen() {
         { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xl },
       ]}
     >
+      <TopBar icon="close" onPress={() => router.dismissTo('/')} />
       <View style={{ alignItems: 'center' }}>
         <Ginto mood="wave" size={200} />
       </View>

@@ -1,6 +1,6 @@
 // Prominent disclosure before each Android permission (Play policy): what, why, stays on device.
 
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
@@ -14,7 +14,7 @@ import {
 } from '../../../modules/unhooked-guard';
 
 import { Ginto } from '@/components/mascot/Ginto';
-import { Button, Card, Screen, Text } from '@/components/ui';
+import { Button, Card, Screen, Text, TopBar } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
 import { syncGuard } from '@/lib/guard';
@@ -33,8 +33,8 @@ function Step({
   return (
     <Card style={{ gap: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <Ionicons
-          name={done ? 'checkmark-circle' : 'ellipse-outline'}
+        <Icon
+          name={done ? 'check-circle' : 'circle'}
           size={22}
           color={done ? colors.success : colors.textFaint}
         />
@@ -70,6 +70,7 @@ export default function GuardPermissionsScreen() {
 
   return (
     <Screen tabs={false}>
+      <TopBar />
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
         <Ginto mood="brave" size={130} />
         <Text variant="title" align="center">

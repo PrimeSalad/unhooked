@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
@@ -29,8 +29,8 @@ import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
 
 const VERDICT = {
-  comfortable: { label: 'Looks affordable', bg: '#E5F2EA', fg: '#1E5E3B' },
-  tight: { label: 'Tight', bg: '#FFF1C9', fg: '#7A4A00' },
+  comfortable: { label: 'Looks affordable', bg: '#F3ECE4', fg: '#1E5E3B' },
+  tight: { label: 'Tight', bg: '#F3ECE4', fg: '#7A4A00' },
   conflicts: { label: 'Clashes with repayments', bg: '#FBE3E0', fg: '#8C1D18' },
 } as const;
 
@@ -198,7 +198,7 @@ export default function SpendCheckScreen() {
                   padding: spacing.md,
                 }}
               >
-                <Ionicons name="alert-circle-outline" size={20} color={colors.spend} />
+                <Icon name="alert" size={20} color={colors.spend} />
                 <Text variant="small" color={colors.text} style={{ flex: 1 }}>
                   Your repayments would be about {formatPHP(result.shortfall)} short.
                 </Text>
@@ -208,12 +208,12 @@ export default function SpendCheckScreen() {
               <Row
                 style={{
                   alignItems: 'flex-start',
-                  backgroundColor: '#E5F2EA',
+                  backgroundColor: '#F3ECE4',
                   borderRadius: radius.md,
                   padding: spacing.md,
                 }}
               >
-                <Ionicons name="leaf-outline" size={20} color={colors.success} />
+                <Icon name="leaf" size={20} color={colors.success} />
                 <Text variant="small" color={colors.text} style={{ flex: 1 }}>
                   The cheaper option keeps {formatPHP(priceC - altC)} in your pocket.
                 </Text>

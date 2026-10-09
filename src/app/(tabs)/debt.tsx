@@ -72,7 +72,7 @@ function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose
         label="Delete this record"
         kind="ghost"
         size="sm"
-        icon="trash-outline"
+        icon="trash"
         onPress={async () => {
           await deleteDebt(db, target.debt.id);
           onClose();
@@ -115,7 +115,7 @@ export default function DebtScreen() {
       leading={
         <Avatar
           label={b.debt.counterparty}
-          bg={owedTab ? colors.debtSoft : '#E5F2EA'}
+          bg={owedTab ? colors.debtSoft : '#F3ECE4'}
           fg={owedTab ? colors.debt : colors.success}
         />
       }
@@ -172,9 +172,7 @@ export default function DebtScreen() {
         />
       ) : (
         <>
-          <View
-            style={[styles.summary, { backgroundColor: owedTab ? colors.debt : colors.success }]}
-          >
+          <View style={[styles.summary, { backgroundColor: colors.text }]}>
             <Text variant="eyebrow" color="rgba(255,255,255,0.75)" style={{ fontSize: 11 }}>
               {owedTab ? 'Left to pay' : 'Owed to you'}
             </Text>
@@ -210,7 +208,7 @@ export default function DebtScreen() {
       <Section title="Safety">
         <Group>
           <GroupRow
-            icon="images-outline"
+            icon="images"
             iconBg={colors.text}
             iconFg={colors.accent}
             title="Evidence Pack"
@@ -229,13 +227,13 @@ export default function DebtScreen() {
             }
           />
           <GroupRow
-            icon="shield-checkmark-outline"
+            icon="shield"
             title="Scan a message"
             subtitle="Check a collector's text for warning signs"
             onPress={() => router.push('/message-check')}
           />
           <GroupRow
-            icon="hand-left-outline"
+            icon="hand"
             title="Thinking of borrowing?"
             subtitle="Pause with me before you sign"
             onPress={() => router.push('/borrow')}

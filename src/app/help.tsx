@@ -42,7 +42,7 @@ export default function HelpScreen() {
           </Text>
           <Button
             label={`Call ${crisis.dial}`}
-            icon="call-outline"
+            icon="phone"
             style={{ marginTop: spacing.sm }}
             onPress={() => open(crisis.dial, crisis.url)}
           />
@@ -52,7 +52,7 @@ export default function HelpScreen() {
       {others.map((r) => (
         <ListRow
           key={r.name}
-          icon={r.dial ? 'call-outline' : 'open-outline'}
+          icon={r.dial ? 'phone' : 'open'}
           iconBg={colors.surfaceMuted}
           iconFg={colors.spend}
           title={r.name}

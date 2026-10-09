@@ -22,7 +22,7 @@ import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
 import { CountdownRing } from '@/components/pause/CountdownRing';
-import { Button, goBack, Rise, Row, Tag, Text } from '@/components/ui';
+import { Button, goBack, Rise, Row, Tag, Text, TopBar } from '@/components/ui';
 import { colors, motion, radius, spacing } from '@/constants/theme';
 import { logEvent } from '@/db/events';
 import { getOverview, getPurchase, setPurchaseStatus } from '@/db/repo';
@@ -205,7 +205,8 @@ export default function PauseScreen() {
         { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
       ]}
     >
-      <DotPattern color="#8CDCEB" opacity={0.1} gap={26} />
+      <DotPattern color="#FFF6EC" opacity={0.1} gap={26} />
+      <TopBar icon="close" dark />
 
       <View style={{ gap: 4, maxWidth: '68%' }}>
         <Text variant="eyebrow" color={colors.pauseMuted}>

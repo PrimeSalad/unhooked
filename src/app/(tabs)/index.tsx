@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { Redirect, router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -25,30 +25,30 @@ import { useSettings, useSettingsHydrated } from '@/store/settings';
 
 const ACTIONS: { icon: IconName; label: string; bg: string; fg: string; to: Href }[] = [
   {
-    icon: 'bag-handle-outline',
+    icon: 'bag',
     label: 'Check a\npurchase',
     bg: colors.spendSoft,
     fg: colors.spend,
     to: '/spend-check',
   },
   {
-    icon: 'wallet-outline',
+    icon: 'wallet',
     label: 'Add a\ndebt',
     bg: colors.debtSoft,
     fg: colors.debt,
     to: '/debt-new',
   },
   {
-    icon: 'lock-closed-outline',
+    icon: 'lock',
     label: 'Guard\napps',
     bg: colors.scrollSoft,
     fg: colors.scroll,
     to: '/block/apps',
   },
   {
-    icon: 'shield-checkmark-outline',
+    icon: 'shield',
     label: 'Scan a\nmessage',
-    bg: '#F4ECE4',
+    bg: '#F3ECE4',
     fg: colors.text,
     to: '/message-check',
   },
@@ -75,7 +75,7 @@ export default function TodayScreen() {
     o.nextDue && (
       <GroupRow
         key="due"
-        icon="wallet-outline"
+        icon="wallet"
         iconBg={colors.debtSoft}
         iconFg={colors.debt}
         title={o.nextDue.debt.counterparty}
@@ -88,7 +88,7 @@ export default function TodayScreen() {
     cooling && (
       <GroupRow
         key="cool"
-        icon="hourglass-outline"
+        icon="hourglass"
         iconBg={colors.spendSoft}
         iconFg={colors.spend}
         title={cooling.item}
@@ -104,7 +104,7 @@ export default function TodayScreen() {
     (timer || guards > 0) && (
       <GroupRow
         key="guard"
-        icon="lock-closed-outline"
+        icon="lock"
         iconBg={colors.scrollSoft}
         iconFg={colors.scroll}
         title={timer ? 'Unhook timer running' : `${guards} ${guards === 1 ? 'guard' : 'guards'} on`}
@@ -115,7 +115,7 @@ export default function TodayScreen() {
     o.scroll.todayMinutes > 0 && (
       <GroupRow
         key="scroll"
-        icon="phone-portrait-outline"
+        icon="device"
         iconBg={colors.scrollSoft}
         iconFg={colors.scroll}
         title="Scrolling today"
@@ -133,13 +133,9 @@ export default function TodayScreen() {
         title={name ? `Hi, ${name}` : 'Hi there'}
         right={
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <IconButton icon="help" label="Help and safety" onPress={() => router.push('/help')} />
             <IconButton
-              icon="help-buoy-outline"
-              label="Help and safety"
-              onPress={() => router.push('/help')}
-            />
-            <IconButton
-              icon="person-circle-outline"
+              icon="person"
               label="You and settings"
               onPress={() => router.push('/settings')}
             />
@@ -201,7 +197,7 @@ export default function TodayScreen() {
           <Text variant="strong">Ask Ginto</Text>
           <Text variant="caption">“Can I afford ₱1,500?” · “What is due this month?”</Text>
         </View>
-        <Ionicons name="arrow-forward" size={18} color={colors.text} />
+        <Icon name="arrow-forward" size={18} color={colors.text} />
       </Pressable>
 
       <View style={styles.actions}>
@@ -214,7 +210,7 @@ export default function TodayScreen() {
             style={({ pressed }) => [styles.action, pressed && { transform: [{ scale: 0.96 }] }]}
           >
             <View style={[styles.actionIcon, { backgroundColor: a.bg }]}>
-              <Ionicons name={a.icon} size={24} color={a.fg} />
+              <Icon name={a.icon} size={24} color={a.fg} />
             </View>
             <Text
               variant="caption"
@@ -234,8 +230,8 @@ export default function TodayScreen() {
             upcoming
           ) : (
             <GroupRow
-              icon="checkmark-circle-outline"
-              iconBg="#E5F2EA"
+              icon="check-circle"
+              iconBg="#F3ECE4"
               iconFg={colors.success}
               title="All clear"
               subtitle="No due dates, cooling items or guards yet."
@@ -247,13 +243,13 @@ export default function TodayScreen() {
       <Section title="You">
         <Group>
           <GroupRow
-            icon="heart-outline"
+            icon="heart"
             title={o.checkIn ? 'Checked in today' : 'How are you feeling?'}
             subtitle={o.checkIn ? 'Tap to update' : 'Ten seconds. Keeps my tone gentle.'}
             onPress={() => router.push('/check-in')}
           />
           <GroupRow
-            icon="bar-chart-outline"
+            icon="chart"
             title="Your week"
             subtitle="Patterns from your own activity"
             onPress={() => router.push('/insights')}

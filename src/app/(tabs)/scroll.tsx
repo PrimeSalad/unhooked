@@ -59,7 +59,7 @@ function useNow(active: boolean) {
 export default function ScrollScreen() {
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
-  const { timerUntil, setTimerUntil, guardOn } = useSettings();
+  const { timerUntil, setTimerUntil, guardOn, fadeAfterMin, setFadeAfterMin } = useSettings();
   const { data: rules, loaded } = useDbQuery(listRules, []);
   const { data: attempts } = useDbQuery(attemptsToday, {});
   const { data: session } = useDbQuery(activeSession, null);
@@ -108,10 +108,10 @@ export default function ScrollScreen() {
             </Row>
             <Row style={{ alignItems: 'center' }}>
               <View style={{ flex: 1 }}>
-                <Text variant="display" color="#F2FBFC" style={{ fontSize: 52, lineHeight: 56 }}>
+                <Text variant="display" color="#FFF6EC" style={{ fontSize: 52, lineHeight: 56 }}>
                   {formatClock(timerLeft)}
                 </Text>
-                <Text variant="small" color="#BFE6EC">
+                <Text variant="small" color="#D9BFA8">
                   {appRules.filter((r) => r.enabled).length} apps paused until the timer ends
                 </Text>
               </View>
@@ -131,10 +131,10 @@ export default function ScrollScreen() {
                 <Text variant="eyebrow" color={colors.pauseMuted} style={{ fontSize: 11 }}>
                   Unhook timer
                 </Text>
-                <Text variant="heading" color="#F2FBFC" style={{ fontSize: 22, lineHeight: 28 }}>
+                <Text variant="heading" color="#FFF6EC" style={{ fontSize: 22, lineHeight: 28 }}>
                   Need a real break from your feed?
                 </Text>
-                <Text variant="small" color="#BFE6EC">
+                <Text variant="small" color="#D9BFA8">
                   Your guarded apps pause until the timer ends.
                 </Text>
               </View>
@@ -150,7 +150,7 @@ export default function ScrollScreen() {
                     accessibilityState={{ selected: active }}
                     onPress={() => setTimerMin(m)}
                     variant="strong"
-                    color={active ? colors.text : '#F2FBFC'}
+                    color={active ? colors.text : '#FFF6EC'}
                     style={[styles.timerChip, active && { backgroundColor: colors.accent }]}
                   >
                     {formatMinutes(Number(m))}
@@ -160,7 +160,7 @@ export default function ScrollScreen() {
             </View>
             <Button
               label={appRules.length ? 'Start Unhook timer' : 'Pick apps to guard first'}
-              icon="lock-closed"
+              icon="lock"
               onPress={() => void startTimer()}
             />
           </>
@@ -191,7 +191,7 @@ export default function ScrollScreen() {
         {loaded && rules.length === 0 ? (
           <Group>
             <GroupRow
-              icon="add-circle-outline"
+              icon="add-circle"
               iconBg={colors.scrollSoft}
               iconFg={colors.scroll}
               title="Pick the apps that hook you"
@@ -199,7 +199,7 @@ export default function ScrollScreen() {
               onPress={() => router.push('/block/apps')}
             />
             <GroupRow
-              icon="globe-outline"
+              icon="globe"
               iconBg={colors.scrollSoft}
               iconFg={colors.scroll}
               title="Add a website"
@@ -238,7 +238,7 @@ export default function ScrollScreen() {
               );
             })}
             <GroupRow
-              icon="globe-outline"
+              icon="globe"
               iconBg={colors.scrollSoft}
               iconFg={colors.scroll}
               title={siteRules.length ? 'Manage websites' : 'Add a website'}
@@ -253,18 +253,43 @@ export default function ScrollScreen() {
         )}
       </Section>
 
+      <Section title="Doomscroll fade">
+        <View style={[styles.card, { gap: spacing.md }]}>
+          <Text variant="small" color={colors.textMuted}>
+            Stay too long in a guarded app and I send a check-in, then your screen slowly washes
+            white. You can still use it. It just stops feeling endless.
+          </Text>
+          <Chips
+            value={String(fadeAfterMin)}
+            onChange={async (v) => {
+              setFadeAfterMin(Number(v));
+              await syncGuard(rules);
+            }}
+            options={[
+              { value: '0', label: 'Off' },
+              { value: '10', label: '10 min' },
+              { value: '15', label: '15 min' },
+              { value: '30', label: '30 min' },
+            ]}
+          />
+          <Button
+            label="See how it looks"
+            kind="outline"
+            size="sm"
+            icon="play"
+            onPress={() => router.push('/fade-preview')}
+          />
+        </View>
+      </Section>
+
       <ScrollSession session={session} now={now} />
 
       <Section title="Your scrolling">
         <Group>
-          <GroupRow icon="today-outline" title="Today" value={formatMinutes(stats.todayMinutes)} />
+          <GroupRow icon="sun" title="Today" value={formatMinutes(stats.todayMinutes)} />
+          <GroupRow icon="calendar" title="This week" value={formatMinutes(stats.weekMinutes)} />
           <GroupRow
-            icon="calendar-outline"
-            title="This week"
-            value={formatMinutes(stats.weekMinutes)}
-          />
-          <GroupRow
-            icon="moon-outline"
+            icon="moon"
             title="Usual time"
             value={
               stats.peakHour === null
@@ -381,7 +406,7 @@ function ScrollSession({
             <Button
               label="Start scroll timer"
               kind="ink"
-              icon="timer-outline"
+              icon="timer"
               onPress={() => void start()}
             />
           </>
@@ -472,7 +497,7 @@ function RuleSheet({ rule, onClose }: { rule: GuardRule | null; onClose: () => v
         label="Remove guard"
         kind="ghost"
         size="sm"
-        icon="trash-outline"
+        icon="trash"
         onPress={async () => {
           await removeRule(db, rule.id);
           onClose();

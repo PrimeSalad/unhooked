@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
-import { Button, Rise, Text } from '@/components/ui';
+import { Button, Rise, Text, TopBar } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { emptyOverview, getOverview } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
@@ -45,6 +45,9 @@ export default function UnhookedScreen() {
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom + spacing.xl }]}>
       <DotPattern />
+      <View style={{ paddingTop: insets.top + spacing.md }}>
+        <TopBar icon="close" onPress={() => router.dismissTo('/')} />
+      </View>
       <Hook x={width / 2 + 70} y={insets.top + 90} shown={hooked} lineColor="#FFE1B8" />
 
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -72,7 +75,7 @@ export default function UnhookedScreen() {
           <Button
             label="Send this message"
             kind="ink"
-            icon="share-outline"
+            icon="share"
             onPress={() => void Share.share({ message: PLAN_MESSAGE })}
           />
         )}

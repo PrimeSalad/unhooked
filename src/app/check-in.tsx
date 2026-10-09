@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Ginto } from '@/components/mascot/Ginto';
-import { Button, Card, goBack, Row, Screen, Text } from '@/components/ui';
+import { Button, Card, goBack, Row, Screen, Text, TopBar } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { logEvent } from '@/db/events';
 import { bumpData } from '@/db/useDbQuery';
@@ -48,6 +48,7 @@ export default function CheckInScreen() {
 
   return (
     <Screen tabs={false}>
+      <TopBar />
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
         <Ginto mood="calm" size={140} />
         <Text variant="title" align="center">

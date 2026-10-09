@@ -1,8 +1,8 @@
 // Design-system primitives. Screens compose these; extend here, not inline.
 
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { router } from 'expo-router';
-import { useEffect, type ComponentProps, type ReactNode, useState } from 'react';
+import { useEffect, type ReactNode, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -28,7 +28,8 @@ import { colors, fonts, layout, motion, radius, shadow, spacing } from '@/consta
 import type { Certainty } from '@/domain/types';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
-export type IconName = ComponentProps<typeof Ionicons>['name'];
+export type { IconName } from '@/components/Icon';
+import type { IconName } from '@/components/Icon';
 
 /** router.back(), or go Home when there is nothing to go back to. */
 export function goBack() {
@@ -174,7 +175,7 @@ export function ScreenHeader({
 }) {
   return (
     <View style={{ gap: spacing.md }}>
-      {back && <IconButton icon="chevron-back" label="Back" onPress={goBack} />}
+      {back && <IconButton icon="back" label="Back" onPress={goBack} />}
       <View
         style={{ flexDirection: 'row', alignItems: 'center', minHeight: mascot ? 82 : undefined }}
       >
@@ -248,7 +249,7 @@ export function IconChip({
         justifyContent: 'center',
       }}
     >
-      <Ionicons name={icon} size={size * 0.52} color={fg} />
+      <Icon name={icon} size={size * 0.52} color={fg} />
     </View>
   );
 }
@@ -281,7 +282,7 @@ export function ListRow({
         <Text variant="strong">{title}</Text>
         {subtitle ? <Text variant="caption">{subtitle}</Text> : null}
       </View>
-      {trailing ?? <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />}
+      {trailing ?? <Icon name="forward" size={20} color={colors.textFaint} />}
     </Pressable>
   );
 }
@@ -401,7 +402,7 @@ export function Button({
         style,
       ]}
     >
-      {icon ? <Ionicons name={icon} size={18} color={k.text} /> : null}
+      {icon ? <Icon name={icon} size={18} color={k.text} /> : null}
       <Text variant="strong" color={k.text} style={{ fontSize: size === 'md' ? 16 : 14 }}>
         {label}
       </Text>
@@ -434,7 +435,7 @@ export function IconButton({
         pressed && styles.pressed,
       ]}
     >
-      <Ionicons name={icon} size={22} color={color} />
+      <Icon name={icon} size={22} color={color} />
     </Pressable>
   );
 }
@@ -442,10 +443,10 @@ export function IconButton({
 // ---------- Tags ----------
 
 const tagTones = {
-  records: { bg: '#FFEBDC', fg: '#8F3207', label: 'From your records' },
-  estimate: { bg: '#FFF1C9', fg: '#7A4A00', label: 'Estimate' },
-  calculated: { bg: '#E5F2EA', fg: '#1E5E3B', label: 'Calculated' },
-  suggestion: { bg: '#F4ECE4', fg: colors.textSoft, label: 'Suggestion' },
+  records: { bg: '#F3ECE4', fg: colors.textSoft, label: 'From your records' },
+  estimate: { bg: '#F3ECE4', fg: colors.textSoft, label: 'Estimate' },
+  calculated: { bg: '#F3ECE4', fg: colors.textSoft, label: 'Calculated' },
+  suggestion: { bg: '#F3ECE4', fg: colors.textSoft, label: 'Suggestion' },
 } as const;
 
 const certaintyTone: Record<Certainty, keyof typeof tagTones> = {
@@ -719,6 +720,32 @@ const formStyles = StyleSheet.create({
   sheetFish: { position: 'absolute', top: -60, alignSelf: 'center' },
 });
 
+/** Back (or close) button row for every non-tab screen. */
+export function TopBar({
+  icon = 'back',
+  onPress = goBack,
+  dark,
+  right,
+}: {
+  icon?: 'back' | 'close';
+  onPress?: () => void;
+  dark?: boolean;
+  right?: ReactNode;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <IconButton
+        icon={icon}
+        label={icon === 'close' ? 'Close' : 'Back'}
+        onPress={onPress}
+        tone={dark ? 'rgba(255,246,236,0.12)' : colors.surface}
+        color={dark ? colors.bg : colors.text}
+      />
+      {right}
+    </View>
+  );
+}
+
 // ---------- Real-app hierarchy: large titles, sections, grouped lists ----------
 
 /** Large title like native apps. No mascot: Ginto appears in moments, not chrome. */
@@ -855,8 +882,7 @@ export function GroupRow({
           {value}
         </Text>
       ) : null}
-      {trailing ??
-        (onPress ? <Ionicons name="chevron-forward" size={18} color={colors.textFaint} /> : null)}
+      {trailing ?? (onPress ? <Icon name="forward" size={18} color={colors.textFaint} /> : null)}
     </View>
   );
   return onPress ? (

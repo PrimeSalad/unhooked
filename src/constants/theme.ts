@@ -4,7 +4,7 @@
 export const colors = {
   bg: '#FFF6EC', // Cream
   surface: '#FFFFFF',
-  surfaceMuted: '#FFE3CC', // Peach
+  surfaceMuted: '#F3ECE4', // Peach
   border: '#F0E2D4',
   track: '#F3E7DB',
   text: '#2A1608', // Ink
@@ -15,23 +15,23 @@ export const colors = {
   primaryText: '#2A1608',
   primarySoft: '#FF8A3D',
   link: '#C4450B', // Ember — orange text on light backgrounds
-  accent: '#FFB061', // Amber — countdown ring, progress
-  pause: '#0B3440', // Deep water — the pause screen
+  accent: '#FF6B1A', // Amber — countdown ring, progress
+  pause: '#2A1608', // Deep water — the pause screen
   pauseText: '#FFF6EC',
-  pauseMuted: '#8FD3E0',
-  lagoon: '#0F5F6E',
-  lagoonDeep: '#0F4A57',
-  shell: '#DDF0F3',
+  pauseMuted: '#D9BFA8',
+  lagoon: '#2A1608',
+  lagoonDeep: '#2A1608',
+  shell: '#F3ECE4',
   danger: '#B3261E', // high-risk messages only, never user setbacks
   success: '#2F8F5B',
   white: '#FFFFFF',
   // Module identity
-  debt: '#5E3D8C',
-  debtSoft: '#EFE6F7',
-  spend: '#B8480A',
-  spendSoft: '#FFE3CC',
-  scroll: '#0F5F6E',
-  scrollSoft: '#DDF0F3',
+  debt: '#2A1608',
+  debtSoft: '#F3ECE4',
+  spend: '#2A1608',
+  spendSoft: '#F3ECE4',
+  scroll: '#2A1608',
+  scrollSoft: '#F3ECE4',
 } as const;
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28, xxxl: 40 } as const;

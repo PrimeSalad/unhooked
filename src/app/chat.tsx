@@ -1,11 +1,13 @@
 // Ask Ginto: chat grounded in the user's own records. Local by default, Claude when opted in.
 
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
+import * as ImagePicker from 'expo-image-picker';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,11 +16,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CLOUD_URL, cloudReply, localReply, type ChatMessage } from '@/ai/chat';
+import { CLOUD_URL, cloudReply, localImageReply, localReply, type ChatMessage } from '@/ai/chat';
 import { Ginto } from '@/components/mascot/Ginto';
-import { goBack, IconButton, Text } from '@/components/ui';
+import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { getOverview } from '@/db/repo';
+import { addEvidence, getOverview } from '@/db/repo';
+import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
 
 const SUGGESTIONS = [
@@ -37,7 +40,10 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const name = useSettings((s) => s.name);
   const budget = useSettings((s) => s.budget);
-  const cloud = useSettings((s) => s.cloudAiEnabled) && !!CLOUD_URL;
+  const cloudOn = useSettings((s) => s.cloudAiEnabled);
+  const setCloudAi = useSettings((s) => s.setCloudAi);
+  const showToast = useSession((s) => s.showToast);
+  const cloud = cloudOn && !!CLOUD_URL;
   const scroller = useRef<ScrollView>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -50,11 +56,35 @@ export default function ChatScreen() {
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
+  const [photo, setPhoto] = useState<ChatMessage['image'] | null>(null);
+  const [askConsent, setAskConsent] = useState(false);
 
-  const send = async (raw: string) => {
+  const pickPhoto = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.5,
+      base64: true,
+    });
+    const a = res.canceled ? null : res.assets[0];
+    if (!a?.base64) return;
+    setPhoto({ uri: a.uri, base64: a.base64, mediaType: a.mimeType ?? 'image/jpeg' });
+  };
+
+  const saveEvidence = async (uri: string) => {
+    await addEvidence(db, { lender: 'From chat', imageUri: uri });
+    showToast('Saved to your private Evidence Pack.');
+  };
+
+  const send = async (raw: string, route: 'auto' | 'cloud' | 'local' = 'auto') => {
     const text = raw.trim();
-    if (!text || typing) return;
-    const userMsg: ChatMessage = { id: nextId(), role: 'user', text };
+    if ((!text && !photo) || typing) return;
+    if (route === 'auto' && photo && !cloud && CLOUD_URL) {
+      setAskConsent(true);
+      return;
+    }
+    const useCloud = route === 'cloud' || (route === 'auto' && cloud);
+    const userMsg: ChatMessage = { id: nextId(), role: 'user', text, image: photo ?? undefined };
+    setPhoto(null);
     const history = [...messages, userMsg];
     setMessages(history);
     setInput('');
@@ -63,7 +93,7 @@ export default function ChatScreen() {
     const ctx = { name, budget, overview: await getOverview(db) };
     let reply: ChatMessage;
     try {
-      if (!cloud) throw new Error('local');
+      if (!useCloud) throw new Error('local');
       reply = {
         id: nextId(),
         role: 'ginto',
@@ -72,13 +102,13 @@ export default function ChatScreen() {
       };
     } catch (e) {
       await new Promise((r) => setTimeout(r, 650)); // a beat, so it reads like a reply
-      const fellBack = cloud && e instanceof Error && e.message !== 'local';
+      const fellBack = useCloud && e instanceof Error && e.message !== 'local';
       reply = {
         id: nextId(),
         role: 'ginto',
         text:
           (fellBack ? 'I could not reach the cloud, so here is my on-device answer. ' : '') +
-          localReply(text, ctx),
+          (userMsg.image ? localImageReply() : localReply(text, ctx)),
         source: 'local',
       };
     }
@@ -92,7 +122,7 @@ export default function ChatScreen() {
       style={{ flex: 1, backgroundColor: colors.bg }}
     >
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <IconButton icon="chevron-back" label="Back" onPress={goBack} />
+        <IconButton icon="back" label="Back" onPress={goBack} />
         <Ginto mood={typing ? 'thinking' : 'happy'} size={58} />
         <View style={{ flex: 1 }}>
           <Text variant="heading">Ginto</Text>
@@ -109,13 +139,27 @@ export default function ChatScreen() {
       >
         {messages.map((m) => (
           <View key={m.id} style={[styles.bubble, m.role === 'user' ? styles.user : styles.ginto]}>
-            <Text
-              variant="body"
-              color={m.role === 'user' ? colors.bg : colors.text}
-              style={{ fontSize: 15 }}
-            >
-              {m.text}
-            </Text>
+            {m.image ? <Image source={{ uri: m.image.uri }} style={styles.photo} /> : null}
+            {m.text ? (
+              <Text
+                variant="body"
+                color={m.role === 'user' ? colors.bg : colors.text}
+                style={{ fontSize: 15 }}
+              >
+                {m.text}
+              </Text>
+            ) : null}
+            {m.image ? (
+              <Pressable accessibilityRole="button" onPress={() => void saveEvidence(m.image!.uri)}>
+                <Text
+                  variant="caption"
+                  color={colors.surfaceMuted}
+                  style={{ textDecorationLine: 'underline' }}
+                >
+                  Save as evidence
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ))}
         {typing && (
@@ -146,7 +190,7 @@ export default function ChatScreen() {
                 <Text variant="small" color={colors.text}>
                   {s}
                 </Text>
-                <Ionicons name="arrow-forward" size={16} color={colors.textFaint} />
+                <Icon name="arrow-forward" size={16} color={colors.textFaint} />
               </Pressable>
             ))}
           </View>
@@ -180,7 +224,28 @@ export default function ChatScreen() {
         </ScrollView>
       )}
 
+      {photo && (
+        <View style={styles.preview}>
+          <Image source={{ uri: photo.uri }} style={styles.previewImg} />
+          <Text variant="caption" style={{ flex: 1 }}>
+            Photo ready. Add a question or just send.
+          </Text>
+          <IconButton
+            icon="close"
+            label="Remove photo"
+            tone={colors.track}
+            onPress={() => setPhoto(null)}
+          />
+        </View>
+      )}
+
       <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.md }]}>
+        <IconButton
+          icon="image"
+          label="Attach a photo"
+          tone={colors.surface}
+          onPress={() => void pickPhoto()}
+        />
         <TextInput
           value={input}
           onChangeText={setInput}
@@ -194,17 +259,44 @@ export default function ChatScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Send"
-          disabled={!input.trim() || typing}
+          disabled={(!input.trim() && !photo) || typing}
           onPress={() => void send(input)}
           style={({ pressed }) => [
             styles.send,
-            (!input.trim() || typing) && { opacity: 0.35 },
+            ((!input.trim() && !photo) || typing) && { opacity: 0.35 },
             pressed && { transform: [{ scale: 0.94 }] },
           ]}
         >
-          <Ionicons name="arrow-up" size={22} color={colors.primary} />
+          <Icon name="arrow-up" size={22} color={colors.primary} />
         </Pressable>
       </View>
+      <Sheet open={askConsent} onClose={() => setAskConsent(false)} mascot="thinking">
+        <Text variant="heading" align="center">
+          Let me read this photo?
+        </Text>
+        <Text variant="small" align="center" color={colors.textMuted}>
+          To read photos, Ginto sends this one picture and your question to Claude, with a
+          numbers-only summary of your records. Nothing else leaves your phone.
+        </Text>
+        <Button
+          label="Yes, read photos"
+          kind="ink"
+          onPress={() => {
+            setAskConsent(false);
+            setCloudAi(true);
+            void send(input, 'cloud');
+          }}
+        />
+        <Button
+          label="Keep it on my phone"
+          kind="ghost"
+          size="sm"
+          onPress={() => {
+            setAskConsent(false);
+            void send(input, 'local');
+          }}
+        />
+      </Sheet>
     </KeyboardAvoidingView>
   );
 }
@@ -289,4 +381,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   status: { width: 8, height: 8, borderRadius: 4 },
+  photo: { width: 220, height: 220, borderRadius: radius.md, marginBottom: spacing.sm },
+  preview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  previewImg: { width: 48, height: 48, borderRadius: 10 },
 });

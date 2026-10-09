@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
-import { Button, Field, Rise, Text } from '@/components/ui';
+import { Button, Field, Rise, Text, TopBar } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { parsePesoInput } from '@/domain/money';
 import { useSettings } from '@/store/settings';
@@ -60,10 +60,10 @@ export default function WelcomeScreen() {
       </View>
     );
   }
-  return <Setup />;
+  return <Setup onBack={() => setStep('hello')} />;
 }
 
-function Setup() {
+function Setup({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
   const { setName, setBudget, setOnboarded } = useSettings();
   const [name, setNameText] = useState('');
@@ -101,6 +101,7 @@ function Setup() {
         }}
         keyboardShouldPersistTaps="handled"
       >
+        <TopBar onPress={onBack} />
         <View style={{ alignItems: 'center' }}>
           <Ginto mood="thinking" size={130} />
         </View>

@@ -1,7 +1,7 @@
 // Floating pill tab bar with a raised center action (the pause), after the Iconly
 // "media-centered navigation" pattern. Hidden routes (href: null) are skipped.
 
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { router, type Tabs } from 'expo-router';
 import { useState, type ComponentProps } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
@@ -15,10 +15,10 @@ import { useSession } from '@/store/session';
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 const ICONS: Record<string, [IconName, IconName]> = {
-  index: ['home-outline', 'home'],
-  debt: ['wallet-outline', 'wallet'],
-  spend: ['bag-handle-outline', 'bag-handle'],
-  scroll: ['phone-portrait-outline', 'phone-portrait'],
+  index: ['home', 'home'],
+  debt: ['wallet', 'wallet'],
+  spend: ['bag', 'bag'],
+  scroll: ['device', 'device'],
 };
 
 function Tab({
@@ -40,7 +40,7 @@ function Tab({
       onPress={onPress}
       style={({ pressed }) => [styles.tab, pressed && { opacity: 0.6 }]}
     >
-      <Ionicons
+      <Icon
         name={focused ? icon[1] : icon[0]}
         size={24}
         color={focused ? colors.text : '#A08B7C'}
@@ -67,7 +67,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
     const focused = state.index === index;
     const opts = descriptors[route.key]?.options;
     const label = typeof opts?.title === 'string' ? opts.title : route.name;
-    const icon = ICONS[route.name] ?? (['ellipse-outline', 'ellipse'] as [IconName, IconName]);
+    const icon = ICONS[route.name] ?? (['circle', 'circle'] as [IconName, IconName]);
     return (
       <Tab
         key={route.key}
@@ -119,7 +119,7 @@ const OPTIONS: {
   go: () => void;
 }[] = [
   {
-    icon: 'bag-handle-outline',
+    icon: 'bag',
     title: 'I am about to buy something',
     sub: 'Check it against your budget first',
     bg: colors.spendSoft,
@@ -127,7 +127,7 @@ const OPTIONS: {
     go: () => router.push('/spend'),
   },
   {
-    icon: 'wallet-outline',
+    icon: 'wallet',
     title: 'I want to borrow money',
     sub: 'See what you already owe before you sign',
     bg: colors.debtSoft,
@@ -135,7 +135,7 @@ const OPTIONS: {
     go: () => router.push('/borrow'),
   },
   {
-    icon: 'phone-portrait-outline',
+    icon: 'device',
     title: 'I keep scrolling',
     sub: 'Set a limit and I will check in',
     bg: colors.scrollSoft,
@@ -143,10 +143,10 @@ const OPTIONS: {
     go: () => router.push('/scroll'),
   },
   {
-    icon: 'chatbubble-ellipses-outline',
+    icon: 'chat',
     title: 'I just need to talk',
     sub: 'Ask Ginto anything about your money or habits',
-    bg: '#F4ECE4',
+    bg: '#F3ECE4',
     fg: colors.text,
     go: () => router.push('/chat'),
   },
@@ -212,13 +212,13 @@ function QuickPauseSheet() {
             ]}
           >
             <View style={[styles.optionIcon, { backgroundColor: o.bg }]}>
-              <Ionicons name={o.icon} size={22} color={o.fg} />
+              <Icon name={o.icon} size={22} color={o.fg} />
             </View>
             <View style={{ flex: 1 }}>
               <Text variant="strong">{o.title}</Text>
               <Text variant="caption">{o.sub}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+            <Icon name="forward" size={18} color={colors.textFaint} />
           </Pressable>
         ))}
       </Animated.View>

@@ -52,11 +52,15 @@ export interface GuardedApp {
   end: number;
 }
 
-/** Starts (or updates) the foreground app guard. No-op where the guard isn't available. */
+/**
+ * Starts (or updates) the foreground app guard. No-op where the guard isn't available.
+ * fadeAfterMin: minutes in a guarded app before the doomscroll fade and check-in (0 = off).
+ */
 export function startAppGuard(config: {
   apps: GuardedApp[];
   timerUntilMs: number;
   pauseSeconds: number;
+  fadeAfterMin: number;
 }) {
   native()?.startAppGuard(JSON.stringify(config));
 }

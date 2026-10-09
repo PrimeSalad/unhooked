@@ -173,12 +173,7 @@ export default function SettingsScreen() {
         </Row>
       </Card>
 
-      <Button
-        label="Delete all my data"
-        kind="ghost"
-        icon="trash-outline"
-        onPress={confirmDelete}
-      />
+      <Button label="Delete all my data" kind="ghost" icon="trash" onPress={confirmDelete} />
     </Screen>
   );
 }

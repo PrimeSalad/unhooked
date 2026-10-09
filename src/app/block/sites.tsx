@@ -127,8 +127,8 @@ export default function SitesScreen() {
       </Section>
 
       <Text variant="caption" style={{ lineHeight: 18 }}>
-        This is a speed bump, not a lock. Some browsers&apos; Secure DNS or another VPN can get around
-        website guards, and you can always remove one.
+        This is a speed bump, not a lock. Some browsers&apos; Secure DNS or another VPN can get
+        around website guards, and you can always remove one.
       </Text>
 
       <Sheet open={!!disclose} onClose={() => setDisclose(null)} mascot="brave">
