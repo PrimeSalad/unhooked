@@ -16,7 +16,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CLOUD_URL, cloudReply, localImageReply, localReply, type ChatMessage } from '@/ai/chat';
+import {
+  CLOUD_URL,
+  cloudReply,
+  contextSummary,
+  localImageReply,
+  localReply,
+  type ChatMessage,
+} from '@/ai/chat';
+import { generateAndroidLocalReply } from '@/ai/androidLocalAi';
 import { Ginto } from '@/components/mascot/Ginto';
 import { GemmaModelSheet } from '@/components/chat/GemmaModelSheet';
 import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
@@ -43,6 +51,8 @@ export default function ChatScreen() {
   const budget = useSettings((s) => s.budget);
   const cloudOn = useSettings((s) => s.cloudAiEnabled);
   const setCloudAi = useSettings((s) => s.setCloudAi);
+  const localAiModel = useSettings((s) => s.localAiModel);
+  const setLocalAiModel = useSettings((s) => s.setLocalAiModel);
   const showToast = useSession((s) => s.showToast);
   const cloud = cloudOn && !!CLOUD_URL;
   const scroller = useRef<ScrollView>(null);
@@ -60,6 +70,7 @@ export default function ChatScreen() {
   const [photo, setPhoto] = useState<ChatMessage['image'] | null>(null);
   const [askConsent, setAskConsent] = useState(false);
   const [showModelSettings, setShowModelSettings] = useState(false);
+  const [activeBackend, setActiveBackend] = useState<string | null>(null);
 
   const pickPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -93,7 +104,7 @@ export default function ChatScreen() {
     setTyping(true);
 
     const ctx = { name, budget, overview: await getOverview(db) };
-    let reply: ChatMessage;
+    let reply: ChatMessage | undefined;
     try {
       if (!useCloud) throw new Error('local');
       reply = {
@@ -103,18 +114,41 @@ export default function ChatScreen() {
         source: 'cloud',
       };
     } catch (e) {
-      await new Promise((r) => setTimeout(r, 650)); // a beat, so it reads like a reply
       const fellBack = useCloud && e instanceof Error && e.message !== 'local';
-      reply = {
-        id: nextId(),
-        role: 'ginto',
-        text:
-          (fellBack ? 'I could not reach the cloud, so here is my on-device answer. ' : '') +
-          (userMsg.image ? localImageReply() : localReply(text, ctx)),
-        source: 'local',
-      };
+      if (!userMsg.image) {
+        try {
+          const generation = await generateAndroidLocalReply(
+            localAiModel,
+            text,
+            contextSummary(ctx),
+          );
+          if (generation) {
+            setActiveBackend(generation.backend);
+            reply = {
+              id: nextId(),
+              role: 'ginto',
+              text: `${fellBack ? 'I could not reach the cloud, so I answered privately on this phone. ' : ''}${generation.text}`,
+              source: 'local',
+            };
+          }
+        } catch {
+          // If model startup or inference fails, keep the existing deterministic offline answers.
+        }
+      }
+
+      if (!reply) {
+        await new Promise((r) => setTimeout(r, 250));
+        reply = {
+          id: nextId(),
+          role: 'ginto',
+          text:
+            (fellBack ? 'I could not reach the cloud, so here is my on-device answer. ' : '') +
+            (userMsg.image ? localImageReply() : localReply(text, ctx)),
+          source: 'local',
+        };
+      }
     }
-    setMessages((m) => [...m, reply]);
+    if (reply) setMessages((m) => [...m, reply]);
     setTyping(false);
   };
 
@@ -128,7 +162,7 @@ export default function ChatScreen() {
         <Ginto mood={typing ? 'thinking' : 'happy'} size={58} />
         <View style={{ flex: 1 }}>
           <Text variant="heading">Ginto</Text>
-          <StatusLine cloud={cloud} />
+          <StatusLine cloud={cloud} activeBackend={activeBackend} />
         </View>
         <IconButton
           icon="settings"
@@ -304,17 +338,27 @@ export default function ChatScreen() {
           }}
         />
       </Sheet>
-      <GemmaModelSheet visible={showModelSettings} onClose={() => setShowModelSettings(false)} />
+      <GemmaModelSheet
+        visible={showModelSettings}
+        onClose={() => setShowModelSettings(false)}
+        modelChoice={localAiModel}
+        onModelChoiceChange={setLocalAiModel}
+        onBackendChange={setActiveBackend}
+      />
     </KeyboardAvoidingView>
   );
 }
 
-function StatusLine({ cloud }: { cloud: boolean }) {
+function StatusLine({ cloud, activeBackend }: { cloud: boolean; activeBackend: string | null }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <View style={[styles.status, { backgroundColor: cloud ? colors.lagoon : colors.success }]} />
       <Text variant="caption">
-        {cloud ? 'Claude · only your numbers are shared' : 'On-device · private'}
+        {cloud
+          ? 'Claude · only your numbers are shared'
+          : activeBackend
+            ? `On-device · ${activeBackend}`
+            : 'On-device · private'}
       </Text>
     </View>
   );

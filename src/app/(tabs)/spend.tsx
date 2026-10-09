@@ -3,14 +3,18 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { buildSpendInsights } from '@/ai/insights';
 import { BudgetSetup } from '@/components/BudgetSetup';
 import {
   Avatar,
   Button,
+  Card,
   Group,
   GroupRow,
   LargeTitle,
   ProgressBar,
+  Rise,
+  Row,
   Screen,
   Section,
   Sheet,
@@ -176,6 +180,7 @@ export default function SpendScreen() {
   const payday = budget ? nextPayday(budget.payday, new Date(now)) : null;
   const days = payday ? daysUntil(payday, new Date(now)) : 0;
   const perDay = dailyAllowance(free, days);
+  const spendInsights = buildSpendInsights(o, budget);
 
   return (
     <Screen>
@@ -230,6 +235,20 @@ export default function SpendScreen() {
           onPress={() => router.push('/block/apps')}
         />
       </Group>
+
+      <Section title="AI insights">
+        {spendInsights.map((insight, index) => (
+          <Rise key={insight.id} delay={60 * (index + 1)}>
+            <Card>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Text variant="strong">Spend</Text>
+                <Tag certainty={insight.certainty} />
+              </Row>
+              <Text>{insight.text}</Text>
+            </Card>
+          </Rise>
+        ))}
+      </Section>
 
       {cooling.length > 0 && (
         <Section title={`Cooling off · ${cooling.length}`}>
