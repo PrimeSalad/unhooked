@@ -13,8 +13,10 @@ import { ActivityIndicator, View } from 'react-native';
 import { ToastHost } from '@/components/Toast';
 import { colors } from '@/constants/theme';
 import { DatabaseGate } from '@/db/DatabaseGate';
+import { useWarmLocalModel } from '@/hooks/useWarmLocalModel';
 
 export default function RootLayout() {
+  useWarmLocalModel();
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,

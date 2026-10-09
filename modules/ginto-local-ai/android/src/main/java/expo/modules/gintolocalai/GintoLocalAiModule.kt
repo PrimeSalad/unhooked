@@ -65,6 +65,29 @@ class GintoLocalAiModule : Module() {
       }
     }
 
+    // One-shot generation in its own conversation: used by the pause so reflections never
+    // leak into (or inherit from) the Ask Ginto chat history.
+    AsyncFunction("generateOnce") { modelUri: String, systemInstruction: String, prompt: String ->
+      runtimeLock.withLock {
+        initializeModel(modelUri)
+        val activeEngine = engine ?: throw IllegalStateException("The local model is not ready.")
+        val once = activeEngine.createConversation(
+          ConversationConfig(systemInstruction = Contents.of(systemInstruction)),
+        )
+        try {
+          val answer = once.sendMessage(prompt)?.toString()?.trim().orEmpty()
+          if (answer.isBlank()) throw IllegalStateException("The local model returned an empty reply.")
+          mapOf(
+            "text" to answer,
+            "backend" to activeBackend,
+            "backendNote" to backendNote,
+          )
+        } finally {
+          runCatching { once.close() }
+        }
+      }
+    }
+
     AsyncFunction("analyzeMessageRisk") { modelUri: String, message: String ->
       runtimeLock.withLock {
         initializeModel(modelUri)

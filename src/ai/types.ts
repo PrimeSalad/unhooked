@@ -25,6 +25,8 @@ export interface Reflection {
   suggestions: LabeledLine[]; // 1–3 practical options
   tone: Tone;
   source: 'local' | 'cloud';
+  /** Present when the on-device language model rephrased the headline and suggestion. */
+  phrasing?: { model: string; backend: string; ms: number };
 }
 
 export interface Insight {

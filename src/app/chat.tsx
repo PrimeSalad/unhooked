@@ -20,11 +20,14 @@ import {
   CLOUD_URL,
   cloudReply,
   contextSummary,
+  isCrisis,
   localImageReply,
   localReply,
+  localReplyOrNull,
   type ChatMessage,
 } from '@/ai/chat';
 import { generateAndroidLocalReply } from '@/ai/androidLocalAi';
+import { allowedNumbers, vetModelText } from '@/ai/guard';
 import { Ginto } from '@/components/mascot/Ginto';
 import { GemmaModelSheet } from '@/components/chat/GemmaModelSheet';
 import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
@@ -104,9 +107,13 @@ export default function ChatScreen() {
     setTyping(true);
 
     const ctx = { name, budget, overview: await getOverview(db) };
+    // Rules compute, the model phrases. Crisis wording never reaches any model (R5).
+    const summary = contextSummary(ctx);
+    const computed = localReplyOrNull(text, ctx);
+    const crisis = isCrisis(text);
     let reply: ChatMessage | undefined;
     try {
-      if (!useCloud) throw new Error('local');
+      if (!useCloud || crisis) throw new Error('local');
       reply = {
         id: nextId(),
         role: 'ginto',
@@ -115,24 +122,34 @@ export default function ChatScreen() {
       };
     } catch (e) {
       const fellBack = useCloud && e instanceof Error && e.message !== 'local';
-      if (!userMsg.image) {
+      if (!userMsg.image && !crisis) {
         try {
           const generation = await generateAndroidLocalReply(
             localAiModel,
             text,
-            contextSummary(ctx),
+            summary,
+            computed,
           );
           if (generation) {
             setActiveBackend(generation.backend);
-            reply = {
-              id: nextId(),
-              role: 'ginto',
-              text: `${fellBack ? 'I could not reach the cloud, so I answered privately on this phone. ' : ''}${generation.text}`,
-              source: 'local',
-            };
+            // Every number the model repeats must already exist in the records summary,
+            // the computed answer, or the user's own question. Otherwise keep the rules' reply.
+            const verdict = vetModelText(
+              generation.text,
+              allowedNumbers([summary, computed ?? '', text]),
+              700,
+            );
+            if (verdict.ok) {
+              reply = {
+                id: nextId(),
+                role: 'ginto',
+                text: `${fellBack ? 'I could not reach the cloud, so I answered privately on this phone. ' : ''}${generation.text}`,
+                source: 'local',
+              };
+            }
           }
         } catch {
-          // If model startup or inference fails, keep the existing deterministic offline answers.
+          // Model startup, inference failure or timeout: keep the deterministic offline answer.
         }
       }
 

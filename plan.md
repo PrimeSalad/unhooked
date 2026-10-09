@@ -8,12 +8,12 @@
 | Area | State |
 |---|---|
 | Today, Debt, Spend, Scroll, Insights | Real data from SQLite; empty states; real-app hierarchy (large titles, dark hero, grouped lists, icon grid); floating tab bar with a center pause button |
-| AI Pause, Unhooked | Facts from the user's records → `localProvider` templates, labeled lines, real countdown, haptic |
+| AI Pause, Unhooked | Facts from the user's records → `localProvider` templates (instant), then the on-device LiteRT-LM model (Gemma 3 / Qwen / Gemma 4 via `generateOnce`) rephrases headline + suggestion during the countdown; `src/ai/guard.ts` rejects any reply with an unrecorded number or shame word and keeps the template; `pause_phrased` event logs source/backend/latency; labeled lines, real countdown, haptic |
 | Debt | Add owed/lent, payments, settle, delete, borrowing pause, Evidence Pack (screenshots + saved messages) |
 | Spend | Budget, purchase check (affordability, cheaper option, BNPL true cost), 24h cooling with reminder, recent |
 | Scroll | Guards (apps + sites, schedules, Pause/Strict), Unhook timer, scroll timer with check-in, stats |
 | Safety | On-device message detector (English + Taglish) with highlights; Help |
-| Ask Ginto | On-device answers from the user's numbers; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
+| Ask Ginto | Rules compute (`localReplyOrNull`), on-device model phrases; whole-word intent matching; crisis wording never reaches a model; 20 s inference timeout; number-provenance guard falls back to the rules' reply; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
 | Phase 4B native | `AppGuardService` (usage events → shield deep link), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested |
 | Still open | Phase 2–3 phone tap-through (PDF sharing and cooling reminder), seed demo data, Taglish copy, device test of 4B, Play declarations |
 **Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone.

@@ -17,7 +17,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getReflectionProvider, type Reflection } from '@/ai';
+import { getReflectionProvider, type PauseContext, type Reflection } from '@/ai';
+import { phraseAndroidPause, supportsAndroidPausePhrasing } from '@/ai/androidLocalAi';
+import { LOCAL_MODEL_BY_ID } from '@/ai/localModels';
+import { applyPausePhrasing, buildPausePrompt } from '@/ai/pausePhrasing';
 import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
@@ -102,6 +105,7 @@ export default function PauseScreen() {
   const db = useSQLiteContext();
   const total = useSettings((s) => s.pauseSeconds);
   const budget = useSettings((s) => s.budget);
+  const localAiModel = useSettings((s) => s.localAiModel);
   const showToast = useSession((s) => s.showToast);
   const snoozeScrollPause = useSession((s) => s.snoozeScrollPause);
   const setScrollReminderId = useSession((s) => s.setScrollReminderId);
@@ -114,6 +118,8 @@ export default function PauseScreen() {
   );
   const [item, setItem] = useState('');
   const [reflection, setReflection] = useState<Reflection | null>(null);
+  // 'thinking' while the on-device model rephrases; the template is already on screen.
+  const [phrasing, setPhrasing] = useState<'off' | 'thinking' | 'done' | 'kept'>('off');
   const [reveal] = useState(() => new Animated.Value(0));
   const scrollDecisionPending = useRef(false);
   const locked = left > 0;
@@ -143,17 +149,53 @@ export default function PauseScreen() {
       budget,
     )
       .then(async ({ title: t, item: i, facts, checkIn }) => {
-        const r = await getReflectionProvider().reflect({ kind, facts, latestCheckIn: checkIn });
+        const ctx: PauseContext = { kind, facts, latestCheckIn: checkIn };
+        const template = await getReflectionProvider().reflect(ctx);
         if (!alive) return;
         setTitle(t);
         setItem(i);
-        setReflection(r);
+        setReflection(template);
+        if (!supportsAndroidPausePhrasing()) return;
+
+        // The countdown doubles as the model's thinking time. Numbers stay in the
+        // domain-computed lines; the model only rewrites the headline and suggestion,
+        // and applyPausePhrasing rejects anything with an unrecorded number or shame word.
+        setPhrasing('thinking');
+        const prompt = buildPausePrompt(ctx, template);
+        const generated = await phraseAndroidPause(localAiModel, prompt, total * 1000 + 10_000).catch(
+          () => null,
+        );
+        if (!alive) return;
+        if (!generated) {
+          setPhrasing('kept');
+          return;
+        }
+        const model = LOCAL_MODEL_BY_ID[generated.modelId].name;
+        const result = applyPausePhrasing(ctx, template, generated.text, {
+          model,
+          backend: generated.backend,
+          ms: generated.ms,
+        });
+        if (result.reflection) {
+          setReflection(result.reflection);
+          setPhrasing('done');
+        } else {
+          setPhrasing('kept');
+        }
+        void logEvent(db, 'pause_phrased', {
+          kind,
+          source: result.reflection ? 'model' : 'template',
+          model,
+          backend: generated.backend,
+          ms: generated.ms,
+          ...(result.rejected ? { rejected: result.rejected } : {}),
+        });
       })
       .catch((e: unknown) => console.warn('pause facts failed', e));
     return () => {
       alive = false;
     };
-  }, [budget, db, kind, params.amount, params.purchaseId, params.app, params.minutes]);
+  }, [budget, db, kind, localAiModel, total, params.amount, params.purchaseId, params.app, params.minutes]);
 
   useEffect(() => {
     if (locked) return;
@@ -324,6 +366,11 @@ export default function PauseScreen() {
             <Text variant="small" color={colors.pauseMuted}>
               {left} {left === 1 ? 'second' : 'seconds'} · choices unlock after the pause
             </Text>
+            {phrasing === 'thinking' ? (
+              <Text variant="caption" color={colors.pauseMuted} style={{ marginTop: spacing.sm }}>
+                Ginto is thinking on this phone. Nothing is sent anywhere.
+              </Text>
+            ) : null}
           </View>
         ) : (
           <Rise>
@@ -340,6 +387,13 @@ export default function PauseScreen() {
                   </Text>
                 </View>
               ))}
+              <Text variant="caption" color={colors.pauseMuted}>
+                {reflection.phrasing
+                  ? `Phrased on this phone · ${reflection.phrasing.model} on ${reflection.phrasing.backend} · ${(reflection.phrasing.ms / 1000).toFixed(1)} s · numbers from your records`
+                  : phrasing === 'thinking'
+                    ? 'Ginto is still thinking on this phone…'
+                    : 'Written on this phone from your records. Nothing was sent anywhere.'}
+              </Text>
             </View>
           </Rise>
         )}

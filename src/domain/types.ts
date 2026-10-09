@@ -98,6 +98,7 @@ export type AppEventType =
   | 'purchase_saved_for_later'
   | 'bnpl_calculated'
   | 'pause_shown'
+  | 'pause_phrased' // { kind, source: 'model' | 'template', model?, backend?, ms?, rejected? }
   | 'pause_decision'
   | 'scroll_session_started'
   | 'scroll_checkin_answered'
