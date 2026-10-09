@@ -169,7 +169,7 @@ We did not build these. Each is used under its own license.
 
 - [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM) (`com.google.ai.edge.litertlm:litertlm-android`), the Android runtime for the chat model
 - Models from [litert-community on Hugging Face](https://huggingface.co/litert-community): [Gemma 3 1B IT](https://huggingface.co/litert-community/Gemma3-1B-IT), [Qwen 2.5 1.5B Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Gemma 4 E2B IT](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma 4 E4B IT](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (Gemma models under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms))
-- [@react-native-ml-kit/text-recognition](https://github.com/a7medev/react-native-ml-kit) wrapping [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
+- [@react-native-ml-kit/text-recognition](https://github.com/a7med-mahmoud/react-native-ml-kit) wrapping [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
 - [Tesseract.js](https://github.com/naptha/tesseract.js) for screenshot reading on web
 - [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (`@anthropic-ai/sdk`), used only by the optional Ginto server
 
