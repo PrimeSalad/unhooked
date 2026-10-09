@@ -217,6 +217,20 @@ export default function SpendScreen() {
         onPress={() => router.push('/spend-check')}
       />
 
+      <Group>
+        <GroupRow
+          icon="shield"
+          title="Payday shield"
+          subtitle="Your real numbers show up when Shopee or Lazada opens"
+          onPress={() => router.push('/shield?label=Shopee&pkg=com.shopee.ph&preview=1')}
+        />
+        <GroupRow
+          icon="bag"
+          title="Choose shopping apps to guard"
+          onPress={() => router.push('/block/apps')}
+        />
+      </Group>
+
       {cooling.length > 0 && (
         <Section title={`Cooling off · ${cooling.length}`}>
           <Group>

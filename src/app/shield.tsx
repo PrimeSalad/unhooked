@@ -13,15 +13,18 @@ import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
 import { CountdownRing } from '@/components/pause/CountdownRing';
-import { Button, Chips, goBack, Rise, Row, Sheet, Tag, Text, TopBar } from '@/components/ui';
+import { Button, Chips, Field, goBack, Rise, Row, Sheet, Tag, Text, TopBar } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { attemptsToday } from '@/db/blockRules';
 import { logEvent } from '@/db/events';
-import { scrollStats } from '@/db/repo';
+import { addPurchase, emptyOverview, getOverview, scrollStats, setPurchaseStatus } from '@/db/repo';
+import { useDbQuery } from '@/db/useDbQuery';
 import { pauseSecondsFor } from '@/domain/blocking';
+import { formatPHP, parsePesoInput } from '@/domain/money';
+import { isLateNight, isShoppingApp, shieldMoney } from '@/domain/paydayShield';
 import { formatMinutes } from '@/domain/scroll';
 import { isGuardAvailable, letThrough } from '@/lib/guard';
-import { timeLeft } from '@/lib/format';
+import { shortDate, timeLeft } from '@/lib/format';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
 
@@ -46,6 +49,15 @@ export default function ShieldScreen() {
   const base = useSettings((s) => s.pauseSeconds);
   const timerUntil = useSettings((s) => s.timerUntil);
   const seconds = pauseSecondsFor(strict ? 'strict' : 'pause', base);
+  const budget = useSettings((s) => s.budget);
+  const shopping = isShoppingApp(p.pkg, p.label);
+  const late = isLateNight();
+  const { data: o } = useDbQuery(getOverview, emptyOverview);
+  const money = budget ? shieldMoney(budget, o.spentThisMonth, o.dueThisMonth) : null;
+  const [wish, setWish] = useState(false);
+  const [item, setItem] = useState('');
+  const [price, setPrice] = useState('');
+  const priceC = parsePesoInput(price);
 
   const [left, setLeft] = useState(seconds);
   const [attempts, setAttempts] = useState(0);
@@ -73,6 +85,25 @@ export default function ShieldScreen() {
     if (!preview) goHome();
     router.dismissTo('/scroll');
     if (preview) showToast(`On your phone, this sends you home instead of ${label}.`);
+  };
+
+  const saveWish = async () => {
+    if (!item.trim() || !priceC) return;
+    try {
+      const id = await addPurchase(db, { item: item.trim(), price: priceC, isNeed: false });
+      await setPurchaseStatus(db, id, 'cooling');
+      await logEvent(db, 'block_decision', {
+        target,
+        decision: 'wishlist',
+        secondsViewed: seconds,
+      });
+      setWish(false);
+      if (!preview) goHome();
+      router.dismissTo('/spend');
+      showToast(`Saved ${item.trim()}. I will remind you in 24 hours.`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not save it.');
+    }
   };
 
   const open = async () => {
@@ -106,13 +137,15 @@ export default function ShieldScreen() {
 
       <View style={{ gap: 4, maxWidth: '70%' }}>
         <Text variant="eyebrow" color={colors.pauseMuted}>
-          {preview ? 'Preview · hook guard' : 'Hook guard'}
+          {preview ? 'Preview · ' : ''}
+          {shopping ? 'Payday shield' : 'Hook guard'}
         </Text>
         <Text variant="title" color={colors.pauseText} style={{ fontSize: 28, lineHeight: 34 }}>
           {label}
         </Text>
         <Text variant="small" color={colors.pauseMuted}>
           {attempts > 1 ? `Opened ${attempts} times today` : 'First time today'}
+          {shopping && late ? ' · late night' : ''}
         </Text>
       </View>
 
@@ -138,41 +171,96 @@ export default function ShieldScreen() {
           </View>
         ) : (
           <Rise>
-            <View style={styles.reflection}>
-              <Text variant="heading" color={colors.pauseText}>
-                {timer ? 'Your Unhook timer is still running.' : 'What did you open it for?'}
-              </Text>
-              <View style={{ gap: 4 }}>
+            {shopping ? (
+              <View style={styles.reflection}>
+                <Text variant="heading" color={colors.pauseText}>
+                  {late ? 'Late night cart? Look first.' : 'Before you add to cart'}
+                </Text>
                 <Tag certainty="fact" dark />
-                <Text variant="small" color="#FFE9D2">
-                  {scrolled > 0
-                    ? `${formatMinutes(scrolled)} of tracked scrolling today.`
-                    : 'No tracked scrolling yet today.'}
-                  {timer ? ` Timer: ${timer}.` : ''}
-                </Text>
+                {money ? (
+                  <View style={{ gap: 2 }}>
+                    <Text
+                      variant="display"
+                      color={colors.pauseText}
+                      style={{ fontSize: 34, lineHeight: 40 }}
+                    >
+                      {formatPHP(money.perDay)}
+                      <Text variant="small" color={colors.pauseMuted}>
+                        {' '}
+                        / day
+                      </Text>
+                    </Text>
+                    <Text variant="small" color="#FFE9D2">
+                      {money.free > 0
+                        ? `Safe to spend until payday on ${shortDate(money.payday.toISOString())} (${money.days} ${money.days === 1 ? 'day' : 'days'}).`
+                        : 'Nothing left to spend until payday after bills and repayments.'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text variant="small" color="#FFE9D2">
+                    Set your budget in Spend to see how much is safe per day.
+                  </Text>
+                )}
+                {o.nextDue ? (
+                  <Text variant="small" color="#FFE9D2">
+                    {formatPHP(o.nextDue.outstanding)} due to {o.nextDue.debt.counterparty}
+                    {o.nextDue.debt.dueDate ? ` on ${shortDate(o.nextDue.debt.dueDate)}` : ''}.
+                  </Text>
+                ) : null}
+                {o.cooling.length > 0 ? (
+                  <Text variant="small" color="#FFE9D2">
+                    {o.cooling.length === 1
+                      ? `${o.cooling[0]!.item} is still cooling off.`
+                      : `${o.cooling.length} items are still cooling off.`}
+                  </Text>
+                ) : null}
               </View>
-              <View style={{ gap: 4 }}>
-                <Tag certainty="suggestion" dark />
-                <Text variant="small" color="#FFE9D2">
-                  If it was a reflex, close it and do one small thing offline.
+            ) : (
+              <View style={styles.reflection}>
+                <Text variant="heading" color={colors.pauseText}>
+                  {timer ? 'Your Unhook timer is still running.' : 'What did you open it for?'}
                 </Text>
+                <View style={{ gap: 4 }}>
+                  <Tag certainty="fact" dark />
+                  <Text variant="small" color="#FFE9D2">
+                    {scrolled > 0
+                      ? `${formatMinutes(scrolled)} of tracked scrolling today.`
+                      : 'No tracked scrolling yet today.'}
+                    {timer ? ` Timer: ${timer}.` : ''}
+                  </Text>
+                </View>
+                <View style={{ gap: 4 }}>
+                  <Tag certainty="suggestion" dark />
+                  <Text variant="small" color="#FFE9D2">
+                    If it was a reflex, close it and do one small thing offline.
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
           </Rise>
         )}
       </View>
 
       <View style={{ gap: 10 }}>
         <Button label={`Close ${label}`} disabled={locked} onPress={() => void close()} />
-        <Button
-          label="Take a break with Ginto"
-          kind="outlineLight"
-          disabled={locked}
-          onPress={async () => {
-            await decide('break');
-            router.replace('/break');
-          }}
-        />
+        {shopping ? (
+          <Button
+            label="Save to wishlist for 24h"
+            kind="outlineLight"
+            disabled={locked}
+            onPress={() => setWish(true)}
+          />
+        ) : (
+          <Button
+            label="Take a break with Ginto"
+            kind="outlineLight"
+            disabled={locked}
+            onPress={async () => {
+              await decide('break');
+              router.replace('/break');
+            }}
+          />
+        )}
         <Row style={{ justifyContent: 'space-between' }}>
           <Button
             label="Open anyway"
@@ -183,6 +271,34 @@ export default function ShieldScreen() {
           />
         </Row>
       </View>
+
+      <Sheet open={wish} onClose={() => setWish(false)}>
+        <Text variant="heading" align="center">
+          Save it, decide tomorrow
+        </Text>
+        <Text variant="caption" align="center">
+          It stays in Spend for 24 hours. If you still want it then, buy it.
+        </Text>
+        <Field
+          label="What is it?"
+          value={item}
+          onChangeText={setItem}
+          placeholder="Wireless earbuds"
+        />
+        <Field
+          label="Price"
+          value={price}
+          onChangeText={setPrice}
+          keyboardType="decimal-pad"
+          placeholder="1,299"
+        />
+        <Button
+          label="Save and close"
+          kind="ink"
+          disabled={!item.trim() || !priceC}
+          onPress={() => void saveWish()}
+        />
+      </Sheet>
 
       <Sheet open={confirm} onClose={() => setConfirm(false)} mascot="worried">
         <Text variant="heading" align="center">
