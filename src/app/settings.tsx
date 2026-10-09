@@ -8,6 +8,7 @@ import { Button, Card, Field, Row, Screen, ScreenHeader, Segmented, Text } from 
 import { colors, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
 import { deleteAllData } from '@/db/migrations';
+import { loadDemoData } from '@/db/seed';
 import { isGuardAvailable, syncGuard } from '@/lib/guard';
 import { bumpData } from '@/db/useDbQuery';
 import { parsePesoInput, toPesos } from '@/domain/money';
@@ -176,6 +177,20 @@ export default function SettingsScreen() {
           />
         </Row>
       </Card>
+
+      {__DEV__ && (
+        <Button
+          label="Load demo data (Ana)"
+          kind="outline"
+          size="sm"
+          onPress={async () => {
+            await loadDemoData(db);
+            await syncGuard(await listRules(db));
+            router.dismissTo('/');
+            showToast('Demo loaded: Ana, 3 debts, a cooling purchase, a week of scrolling.');
+          }}
+        />
+      )}
 
       <Button label="Delete all my data" kind="ghost" icon="trash" onPress={confirmDelete} />
     </Screen>
