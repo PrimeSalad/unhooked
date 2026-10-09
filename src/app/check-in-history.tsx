@@ -1,65 +1,52 @@
-import { router } from 'expo-router';
-import { ActivityIndicator, FlatList, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// Past daily check-ins: a 7-day mood line and one row per day. Stays on this phone.
 
-import { CheckInRecord, MoodChart } from '@/components/CheckInHistoryCards';
-import { EmptyState, ScreenHeader, Text } from '@/components/ui';
-import { colors, spacing } from '@/constants/theme';
+import { router } from 'expo-router';
+
+import { CheckInRow, MoodChart } from '@/components/CheckInHistoryCards';
+import { EmptyState, Group, Screen, ScreenHeader, Section, Tag, Text } from '@/components/ui';
 import { listCheckIns } from '@/db/checkins';
+import { latestCheckIn } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 
 export default function CheckInHistoryScreen() {
-  const insets = useSafeAreaInsets();
   const { data: checkIns, loaded } = useDbQuery(listCheckIns, []);
+  const { data: today } = useDbQuery(latestCheckIn, null);
 
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      data={checkIns}
-      keyExtractor={(checkIn) => checkIn.id}
-      renderItem={({ item }) => <CheckInRecord checkIn={item} />}
-      ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
-      contentContainerStyle={{
-        paddingTop: insets.top + spacing.lg,
-        paddingHorizontal: spacing.xl,
-        paddingBottom: insets.bottom + spacing.xxxl,
-        flexGrow: 1,
-      }}
-      ListHeaderComponent={
-        <View style={{ gap: spacing.lg, marginBottom: spacing.lg }}>
-          <ScreenHeader
-            back
-            title="Check-in history"
-            subtitle="Your saved daily ratings over time."
-          />
-          {checkIns[0] ? (
-            <>
-              <MoodChart checkIns={checkIns} latest={checkIns[0]} />
-              <View style={{ gap: spacing.xs }}>
-                <Text variant="heading">Daily records</Text>
-                <Text variant="caption">
-                  Overall feeling uses all three answers. Mood: 1 low, 5 great · Stress: 1 calm, 5
-                  very stressed · Fatigue: 1 fresh, 5 drained
-                </Text>
-              </View>
-            </>
-          ) : null}
-        </View>
-      }
-      ListEmptyComponent={
-        loaded ? (
-          <EmptyState
-            mood="curious"
-            title="No check-ins yet"
-            body="Your daily mood, stress and fatigue ratings will appear here after you save a check-in."
-            action="Check in today"
-            onAction={() => router.push('/check-in')}
-          />
-        ) : (
-          <ActivityIndicator color={colors.primary} />
-        )
-      }
-      showsVerticalScrollIndicator={false}
-    />
+    <Screen tabs={false}>
+      <ScreenHeader back title="Check-ins" />
+
+      {!loaded ? null : checkIns.length === 0 ? (
+        <EmptyState
+          mood="curious"
+          title="No check-ins yet"
+          body="Rate your mood, stress and tiredness once a day. Your history shows up here."
+          action="Check in now"
+          onAction={() => router.replace('/check-in')}
+        />
+      ) : (
+        <>
+          <MoodChart checkIns={checkIns} />
+
+          <Section
+            title={`${checkIns.length} ${checkIns.length === 1 ? 'day' : 'days'}`}
+            action={today ? undefined : 'Check in today'}
+            onAction={() => router.replace('/check-in')}
+          >
+            <Group>
+              {checkIns.map((c) => (
+                <CheckInRow key={c.id} checkIn={c} />
+              ))}
+            </Group>
+          </Section>
+
+          <Tag certainty="estimate" />
+          <Text variant="caption">
+            The day&apos;s label is an estimate from your three answers. Ratings are out of 5; for
+            stress and tired, higher is heavier.
+          </Text>
+        </>
+      )}
+    </Screen>
   );
 }
