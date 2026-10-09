@@ -1,5 +1,5 @@
 <!--
-  Merged into the app manifest by Gradle. Add permissions only in the Phase 4B step that needs them.
+  Merged into the app manifest by Gradle.
   Never add QUERY_ALL_PACKAGES or an AccessibilityService (Google Play policy, see plan.md Phase 4B).
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -10,8 +10,13 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
-    <!-- "Display over other apps": lets the shield appear over a guarded app. User-granted. -->
+    <!-- "Display over other apps": lets the pause appear over a guarded app. User-granted. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- App guard runs as a foreground service with a discreet "Unhooked is on" notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Package visibility limited to apps with a launcher icon (no QUERY_ALL_PACKAGES). -->
     <queries>
@@ -20,4 +25,25 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
     </queries>
+
+    <application>
+        <service
+            android:name="expo.modules.unhookedguard.AppGuardService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-configured pause before opening apps the user chose to guard" />
+        </service>
+
+        <!-- Local DNS-only VPN for website guards. No traffic leaves the device through us. -->
+        <service
+            android:name="expo.modules.unhookedguard.WebGuardVpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
+    </application>
 </manifest>

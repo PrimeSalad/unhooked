@@ -15,12 +15,16 @@ interface SettingsState {
   scrollLimitMinutes: number;
   pauseSeconds: number; // the real delay is the active ingredient (PNAS one sec study)
   cloudAiEnabled: boolean; // opt-in only: Ask Ginto through Claude
+  guardOn: boolean; // master switch for app & website guards
+  timerUntil: string | null; // Unhook timer: guarded apps blocked until this time
   setOnboarded: (v: boolean) => void;
   setName: (v: string) => void;
   setBudget: (b: BudgetProfile | null) => void;
   setScrollLimit: (m: number) => void;
   setPauseSeconds: (s: number) => void;
   setCloudAi: (v: boolean) => void;
+  setGuardOn: (v: boolean) => void;
+  setTimerUntil: (iso: string | null) => void;
   reset: () => void;
 }
 
@@ -31,6 +35,8 @@ const defaults = {
   scrollLimitMinutes: 20,
   pauseSeconds: 10,
   cloudAiEnabled: false,
+  guardOn: true,
+  timerUntil: null as string | null,
 };
 
 export const useSettings = create<SettingsState>()(
@@ -43,6 +49,8 @@ export const useSettings = create<SettingsState>()(
       setScrollLimit: (scrollLimitMinutes) => set({ scrollLimitMinutes }),
       setPauseSeconds: (pauseSeconds) => set({ pauseSeconds }),
       setCloudAi: (cloudAiEnabled) => set({ cloudAiEnabled }),
+      setGuardOn: (guardOn) => set({ guardOn }),
+      setTimerUntil: (timerUntil) => set({ timerUntil }),
       reset: () => set(defaults),
     }),
     {

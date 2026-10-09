@@ -1,5 +1,6 @@
 package expo.modules.unhookedguard
 
+import android.app.Activity
 import android.app.AppOpsManager
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -11,12 +12,14 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.net.VpnService
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
 import android.provider.Telephony
 import android.telecom.TelecomManager
 import android.util.Base64
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -46,6 +49,74 @@ class UnhookedGuardModule : Module() {
     Function("openOverlaySettings") {
       openSettings(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
     }
+
+    // Phase 4B steps 2–3: app guard service, "open anyway" allowance, local DNS web guard.
+    Function("startAppGuard") { configJson: String ->
+      GuardStore.saveConfig(context, configJson)
+      val intent = Intent(context, AppGuardService::class.java)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+      else context.startService(intent)
+    }
+
+    Function("stopAppGuard") {
+      GuardStore.clearConfig(context)
+      context.startService(Intent(context, AppGuardService::class.java).setAction(AppGuardService.ACTION_STOP))
+    }
+
+    Function("allowApp") { packageName: String, minutes: Int ->
+      GuardStore.allow(context, packageName, System.currentTimeMillis() + minutes * 60_000L)
+      openApp(packageName)
+    }
+
+    Function("goHome") {
+      context.startActivity(
+        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      )
+    }
+
+    Function("isWebGuardPrepared") { VpnService.prepare(context) == null }
+
+    AsyncFunction("prepareWebGuard") { promise: Promise ->
+      val consent = VpnService.prepare(context)
+      if (consent == null) {
+        promise.resolve(true)
+        return@AsyncFunction
+      }
+      val activity = appContext.currentActivity
+      if (activity == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      pendingVpnConsent = promise
+      activity.startActivityForResult(consent, VPN_REQUEST)
+    }
+
+    OnActivityResult { _, payload ->
+      if (payload.requestCode == VPN_REQUEST) {
+        pendingVpnConsent?.resolve(payload.resultCode == Activity.RESULT_OK)
+        pendingVpnConsent = null
+      }
+    }
+
+    Function("startWebGuard") { domainsJson: String ->
+      val arr = org.json.JSONArray(domainsJson)
+      GuardStore.saveDomains(context, (0 until arr.length()).map { arr.getString(it) })
+      if (VpnService.prepare(context) == null) {
+        context.startService(Intent(context, WebGuardVpnService::class.java))
+      }
+    }
+
+    Function("stopWebGuard") {
+      GuardStore.saveDomains(context, emptyList())
+      context.startService(Intent(context, WebGuardVpnService::class.java).setAction(WebGuardVpnService.ACTION_STOP))
+    }
+  }
+
+  private var pendingVpnConsent: Promise? = null
+
+  private fun openApp(packageName: String) {
+    val launch = context.packageManager.getLaunchIntentForPackage(packageName) ?: return
+    context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   }
 
   private fun launchableApps(includeIcons: Boolean): List<Map<String, Any?>> {
@@ -73,6 +144,10 @@ class UnhookedGuardModule : Module() {
           "isEssential" to (info.packageName in essential),
         )
       }
+  }
+
+  private companion object {
+    const val VPN_REQUEST = 4211
   }
 
   /** Apps that must never be guarded: calling, texting and system Settings. */

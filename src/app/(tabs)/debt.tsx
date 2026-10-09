@@ -1,21 +1,21 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
+  Avatar,
   Button,
-  Card,
   EmptyState,
   Field,
+  Group,
+  GroupRow,
   IconButton,
+  LargeTitle,
   ProgressBar,
-  Rise,
-  Row,
   Screen,
-  ScreenHeader,
+  Section,
   Segmented,
   Sheet,
   Text,
@@ -28,45 +28,6 @@ import type { DebtBalance } from '@/domain/repayment';
 import { dueLabel, isUrgent } from '@/lib/format';
 import { useSession } from '@/store/session';
 
-function DebtCard({ b, onPress }: { b: DebtBalance; onPress: () => void }) {
-  const lent = b.debt.direction === 'lent';
-  const urgent = !lent && isUrgent(b.debt.dueDate);
-  return (
-    <Card style={{ gap: spacing.md }}>
-      <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <View style={{ flex: 1 }}>
-          <Text variant="strong">{b.debt.counterparty}</Text>
-          <Text variant="caption">{b.debt.notes || (lent ? 'You lent this' : 'You owe this')}</Text>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text variant="heading">{formatPHP(b.outstanding)}</Text>
-          <Text variant="caption" color={urgent ? colors.spend : colors.textMuted}>
-            {b.outstanding === 0 ? 'Fully paid' : dueLabel(b.debt.dueDate)}
-          </Text>
-        </View>
-      </Row>
-      <ProgressBar
-        value={b.progress}
-        color={lent ? colors.success : urgent ? colors.primarySoft : colors.accent}
-      />
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Text variant="caption" color={colors.textSoft}>
-          {formatPHP(b.paid)} of {formatPHP(b.debt.principal)} {lent ? 'paid back' : 'paid'}
-        </Text>
-        {b.outstanding > 0 && (
-          <Button
-            label={lent ? 'Got paid' : 'Record payment'}
-            kind="outline"
-            size="sm"
-            onPress={onPress}
-            style={{ minHeight: 36, paddingHorizontal: spacing.md }}
-          />
-        )}
-      </Row>
-    </Card>
-  );
-}
-
 function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose: () => void }) {
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
@@ -77,11 +38,10 @@ function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose
 
   const save = async (c: number) => {
     await addPayment(db, target.debt.id, Math.min(c, target.outstanding));
-    setAmount('');
     onClose();
     showToast(
       c >= target.outstanding
-        ? `${target.debt.counterparty} is fully settled. Well done.`
+        ? `${target.debt.counterparty} is settled. Well done.`
         : 'Payment recorded.',
     );
   };
@@ -92,7 +52,7 @@ function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose
         {lent ? `${target.debt.counterparty} paid you back?` : `Paying ${target.debt.counterparty}`}
       </Text>
       <Text variant="small" align="center" color={colors.textMuted}>
-        {formatPHP(target.outstanding)} still open
+        {formatPHP(target.outstanding)} still open · {dueLabel(target.debt.dueDate)}
       </Text>
       <Field
         label="Amount"
@@ -130,13 +90,14 @@ export default function DebtScreen() {
   const [tab, setTab] = useState<'owed' | 'lent'>('owed');
   const [paying, setPaying] = useState<DebtBalance | null>(null);
 
-  const list = o.debts
-    .filter((b) => b.debt.direction === tab)
-    .sort(
-      (a, b) =>
-        (a.outstanding === 0 ? 1 : 0) - (b.outstanding === 0 ? 1 : 0) ||
-        (a.debt.dueDate ?? '9').localeCompare(b.debt.dueDate ?? '9'),
-    );
+  const mine = o.debts.filter((b) => b.debt.direction === tab);
+  const open = mine
+    .filter((b) => b.outstanding > 0)
+    .sort((a, b) => (a.debt.dueDate ?? '9').localeCompare(b.debt.dueDate ?? '9'));
+  const settled = mine.filter((b) => b.outstanding === 0);
+  const principal = mine.reduce((s, b) => s + b.debt.principal, 0);
+  const paid = mine.reduce((s, b) => s + b.paid, 0);
+  const owedTab = tab === 'owed';
 
   const addScreenshot = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
@@ -145,23 +106,48 @@ export default function DebtScreen() {
       lender: o.nextDue?.debt.counterparty ?? 'Unsorted',
       imageUri: res.assets[0].uri,
     });
-    showToast('Screenshot saved to your private Evidence Pack.');
+    showToast('Saved to your private Evidence Pack.');
   };
+
+  const row = (b: DebtBalance) => (
+    <GroupRow
+      key={b.debt.id}
+      leading={
+        <Avatar
+          label={b.debt.counterparty}
+          bg={owedTab ? colors.debtSoft : '#E5F2EA'}
+          fg={owedTab ? colors.debt : colors.success}
+        />
+      }
+      title={b.debt.counterparty}
+      subtitle={
+        b.outstanding === 0
+          ? 'Settled'
+          : `${dueLabel(b.debt.dueDate)} · ${Math.round(b.progress * 100)}% paid`
+      }
+      value={formatPHP(b.outstanding)}
+      valueTone={
+        owedTab && b.outstanding > 0 && isUrgent(b.debt.dueDate) ? colors.spend : undefined
+      }
+      onPress={b.outstanding > 0 ? () => setPaying(b) : undefined}
+    />
+  );
 
   return (
     <Screen>
-      <Row style={{ alignItems: 'flex-start' }}>
-        <View style={{ flex: 1 }}>
-          <ScreenHeader title="Debt" subtitle="What you owe, and what you are owed." />
-        </View>
-        <IconButton
-          icon="add"
-          label="Add a debt"
-          tone={colors.text}
-          color={colors.bg}
-          onPress={() => router.push({ pathname: '/debt-new', params: { direction: tab } })}
-        />
-      </Row>
+      <LargeTitle
+        eyebrow="What you owe, and what you are owed"
+        title="Debt"
+        right={
+          <IconButton
+            icon="add"
+            label="Add a debt"
+            tone={colors.text}
+            color={colors.bg}
+            onPress={() => router.push({ pathname: '/debt-new', params: { direction: tab } })}
+          />
+        }
+      />
 
       <Segmented
         value={tab}
@@ -172,86 +158,100 @@ export default function DebtScreen() {
         ]}
       />
 
-      {loaded && list.length === 0 ? (
+      {loaded && mine.length === 0 ? (
         <EmptyState
-          mood={tab === 'owed' ? 'happy' : 'thinking'}
-          title={tab === 'owed' ? 'Nothing owed. Nice.' : 'Nobody owes you yet'}
+          mood={owedTab ? 'happy' : 'thinking'}
+          title={owedTab ? 'Nothing owed. Nice.' : 'Nobody owes you yet'}
           body={
-            tab === 'owed'
-              ? 'Add loans, online lending apps or pay-later plans so I can warn you before due dates pile up.'
+            owedTab
+              ? 'Add loans, lending apps or pay-later plans so I can warn you before due dates pile up.'
               : 'Lent money to a friend or family? Keep track here instead of in your head.'
           }
-          action={tab === 'owed' ? 'Add what I owe' : 'Add money I lent'}
+          action={owedTab ? 'Add what I owe' : 'Add money I lent'}
           onAction={() => router.push({ pathname: '/debt-new', params: { direction: tab } })}
         />
       ) : (
         <>
-          <Row style={{ justifyContent: 'space-between', paddingHorizontal: 4 }}>
-            <Text variant="small" color={colors.textMuted}>
-              {tab === 'owed'
-                ? `Left to pay · ${formatPHP(o.dueThisMonth)} due this month`
-                : 'Owed to you'}
+          <View
+            style={[styles.summary, { backgroundColor: owedTab ? colors.debt : colors.success }]}
+          >
+            <Text variant="eyebrow" color="rgba(255,255,255,0.75)" style={{ fontSize: 11 }}>
+              {owedTab ? 'Left to pay' : 'Owed to you'}
             </Text>
-            <Text variant="heading" style={{ fontSize: 22 }}>
-              {formatPHP(tab === 'owed' ? o.owedTotal : o.lentTotal)}
+            <Text variant="display" color={colors.white} style={{ fontSize: 40, lineHeight: 46 }}>
+              {formatPHP(owedTab ? o.owedTotal : o.lentTotal)}
             </Text>
-          </Row>
-          <View key={tab} style={{ gap: spacing.md }}>
-            {list.map((b, i) => (
-              <Rise key={b.debt.id} delay={i * 50}>
-                <DebtCard b={b} onPress={() => setPaying(b)} />
-              </Rise>
-            ))}
+            <ProgressBar
+              value={principal ? paid / principal : 0}
+              color={colors.white}
+              track="rgba(255,255,255,0.22)"
+            />
+            <Text variant="caption" color="rgba(255,255,255,0.85)">
+              {formatPHP(paid)} of {formatPHP(principal)} {owedTab ? 'paid' : 'returned'}
+              {owedTab && o.dueThisMonth > 0
+                ? ` · ${formatPHP(o.dueThisMonth)} due this month`
+                : ''}
+            </Text>
           </View>
+
+          {open.length > 0 && (
+            <Section title={owedTab ? 'Open' : 'Waiting on'}>
+              <Group>{open.map(row)}</Group>
+            </Section>
+          )}
+          {settled.length > 0 && (
+            <Section title="Settled">
+              <Group>{settled.map(row)}</Group>
+            </Section>
+          )}
         </>
       )}
 
-      <View
-        style={{
-          backgroundColor: colors.text,
-          borderRadius: radius.xl,
-          padding: spacing.xl,
-          gap: spacing.lg,
-        }}
-      >
-        <Row style={{ justifyContent: 'space-between' }}>
-          <View style={{ flex: 1 }}>
-            <Text variant="heading" color={colors.bg}>
-              Evidence Pack
-            </Text>
-            <Text variant="caption" color="#D9BFA8">
-              {o.evidence.count === 0
-                ? 'Save threatening messages and screenshots here. Private, on this phone.'
-                : `${o.evidence.count} saved · ${o.evidence.lenders} ${o.evidence.lenders === 1 ? 'lender' : 'lenders'} · stays on this phone`}
-            </Text>
-          </View>
-          <Ionicons name="document-lock-outline" size={28} color={colors.accent} />
-        </Row>
-        <Row gap={10}>
-          <Button
-            label="Screenshot"
-            icon="image-outline"
-            size="sm"
-            style={{ flex: 1 }}
-            onPress={() => void addScreenshot()}
+      <Section title="Safety">
+        <Group>
+          <GroupRow
+            icon="images-outline"
+            iconBg={colors.text}
+            iconFg={colors.accent}
+            title="Evidence Pack"
+            subtitle={
+              o.evidence.count
+                ? `${o.evidence.count} saved · ${o.evidence.lenders} ${o.evidence.lenders === 1 ? 'lender' : 'lenders'} · private`
+                : 'Keep threatening messages and screenshots safe'
+            }
+            trailing={
+              <IconButton
+                icon="add"
+                label="Add a screenshot"
+                tone={colors.track}
+                onPress={() => void addScreenshot()}
+              />
+            }
           />
-          <Button
-            label="Scan message"
-            size="sm"
-            kind="outlineLight"
-            style={{ flex: 1 }}
+          <GroupRow
+            icon="shield-checkmark-outline"
+            title="Scan a message"
+            subtitle="Check a collector's text for warning signs"
             onPress={() => router.push('/message-check')}
           />
-        </Row>
-      </View>
+          <GroupRow
+            icon="hand-left-outline"
+            title="Thinking of borrowing?"
+            subtitle="Pause with me before you sign"
+            onPress={() => router.push('/borrow')}
+          />
+        </Group>
+      </Section>
 
-      <Button
-        label="I am thinking of borrowing"
-        kind="outline"
-        onPress={() => router.push('/borrow')}
+      <PaymentSheet
+        key={paying?.debt.id ?? 'none'}
+        target={paying}
+        onClose={() => setPaying(null)}
       />
-
-      <PaymentSheet target={paying} onClose={() => setPaying(null)} />
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  summary: { borderRadius: radius.xxl, padding: spacing.xl, gap: spacing.sm },
+});

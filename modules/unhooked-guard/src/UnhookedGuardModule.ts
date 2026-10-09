@@ -8,6 +8,14 @@ declare class UnhookedGuardModule extends NativeModule {
   canDrawOverlays(): boolean;
   openUsageAccessSettings(): void;
   openOverlaySettings(): void;
+  startAppGuard(configJson: string): void;
+  stopAppGuard(): void;
+  allowApp(packageName: string, minutes: number): void;
+  goHome(): void;
+  isWebGuardPrepared(): boolean;
+  prepareWebGuard(): Promise<boolean>;
+  startWebGuard(domainsJson: string): void;
+  stopWebGuard(): void;
 }
 
 /** Null in Expo Go, on iOS and on web: the guard needs an Android development build. */

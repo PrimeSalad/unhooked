@@ -4,7 +4,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const DATABASE_NAME = 'unhooked.db';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 const steps: Record<number, string> = {
   1: `
@@ -81,6 +81,20 @@ const steps: Record<number, string> = {
     CREATE INDEX idx_events_created ON events(created_at);
     CREATE INDEX idx_payments_debt ON payments(debt_id);
   `,
+  // Phase 4B: only the apps and sites the user picked, never the installed-app list.
+  2: `
+    CREATE TABLE block_rules (
+      id TEXT PRIMARY KEY NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('app','site')),
+      target TEXT NOT NULL,
+      label TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'pause',
+      schedule_json TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      UNIQUE (kind, target)
+    );
+  `,
 };
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
@@ -105,7 +119,7 @@ export async function deleteAllData(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(`
     DELETE FROM payments; DELETE FROM evidence; DELETE FROM debts;
     DELETE FROM purchases; DELETE FROM scroll_sessions;
-    DELETE FROM checkins; DELETE FROM events;
+    DELETE FROM checkins; DELETE FROM events; DELETE FROM block_rules;
   `);
   // TODO(P2): also delete evidence image files from the document directory.
 }

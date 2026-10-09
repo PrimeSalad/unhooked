@@ -3,7 +3,19 @@
 > **Pause. Understand. Decide.** An AI-in-Health wellness assistant for debt, spending, and doomscrolling.
 > Source spec: [`initalplan.md`](./initalplan.md) · Agent rules: [`CLAUDE.md`](./CLAUDE.md)
 
-**Status:** Phase 0 (boilerplate) ✅ done · Phase 1 next
+**Status (Oct 9):** Phases 0–4 built on real user data · Phase 4B built, **not yet run on a device** · Ask Ginto chat added.
+
+| Area | State |
+|---|---|
+| Today, Debt, Spend, Scroll, Insights | Real data from SQLite; empty states; real-app hierarchy (large titles, dark hero, grouped lists, icon grid); floating tab bar with a center pause button |
+| AI Pause, Unhooked | Facts from the user's records → `localProvider` templates, labeled lines, real countdown, haptic |
+| Debt | Add owed/lent, payments, settle, delete, borrowing pause, Evidence Pack (screenshots + saved messages) |
+| Spend | Budget, purchase check (affordability, cheaper option, BNPL true cost), 24h cooling with reminder, recent |
+| Scroll | Guards (apps + sites, schedules, Pause/Strict), Unhook timer, scroll timer with check-in, stats |
+| Safety | On-device message detector (English + Taglish) with highlights; Help |
+| Ask Ginto | On-device answers from the user's numbers; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
+| Phase 4B native | `AppGuardService` (usage events → shield deep link), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested |
+| Still open | Evidence PDF export, repayment planner screen, seed demo data, Taglish copy, device test of 4B, Play declarations |
 **Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone.
 
 ---

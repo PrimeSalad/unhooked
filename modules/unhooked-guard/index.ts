@@ -42,3 +42,53 @@ export function openUsageAccessSettings(): void {
 export function openOverlaySettings(): void {
   native()?.openOverlaySettings();
 }
+
+export interface GuardedApp {
+  packageName: string;
+  label: string;
+  mode: 'pause' | 'strict';
+  /** Minutes after midnight; -1 = all day. */
+  start: number;
+  end: number;
+}
+
+/** Starts (or updates) the foreground app guard. No-op where the guard isn't available. */
+export function startAppGuard(config: {
+  apps: GuardedApp[];
+  timerUntilMs: number;
+  pauseSeconds: number;
+}) {
+  native()?.startAppGuard(JSON.stringify(config));
+}
+
+export function stopAppGuard() {
+  native()?.stopAppGuard();
+}
+
+/** "Open anyway": let one app through for `minutes`, then open it. */
+export function allowApp(packageName: string, minutes: number) {
+  native()?.allowApp(packageName, minutes);
+}
+
+/** Sends the user to the home screen (the "Close it" choice on the shield). */
+export function goHome() {
+  native()?.goHome();
+}
+
+export function isWebGuardPrepared(): boolean {
+  return native()?.isWebGuardPrepared() ?? false;
+}
+
+/** Shows Android's VPN consent dialog. Call only after the in-app disclosure and "Allow". */
+export async function prepareWebGuard(): Promise<boolean> {
+  return (await native()?.prepareWebGuard()) ?? false;
+}
+
+/** Starts the local DNS-only web guard for these bare domains (requires prepareWebGuard). */
+export async function startWebGuard(domains: string[]) {
+  native()?.startWebGuard(JSON.stringify(domains));
+}
+
+export function stopWebGuard() {
+  native()?.stopWebGuard();
+}

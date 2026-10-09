@@ -718,3 +718,186 @@ const formStyles = StyleSheet.create({
   },
   sheetFish: { position: 'absolute', top: -60, alignSelf: 'center' },
 });
+
+// ---------- Real-app hierarchy: large titles, sections, grouped lists ----------
+
+/** Large title like native apps. No mascot: Ginto appears in moments, not chrome. */
+export function LargeTitle({
+  eyebrow,
+  title,
+  right,
+}: {
+  eyebrow?: string;
+  title: string;
+  right?: ReactNode;
+}) {
+  return (
+    <View
+      style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md, marginBottom: 2 }}
+    >
+      <View style={{ flex: 1 }}>
+        {eyebrow ? <Text variant="caption">{eyebrow}</Text> : null}
+        <Text variant="title" style={{ fontSize: 32, lineHeight: 38, letterSpacing: -1 }}>
+          {title}
+        </Text>
+      </View>
+      {right}
+    </View>
+  );
+}
+
+export function Section({
+  title,
+  action,
+  onAction,
+  children,
+}: {
+  title: string;
+  action?: string;
+  onAction?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          paddingHorizontal: 4,
+        }}
+      >
+        <Text variant="heading" style={{ fontSize: 19 }}>
+          {title}
+        </Text>
+        {action && onAction ? (
+          <Pressable accessibilityRole="button" onPress={onAction} hitSlop={10}>
+            <Text variant="strong" color={colors.link} style={{ fontSize: 14 }}>
+              {action}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/** Grouped list: one surface, hairline dividers, rows inside. */
+export function Group({ children }: { children: ReactNode }) {
+  const items = (Array.isArray(children) ? children : [children]).flat().filter(Boolean);
+  return (
+    <View
+      style={[
+        { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden' },
+        shadow.card,
+      ]}
+    >
+      {items.map((child, i) => (
+        <View key={i}>
+          {i > 0 ? (
+            <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 68 }} />
+          ) : null}
+          {child}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export function GroupRow({
+  icon,
+  iconBg = colors.surfaceMuted,
+  iconFg = colors.text,
+  leading,
+  title,
+  subtitle,
+  value,
+  valueTone,
+  onPress,
+  trailing,
+}: {
+  icon?: IconName;
+  iconBg?: string;
+  iconFg?: string;
+  leading?: ReactNode;
+  title: string;
+  subtitle?: string;
+  value?: string;
+  valueTone?: string;
+  onPress?: () => void;
+  trailing?: ReactNode;
+}) {
+  const body = (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        paddingVertical: 14,
+        paddingHorizontal: spacing.lg,
+        minHeight: 64,
+      }}
+    >
+      {leading ?? (icon ? <IconChip icon={icon} bg={iconBg} fg={iconFg} size={38} /> : null)}
+      <View style={{ flex: 1 }}>
+        <Text variant="strong" numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text variant="caption" numberOfLines={2}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {value ? (
+        <Text variant="strong" color={valueTone ?? colors.text}>
+          {value}
+        </Text>
+      ) : null}
+      {trailing ??
+        (onPress ? <Ionicons name="chevron-forward" size={18} color={colors.textFaint} /> : null)}
+    </View>
+  );
+  return onPress ? (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => pressed && { backgroundColor: '#FBF5EE' }}
+    >
+      {body}
+    </Pressable>
+  ) : (
+    body
+  );
+}
+
+/** Letter avatar for people, lenders and apps without an icon. */
+export function Avatar({
+  label,
+  bg = colors.surfaceMuted,
+  fg = colors.text,
+  size = 38,
+}: {
+  label: string;
+  bg?: string;
+  fg?: string;
+  size?: number;
+}) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text variant="strong" color={fg} style={{ fontSize: size * 0.4 }}>
+        {label.trim().charAt(0).toUpperCase() || '?'}
+      </Text>
+    </View>
+  );
+}

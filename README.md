@@ -30,6 +30,27 @@ npm start          # scan the QR code with Expo Go
 | `npm run format` | Prettier |
 | `npm run doctor` | `expo-doctor` dependency checks |
 
+## App and website guards (Android)
+
+Guards need native code, so they do not run in Expo Go. Build a development app on an Android phone:
+
+```bash
+npx expo run:android
+```
+
+Then open Scroll → Guards, pick apps or add websites, and allow Usage access and Display over other apps when asked. In Expo Go and on web you can still set up guards and preview the pause.
+
+## Ask Ginto with Claude (optional)
+
+Ask Ginto answers on the phone by default. To try Claude, run the proxy with your key and point the app at it:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... npm run ginto-server
+cp .env.example .env.local   # set EXPO_PUBLIC_GINTO_API_URL to http://<your-computer-ip>:8787
+```
+
+Then turn on "Smarter Ask Ginto" in Settings. Only a numbers-only summary is sent.
+
 ## Prototype
 
 Tap through the app, meet the mascot Ginto, and see the brand board: **[Unhooked prototype canvas](https://claude.ai/artifact/VMcLVnPGSGS9xtLLjfquDw)** (source in `prototype/project/`).

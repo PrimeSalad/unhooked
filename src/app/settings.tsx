@@ -6,7 +6,9 @@ import { Alert, Platform, Switch, View } from 'react-native';
 import { CLOUD_URL } from '@/ai/chat';
 import { Button, Card, Field, Row, Screen, ScreenHeader, Segmented, Text } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
+import { listRules } from '@/db/blockRules';
 import { deleteAllData } from '@/db/migrations';
+import { isGuardAvailable, syncGuard } from '@/lib/guard';
 import { bumpData } from '@/db/useDbQuery';
 import { parsePesoInput, toPesos } from '@/domain/money';
 import { useSession } from '@/store/session';
@@ -57,6 +59,7 @@ export default function SettingsScreen() {
 
   const wipe = async () => {
     await deleteAllData(db);
+    await syncGuard([]);
     bumpData();
     s.reset();
     router.dismissTo('/');
@@ -143,6 +146,29 @@ export default function SettingsScreen() {
             trackColor={{ true: colors.primary, false: colors.track }}
             thumbColor={colors.white}
             accessibilityLabel="Use Claude for Ask Ginto"
+          />
+        </Row>
+      </Card>
+
+      <Card style={{ gap: spacing.sm }}>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <Text variant="strong">App and website guards</Text>
+            <Text variant="caption">
+              {isGuardAvailable()
+                ? 'Turn off to stop every guard right away.'
+                : 'Runs in the Android app. Set up guards in Scroll.'}
+            </Text>
+          </View>
+          <Switch
+            value={s.guardOn}
+            onValueChange={async (v) => {
+              s.setGuardOn(v);
+              await syncGuard(await listRules(db));
+            }}
+            trackColor={{ true: colors.lagoon, false: colors.track }}
+            thumbColor={colors.white}
+            accessibilityLabel="App and website guards"
           />
         </Row>
       </Card>

@@ -1,197 +1,322 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Redirect, router } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Redirect, router, type Href } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Ginto } from '@/components/mascot/Ginto';
-import { Button, IconButton, ListRow, Rise, Row, Screen, Stat, Text } from '@/components/ui';
+import {
+  Group,
+  GroupRow,
+  IconButton,
+  LargeTitle,
+  Rise,
+  Screen,
+  Section,
+  Text,
+  type IconName,
+} from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
-import { emptyOverview, getOverview } from '@/db/repo';
+import { listRules } from '@/db/blockRules';
+import { dodgedLast7Days, emptyOverview, getOverview } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 import { formatPHP } from '@/domain/money';
 import { formatMinutes } from '@/domain/scroll';
-import { dueLabel, greeting, timeLeft } from '@/lib/format';
+import { dueLabel, greeting, isUrgent, timeLeft } from '@/lib/format';
 import { useSettings, useSettingsHydrated } from '@/store/settings';
 
-function heroCopy(dodged: number, breaks: number) {
-  if (dodged === 0 && breaks === 0) {
-    return {
-      title: 'No hooks yet today',
-      body: 'When a purchase, a loan or a long scroll starts pulling, tap the pause button below.',
-    };
-  }
-  return {
-    title: `${dodged} ${dodged === 1 ? 'hook' : 'hooks'} dodged today`,
-    body:
-      breaks > 0
-        ? `Plus ${breaks} ${breaks === 1 ? 'break' : 'breaks'} from the feed. Small choices add up.`
-        : 'Each pause is a choice you made for future you.',
-  };
-}
+const ACTIONS: { icon: IconName; label: string; bg: string; fg: string; to: Href }[] = [
+  {
+    icon: 'bag-handle-outline',
+    label: 'Check a\npurchase',
+    bg: colors.spendSoft,
+    fg: colors.spend,
+    to: '/spend-check',
+  },
+  {
+    icon: 'wallet-outline',
+    label: 'Add a\ndebt',
+    bg: colors.debtSoft,
+    fg: colors.debt,
+    to: '/debt-new',
+  },
+  {
+    icon: 'lock-closed-outline',
+    label: 'Guard\napps',
+    bg: colors.scrollSoft,
+    fg: colors.scroll,
+    to: '/block/apps',
+  },
+  {
+    icon: 'shield-checkmark-outline',
+    label: 'Scan a\nmessage',
+    bg: '#F4ECE4',
+    fg: colors.text,
+    to: '/message-check',
+  },
+];
 
 export default function TodayScreen() {
   const hydrated = useSettingsHydrated();
   const onboarded = useSettings((s) => s.onboarded);
   const name = useSettings((s) => s.name);
+  const timerUntil = useSettings((s) => s.timerUntil);
   const { data: o } = useDbQuery(getOverview, emptyOverview);
+  const { data: week } = useDbQuery(dodgedLast7Days, []);
+  const { data: rules } = useDbQuery(listRules, []);
 
   if (!hydrated) return null;
   if (!onboarded) return <Redirect href="/welcome" />;
 
-  const hero = heroCopy(o.dodgedToday, o.breaksToday);
+  const max = Math.max(1, ...week.map((d) => d.n));
   const cooling = o.cooling[0];
-  const coolingLeft = cooling?.coolingUntil ? timeLeft(cooling.coolingUntil) : null;
+  const timer = timerUntil ? timeLeft(timerUntil) : null;
+  const guards = rules.filter((r) => r.enabled).length;
+
+  const upcoming = [
+    o.nextDue && (
+      <GroupRow
+        key="due"
+        icon="wallet-outline"
+        iconBg={colors.debtSoft}
+        iconFg={colors.debt}
+        title={o.nextDue.debt.counterparty}
+        subtitle={dueLabel(o.nextDue.debt.dueDate)}
+        value={formatPHP(o.nextDue.outstanding)}
+        valueTone={isUrgent(o.nextDue.debt.dueDate) ? colors.spend : undefined}
+        onPress={() => router.push('/debt')}
+      />
+    ),
+    cooling && (
+      <GroupRow
+        key="cool"
+        icon="hourglass-outline"
+        iconBg={colors.spendSoft}
+        iconFg={colors.spend}
+        title={cooling.item}
+        subtitle={
+          cooling.coolingUntil
+            ? (timeLeft(cooling.coolingUntil) ?? 'Ready to decide')
+            : 'Cooling off'
+        }
+        value={formatPHP(cooling.price)}
+        onPress={() => router.push('/spend')}
+      />
+    ),
+    (timer || guards > 0) && (
+      <GroupRow
+        key="guard"
+        icon="lock-closed-outline"
+        iconBg={colors.scrollSoft}
+        iconFg={colors.scroll}
+        title={timer ? 'Unhook timer running' : `${guards} ${guards === 1 ? 'guard' : 'guards'} on`}
+        subtitle={timer ?? 'Apps and sites you chose to pause'}
+        onPress={() => router.push('/scroll')}
+      />
+    ),
+    o.scroll.todayMinutes > 0 && (
+      <GroupRow
+        key="scroll"
+        icon="phone-portrait-outline"
+        iconBg={colors.scrollSoft}
+        iconFg={colors.scroll}
+        title="Scrolling today"
+        subtitle={`Longest session ${formatMinutes(o.scroll.longestToday)}`}
+        value={formatMinutes(o.scroll.todayMinutes)}
+        onPress={() => router.push('/scroll')}
+      />
+    ),
+  ].filter(Boolean);
 
   return (
     <Screen>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <View style={{ flex: 1 }}>
-          <Text variant="caption">
-            {greeting('')} ·{' '}
-            {new Date().toLocaleDateString('en-PH', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </Text>
-          <Text variant="title" numberOfLines={1}>
-            {name ? `Hi, ${name}` : 'Hi there'}
-          </Text>
-        </View>
-        <Row gap={spacing.sm}>
-          <IconButton
-            icon="help-buoy-outline"
-            label="Help and safety"
-            onPress={() => router.push('/help')}
-          />
-          <IconButton
-            icon="settings-outline"
-            label="Privacy and settings"
-            onPress={() => router.push('/settings')}
-          />
-        </Row>
-      </Row>
+      <LargeTitle
+        eyebrow={greeting('')}
+        title={name ? `Hi, ${name}` : 'Hi there'}
+        right={
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <IconButton
+              icon="help-buoy-outline"
+              label="Help and safety"
+              onPress={() => router.push('/help')}
+            />
+            <IconButton
+              icon="person-circle-outline"
+              label="You and settings"
+              onPress={() => router.push('/settings')}
+            />
+          </View>
+        }
+      />
 
       <Rise>
-        <View
-          style={{
-            backgroundColor: colors.surfaceMuted,
-            borderRadius: radius.xl,
-            padding: spacing.xl,
-            gap: spacing.md,
-          }}
-        >
-          <View style={{ paddingRight: 118, gap: 6, minHeight: 104, justifyContent: 'center' }}>
-            <Text variant="heading" style={{ fontSize: 22, lineHeight: 27 }}>
-              {hero.title}
+        <View style={styles.hero}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="eyebrow" color="#D9BFA8" style={{ fontSize: 11 }}>
+              Today
             </Text>
-            <Text variant="small">{hero.body}</Text>
+            <Text variant="display" color={colors.bg} style={{ fontSize: 56, lineHeight: 60 }}>
+              {o.dodgedToday}
+            </Text>
+            <Text variant="strong" color={colors.bg}>
+              {o.dodgedToday === 1 ? 'hook dodged' : 'hooks dodged'}
+            </Text>
+            <View style={styles.week}>
+              {week.map((d, i) => (
+                <View key={d.date.toISOString()} style={{ alignItems: 'center', gap: 4 }}>
+                  <View
+                    style={{
+                      width: 8,
+                      height: 6 + (d.n / max) * 22,
+                      borderRadius: 4,
+                      backgroundColor:
+                        i === week.length - 1
+                          ? colors.primary
+                          : d.n
+                            ? colors.accent
+                            : 'rgba(255,246,236,0.18)',
+                    }}
+                  />
+                  <Text variant="caption" color="#B39580" style={{ fontSize: 10 }}>
+                    {'SMTWTFS'[d.date.getDay()]}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
-          <Ginto
-            mood={o.dodgedToday > 0 ? 'happy' : 'wave'}
-            size={122}
-            style={{ position: 'absolute', right: 8, top: 12 }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/chat')}
-            style={({ pressed }) => [
-              {
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: spacing.sm,
-                backgroundColor: colors.surface,
-                borderRadius: radius.pill,
-                paddingVertical: 12,
-                paddingHorizontal: spacing.lg,
-              },
-              pressed && { opacity: 0.85 },
-            ]}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.text} />
-            <Text variant="small" color={colors.textMuted} style={{ flex: 1 }}>
-              Ask Ginto: “Can I afford ₱1,500?”
-            </Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.text} />
-          </Pressable>
+          <Ginto mood={o.dodgedToday > 0 ? 'proud' : 'happy'} size={118} />
+          <View style={styles.heroStats}>
+            <HeroStat value={String(o.breaksToday)} label="Breaks" />
+            <HeroStat value={String(o.cooling.length)} label="Cooling off" />
+            <HeroStat value={formatMinutes(o.scroll.todayMinutes)} label="Scrolled" />
+          </View>
         </View>
       </Rise>
 
-      <Rise delay={60}>
-        <Row gap={10}>
-          <Stat value={o.dodgedToday} label="Pauses" />
-          <Stat value={o.breaksToday} label="Breaks" />
-          <Stat value={o.cooling.length} label="Cooling off" />
-        </Row>
-      </Rise>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/chat')}
+        style={({ pressed }) => [styles.ask, pressed && { opacity: 0.9 }]}
+      >
+        <Ginto mood="thinking" size={40} />
+        <View style={{ flex: 1 }}>
+          <Text variant="strong">Ask Ginto</Text>
+          <Text variant="caption">“Can I afford ₱1,500?” · “What is due this month?”</Text>
+        </View>
+        <Ionicons name="arrow-forward" size={18} color={colors.text} />
+      </Pressable>
 
-      <Rise delay={120} style={{ gap: 10 }}>
-        <ListRow
-          icon="wallet-outline"
-          iconBg={colors.debtSoft}
-          iconFg={colors.debt}
-          title={
-            o.nextDue
-              ? `${formatPHP(o.nextDue.outstanding)} to ${o.nextDue.debt.counterparty}`
-              : o.owedTotal > 0
-                ? `${formatPHP(o.owedTotal)} left to pay`
-                : 'Track what you owe'
-          }
-          subtitle={
-            o.nextDue
-              ? dueLabel(o.nextDue.debt.dueDate)
-              : o.owedTotal > 0
-                ? 'No due dates set'
-                : 'Add a loan, a BNPL plan or money you lent'
-          }
-          onPress={() => router.push('/debt')}
-        />
-        <ListRow
-          icon="bag-handle-outline"
-          iconBg={colors.spendSoft}
-          iconFg={colors.spend}
-          title={cooling ? `${cooling.item} is cooling off` : 'Check a purchase before you buy'}
-          subtitle={
-            cooling
-              ? (coolingLeft ?? 'Ready to decide')
-              : 'Affordability, BNPL true cost, 24-hour pause'
-          }
-          onPress={() => router.push('/spend')}
-        />
-        <ListRow
-          icon="phone-portrait-outline"
-          iconBg={colors.scrollSoft}
-          iconFg={colors.scroll}
-          title={
-            o.scroll.todayMinutes > 0
-              ? `${formatMinutes(o.scroll.todayMinutes)} scrolling today`
-              : 'Scroll on purpose'
-          }
-          subtitle={
-            o.scroll.todayMinutes > 0
-              ? `Longest session ${formatMinutes(o.scroll.longestToday)}`
-              : 'Start a session with a limit; I will check in'
-          }
-          onPress={() => router.push('/scroll')}
-        />
-        <ListRow
-          icon="bar-chart-outline"
-          iconBg="#F4ECE4"
-          iconFg={colors.text}
-          title="Your week"
-          subtitle="Patterns from your own activity"
-          onPress={() => router.push('/insights')}
-        />
-      </Rise>
+      <View style={styles.actions}>
+        {ACTIONS.map((a) => (
+          <Pressable
+            key={a.label}
+            accessibilityRole="button"
+            accessibilityLabel={a.label.replace('\n', ' ')}
+            onPress={() => router.push(a.to)}
+            style={({ pressed }) => [styles.action, pressed && { transform: [{ scale: 0.96 }] }]}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: a.bg }]}>
+              <Ionicons name={a.icon} size={24} color={a.fg} />
+            </View>
+            <Text
+              variant="caption"
+              color={colors.text}
+              align="center"
+              style={{ fontSize: 12, lineHeight: 15 }}
+            >
+              {a.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
-      <Rise delay={180}>
-        <Button
-          label={o.checkIn ? 'Checked in today. Update?' : 'How are you feeling today?'}
-          kind="ghost"
-          icon="heart-outline"
-          size="sm"
-          onPress={() => router.push('/check-in')}
-        />
-      </Rise>
+      <Section title="Coming up">
+        <Group>
+          {upcoming.length ? (
+            upcoming
+          ) : (
+            <GroupRow
+              icon="checkmark-circle-outline"
+              iconBg="#E5F2EA"
+              iconFg={colors.success}
+              title="All clear"
+              subtitle="No due dates, cooling items or guards yet."
+            />
+          )}
+        </Group>
+      </Section>
+
+      <Section title="You">
+        <Group>
+          <GroupRow
+            icon="heart-outline"
+            title={o.checkIn ? 'Checked in today' : 'How are you feeling?'}
+            subtitle={o.checkIn ? 'Tap to update' : 'Ten seconds. Keeps my tone gentle.'}
+            onPress={() => router.push('/check-in')}
+          />
+          <GroupRow
+            icon="bar-chart-outline"
+            title="Your week"
+            subtitle="Patterns from your own activity"
+            onPress={() => router.push('/insights')}
+          />
+        </Group>
+      </Section>
     </Screen>
   );
 }
+
+function HeroStat({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text variant="strong" color={colors.bg} style={{ fontSize: 17 }}>
+        {value}
+      </Text>
+      <Text variant="caption" color="#B39580">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  hero: {
+    backgroundColor: colors.text,
+    borderRadius: radius.xxl,
+    padding: spacing.xl,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  week: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-end',
+    marginTop: spacing.md,
+    height: 44,
+  },
+  heroStats: {
+    flexBasis: '100%',
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,246,236,0.12)',
+    paddingTop: spacing.md,
+  },
+  ask: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  actions: { flexDirection: 'row', justifyContent: 'space-between' },
+  action: { width: '23%', alignItems: 'center', gap: 6 },
+  actionIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

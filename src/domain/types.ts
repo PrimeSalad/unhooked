@@ -103,7 +103,12 @@ export type AppEventType =
   | 'break_taken'
   | 'checkin_completed'
   | 'message_scanned'
-  | 'insight_dismissed';
+  | 'insight_dismissed'
+  | 'block_rule_added'
+  | 'block_rule_removed'
+  | 'block_timer_started'
+  | 'block_shield_shown'
+  | 'block_decision';
 
 export interface AppEvent {
   id: ID;

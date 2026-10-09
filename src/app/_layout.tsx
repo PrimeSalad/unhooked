@@ -61,6 +61,14 @@ export default function RootLayout() {
         <Stack.Screen name="debt-new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="borrow" options={{ presentation: 'modal' }} />
         <Stack.Screen name="chat" />
+        <Stack.Screen name="spend-check" />
+        <Stack.Screen name="block/apps" />
+        <Stack.Screen name="block/sites" />
+        <Stack.Screen name="block/permissions" />
+        <Stack.Screen
+          name="shield"
+          options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
+        />
         <Stack.Screen name="message-check" />
         <Stack.Screen name="help" />
         <Stack.Screen name="settings" />
