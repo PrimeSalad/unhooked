@@ -273,12 +273,10 @@ The user picks which apps and websites get a "hook guard". Opening one shows Gin
 
 - [x] `domain/messageRisk.ts` uses tested English + Filipino/Taglish keyword/regex rules for threats, pressure, contact-shaming, exposure and payment links/e-wallet numbers. It flags indications, not confirmed fraud.
 - [x] Message check supports paste → risk level + highlighted signals + explanation ("an indication, not proof") → **Save to Evidence Pack**; it includes basic reporting advice.
-- [ ] Add clear steps for blocking a sender and reporting abuse from the message-check screen.
 - [x] Settings explains local storage and offers delete-all-data.
 - [ ] Add a cloud AI control and accurate disclosure in Settings. The existing photo consent is in Ask Ginto.
 - [x] First-run onboarding explains the pause and on-device AI, and offers an optional budget.
 - [ ] Add an explicit self-help disclaimer to onboarding and align its privacy promise with optional cloud chat.
-- [ ] Verify the fixed crisis contact numbers still used by Ask Ginto against official sources before a demo; the old resource directory is not part of the UI.
 
 **Removed from scope:** Help & Safety screen, `/help` links and the support-resource directory verification checklist.
 
@@ -348,7 +346,7 @@ These measure **engagement**, not health outcomes — say so in the pitch.
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | OS won't let us detect scrolling in other apps                          | Manual sessions + notifications; say so honestly; usage-stats is a stretch goal.                                                                                     |
 | AI text sounds preachy or overconfident                                 | Template-based local provider; copy checklist; `CertaintyTag` everywhere.                                                                                            |
-| Wrong fixed crisis contact numbers in Ask Ginto                         | Verify the numbers against official sources before a demo; the removed Help & Safety directory is not a release gate.                                                |
+| Wrong fixed crisis contact numbers in Ask Ginto | Published 1553 and 911 numbers checked on 2026-10-10 against [government NCMH guidance](https://pia.gov.ph/gallery/mga-munting-paalala-sa-sarili/) and [DILG emergency guidance](https://pia.gov.ph/press-release/dilgs-unified-911-saves-lives-through-faster-emergency-response/). Live call reachability was not tested. |
 | Notification behavior differs in Expo Go                                | Test local notifications early in Phase 3; fall back to in-app banners.                                                                                              |
 | Play rejects the blocker (VpnService / foreground-service declarations) | Least-intrusive APIs only (no Accessibility, no `QUERY_ALL_PACKAGES`); prominent in-app disclosure; on-device only; drop website guard and keep app guard if needed. |
 | Blocking feels punishing or traps the user                              | Pause mode by default, _Open anyway_ after the countdown, strict mode opt-in, essential sites and dialer never blocked, guard can always be turned off.              |
