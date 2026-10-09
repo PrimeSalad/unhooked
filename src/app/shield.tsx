@@ -176,7 +176,7 @@ export default function ShieldScreen() {
                 <Text variant="heading" color={colors.pauseText}>
                   {late ? 'Late night cart? Look first.' : 'Before you add to cart'}
                 </Text>
-                <Tag certainty="fact" dark />
+                {money ? <Tag certainty="estimate" dark /> : null}
                 {money ? (
                   <View style={{ gap: 2 }}>
                     <Text

@@ -211,7 +211,14 @@ export default function DebtScreen() {
 
           {open.length > 0 && (
             <Section title={owedTab ? 'Open' : 'Waiting on'}>
-              <Group>{open.map(row)}</Group>
+              <Group>
+                {open.map(row)}
+                <GroupRow
+                  icon="add"
+                  title={owedTab ? 'Add a debt' : 'Add money owed to you'}
+                  onPress={() => router.push({ pathname: '/debt-new', params: { direction: tab } })}
+                />
+              </Group>
             </Section>
           )}
           {settled.length > 0 && (

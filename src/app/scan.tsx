@@ -221,10 +221,7 @@ export default function ScanScreen() {
 
           <Section title="Is this lender legit?">
             <Card>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <Text variant="strong">{CHECK_TITLE[check]}</Text>
-                <Tag certainty="fact" />
-              </Row>
+              <Text variant="strong">{CHECK_TITLE[check]}</Text>
               <View style={styles.nums}>
                 <Num label="SEC registration" value={scan.secReg} />
                 <Num label="Certificate of Authority" value={scan.caNumber} />

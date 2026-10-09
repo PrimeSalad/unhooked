@@ -61,7 +61,12 @@ export default function WrappedScreen() {
           <Text variant="strong">Hooks dodged</Text>
           <Text variant="strong">{w.dodged}</Text>
         </View>
-        <View style={styles.bars}>
+        {w.dodged === 0 ? (
+          <Text variant="small" color={colors.textMuted}>
+            Each time you close a guarded app or skip a purchase, it lands here.
+          </Text>
+        ) : null}
+        <View style={[styles.bars, w.dodged === 0 && { height: 48 }]}>
           {w.days.map((d, i) => {
             const today = i === w.days.length - 1;
             return (
