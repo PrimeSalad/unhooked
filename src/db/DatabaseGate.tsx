@@ -39,8 +39,18 @@ export function DatabaseGate({ children }: { children: ReactNode }) {
         <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', gap: 16 }}>
           <Text variant="eyebrow">Your private workspace</Text>
           <Text variant="title">Let’s reconnect to your records.</Text>
-          <Text>Unhooked could not open its local storage. Close any other Unhooked tabs, then try again. Your saved records have not been deleted.</Text>
-          <Button label="Try again" onPress={() => { scheduled.clear(); setError(null); setAttempt((value) => value + 1); }} />
+          <Text>
+            Unhooked could not open its local storage. Close any other Unhooked tabs, then try
+            again. Your saved records have not been deleted.
+          </Text>
+          <Button
+            label="Try again"
+            onPress={() => {
+              scheduled.clear();
+              setError(null);
+              setAttempt((value) => value + 1);
+            }}
+          />
           <Text variant="caption">{error.message}</Text>
         </View>
       </View>

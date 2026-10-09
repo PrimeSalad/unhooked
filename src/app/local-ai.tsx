@@ -1,12 +1,4 @@
-import {
-  Group,
-  GroupRow,
-  ProgressBar,
-  ScreenHeader,
-  Section,
-  Tag,
-  Text,
-} from '@/components/ui';
+import { Group, GroupRow, ProgressBar, ScreenHeader, Section, Tag, Text } from '@/components/ui';
 import { ActionError, FlowScreen } from '@/components/FlowLayout';
 import { buildDailyInference } from '@/ai/dailySnapshot';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -34,32 +26,39 @@ export default function LocalAiScreen() {
         title="A little more perspective."
         subtitle="How your own records shape the guidance you see."
       />
-      <ActionError message={error ? 'Your records could not be loaded. Try again for a current reading.' : null} onRetry={retry} />
+      <ActionError
+        message={
+          error ? 'Your records could not be loaded. Try again for a current reading.' : null
+        }
+        onRetry={retry}
+      />
 
-      {!error && loaded && <View style={styles.hero}>
-        <View style={styles.heroTop}>
-          <Tag label="On-device estimate" dark />
-          <Text variant="caption" color={colors.pauseMuted}>
-            {inference.modelVersion}
+      {!error && loaded && (
+        <View style={styles.hero}>
+          <View style={styles.heroTop}>
+            <Tag label="On-device estimate" dark />
+            <Text variant="caption" color={colors.pauseMuted}>
+              {inference.modelVersion}
+            </Text>
+          </View>
+          <Text variant="display" color={colors.bg} style={styles.score}>
+            {inference.score}
+          </Text>
+          <Text variant="heading" color={colors.bg}>
+            {BAND[inference.band]}
+          </Text>
+          <ProgressBar
+            value={inference.score / 100}
+            color={colors.primary}
+            track="rgba(255,246,236,0.14)"
+            height={10}
+          />
+          <Text variant="small" color={colors.pauseMuted}>
+            This is a pressure estimate for choosing the right pause—not a credit score, diagnosis
+            or prediction about you.
           </Text>
         </View>
-        <Text variant="display" color={colors.bg} style={styles.score}>
-          {inference.score}
-        </Text>
-        <Text variant="heading" color={colors.bg}>
-          {BAND[inference.band]}
-        </Text>
-        <ProgressBar
-          value={inference.score / 100}
-          color={colors.primary}
-          track="rgba(255,246,236,0.14)"
-          height={10}
-        />
-        <Text variant="small" color={colors.pauseMuted}>
-          This is a pressure estimate for choosing the right pause—not a credit score, diagnosis or
-          prediction about you.
-        </Text>
-      </View>}
+      )}
       {!loaded && <Text>Reading your local records…</Text>}
 
       <Section title="Why this read">
@@ -112,8 +111,8 @@ export default function LocalAiScreen() {
           </Text>
           <View style={styles.rule} />
           <Text variant="small" color={colors.textMuted}>
-            Ask Ginto also works on this device. It answers from your records and calculations;
-            it cannot read photos or connect to your bank.
+            Ask Ginto also works on this device. It answers from your records and calculations; it
+            cannot read photos or connect to your bank.
           </Text>
         </View>
       </Section>

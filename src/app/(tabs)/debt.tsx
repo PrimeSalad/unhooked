@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import {
@@ -25,7 +25,7 @@ import { addEvidence, addPayment, deleteDebt, emptyOverview, getOverview } from 
 import { useDbQuery } from '@/db/useDbQuery';
 import { formatPHP, parsePesoInput } from '@/domain/money';
 import { getMonthlyPosition } from '@/domain/monthlyPosition';
-import type { DebtBalance } from '@/domain/repayment';
+import { politeReminder, type DebtBalance } from '@/domain/repayment';
 import { dueLabel, isUrgent } from '@/lib/format';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
@@ -138,6 +138,19 @@ function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose
               />
             </>
           )}
+          {lent && target.outstanding > 0 ? (
+            <Button
+              label="Draft a polite reminder"
+              kind="outline"
+              icon="share"
+              disabled={pending}
+              onPress={() => {
+                void Share.share({
+                  message: politeReminder(target.debt.counterparty, target.outstanding),
+                }).catch(() => setError('Could not open sharing on this device.'));
+              }}
+            />
+          ) : null}
           <Button
             label="Delete this record"
             kind="ghost"
@@ -149,7 +162,7 @@ function PaymentSheet({ target, onClose }: { target: DebtBalance | null; onClose
         </>
       )}
       {error ? (
-        <Text accessibilityRole="alert" color={colors.danger} variant="small">
+        <Text accessibilityRole="alert" color={colors.error} variant="small">
           {error}
         </Text>
       ) : null}
@@ -202,6 +215,7 @@ export default function DebtScreen() {
       await addEvidence(db, {
         lender: o.nextDue?.debt.counterparty ?? 'Unsorted',
         imageUri: res.assets[0].uri,
+        imageMimeType: res.assets[0].mimeType ?? 'image/jpeg',
       });
       showToast('Screenshot saved to your private Evidence Pack.');
     } catch {
@@ -256,7 +270,7 @@ export default function DebtScreen() {
       </View>
       {error ? (
         <View style={styles.feedback}>
-          <Text color={colors.danger}>Your balances could not be refreshed.</Text>
+          <Text color={colors.error}>Your balances could not be refreshed.</Text>
           <Button label="Try again" kind="outline" onPress={retry} />
         </View>
       ) : null}
@@ -336,7 +350,11 @@ export default function DebtScreen() {
                   </Section>
                 ) : null}
                 {open.length > 0 && (
-                  <Section title={owedTab ? 'Open balances' : 'Waiting on'}>
+                  <Section
+                    title={owedTab ? 'Open balances' : 'Waiting on'}
+                    action={owedTab ? 'Make a plan' : undefined}
+                    onAction={owedTab ? () => router.push('/repayment-plan') : undefined}
+                  >
                     <Group>{open.map(row)}</Group>
                   </Section>
                 )}
@@ -400,8 +418,15 @@ export default function DebtScreen() {
                 loading={imagePending}
                 onPress={() => void addScreenshot()}
               />
+              <Button
+                label="Open Evidence Pack"
+                icon="file"
+                kind="ghost"
+                size="sm"
+                onPress={() => router.push('/evidence-pack')}
+              />
               {imageError ? (
-                <Text variant="small" accessibilityRole="alert" color={colors.danger}>
+                <Text variant="small" accessibilityRole="alert" color={colors.error}>
                   {imageError}
                 </Text>
               ) : null}

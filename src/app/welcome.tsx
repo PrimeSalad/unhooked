@@ -487,7 +487,7 @@ function WelcomeFlow() {
             </>
           )}
           {storageError ? (
-            <Text accessibilityRole="alert" color={colors.danger} style={styles.error}>
+            <Text accessibilityRole="alert" color={colors.error} style={styles.error}>
               {storageError}
             </Text>
           ) : null}

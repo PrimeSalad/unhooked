@@ -4,6 +4,10 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { repaymentReminderDate } from '@/domain/repayment';
+
+const REMINDER_CHANNEL = 'gentle-reminders';
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -16,6 +20,13 @@ Notifications.setNotificationHandler({
 async function allowed(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   try {
+    if (Platform.OS === 'android') {
+      // Android 13 does not show its notification permission prompt until a channel exists.
+      await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL, {
+        name: 'Gentle reminders',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      });
+    }
     const current = await Notifications.getPermissionsAsync();
     if (current.granted) return true;
     return (await Notifications.requestPermissionsAsync()).granted;
@@ -50,5 +61,40 @@ export async function cancelReminder(id: string | null | undefined) {
     await Notifications.cancelScheduledNotificationAsync(id);
   } catch {
     // already fired or never scheduled
+  }
+}
+
+/** A stable identifier lets payments, deletion and a full reset cancel this reminder. */
+export const debtReminderId = (debtId: string) => `debt-due-${debtId}`;
+
+export async function cancelAllReminders(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    await Notifications.dismissAllNotificationsAsync();
+  } catch {
+    // Records still clear even if the notification service is unavailable.
+  }
+}
+
+export async function scheduleDebtReminder(debtId: string, dueDate: string): Promise<boolean> {
+  const date = repaymentReminderDate(dueDate);
+  if (!date || !(await allowed())) return false;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier: debtReminderId(debtId),
+      content: {
+        title: 'Upcoming date',
+        body: 'A date you saved is coming up. Open Unhooked to review it.',
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date,
+        channelId: Platform.OS === 'android' ? REMINDER_CHANNEL : undefined,
+      },
+    });
+    return true;
+  } catch {
+    return false;
   }
 }

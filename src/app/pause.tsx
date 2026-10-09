@@ -59,6 +59,7 @@ async function buildFacts(
       amount: Number(params.amount),
       owedTotal: o.owedTotal,
       dueThisMonth: o.dueThisMonth,
+      spentThisMonth: o.spentThisMonth,
       budget,
     });
   }

@@ -51,7 +51,9 @@ function Step({
 
 export default function GuardPermissionsScreen() {
   const db = useSQLiteContext();
-  const action = useAsyncAction('Could not enable your guards. Check the permissions and try again.');
+  const action = useAsyncAction(
+    'Could not enable your guards. Check the permissions and try again.',
+  );
   const [usage, setUsage] = useState(hasUsageAccess());
   const [overlay, setOverlay] = useState(canDrawOverlays());
 
@@ -70,11 +72,29 @@ export default function GuardPermissionsScreen() {
     router.dismissTo('/scroll');
   };
 
-  if (!isGuardAvailable()) return <FlowScreen><ScreenHeader back title="Guards need the Android build." subtitle="App permissions are not available on this platform." /><Text>You can still track sessions, take a pause and prepare your website list. No system permission is needed for those features.</Text><Button label="Back to Scroll" onPress={() => router.dismissTo('/scroll')} /></FlowScreen>;
+  if (!isGuardAvailable())
+    return (
+      <FlowScreen>
+        <ScreenHeader
+          back
+          title="Guards need the Android build."
+          subtitle="App permissions are not available on this platform."
+        />
+        <Text>
+          You can still track sessions, take a pause and prepare your website list. No system
+          permission is needed for those features.
+        </Text>
+        <Button label="Back to Scroll" onPress={() => router.dismissTo('/scroll')} />
+      </FlowScreen>
+    );
 
   return (
     <FlowScreen>
-      <ScreenHeader back title="Two permissions. Your choice." subtitle="Enable only what you feel comfortable using." />
+      <ScreenHeader
+        back
+        title="Two permissions. Your choice."
+        subtitle="Enable only what you feel comfortable using."
+      />
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
         <Text variant="small" align="center" color={colors.textMuted}>
           Both are Android settings you control. What you open stays on this phone. Nothing is sent

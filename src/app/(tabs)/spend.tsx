@@ -82,7 +82,7 @@ function DecideSheet({ p, onClose }: { p: PlannedPurchase | null; onClose: () =>
           : 'Either way, keeping your records up to date gives you a clearer picture.'}
       </Text>
       {error ? (
-        <Text variant="small" color={colors.danger} accessibilityRole="alert">
+        <Text variant="small" color={colors.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -161,7 +161,7 @@ export default function SpendScreen() {
             <ActivityIndicator color={colors.text} accessibilityLabel="Loading your budget" />
           ) : overview.error ? (
             <View style={styles.empty}>
-              <Text color={colors.danger}>Your budget picture could not be loaded.</Text>
+              <Text color={colors.error}>Your budget picture could not be loaded.</Text>
               <Button label="Try again" kind="outline" onPress={overview.retry} />
             </View>
           ) : budget ? (
@@ -284,7 +284,7 @@ export default function SpendScreen() {
               <ActivityIndicator color={colors.text} accessibilityLabel="Loading purchases" />
             ) : history.error ? (
               <View style={styles.empty}>
-                <Text color={colors.danger}>Your purchases could not be loaded.</Text>
+                <Text color={colors.error}>Your purchases could not be loaded.</Text>
                 <Button label="Try again" kind="outline" onPress={history.retry} />
               </View>
             ) : shown.length ? (

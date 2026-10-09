@@ -216,7 +216,14 @@ export function Card({
   flat?: boolean;
 }) {
   return (
-    <View style={[styles.card, { backgroundColor: tone }, flat ? null : { borderWidth: 1, borderColor: colors.border }, style]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: tone },
+        flat ? null : { borderWidth: 1, borderColor: colors.border },
+        style,
+      ]}
+    >
       {children}
     </View>
   );
@@ -318,7 +325,11 @@ export function ProgressBar({
 }) {
   const pctValue = Math.max(0, Math.min(1, value)) * 100;
   return (
-    <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(pctValue) }} style={{ height, borderRadius: radius.pill, backgroundColor: track, overflow: 'hidden' }}>
+    <View
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(pctValue) }}
+      style={{ height, borderRadius: radius.pill, backgroundColor: track, overflow: 'hidden' }}
+    >
       <View
         style={{
           width: `${pctValue}%`,
@@ -400,14 +411,37 @@ export function Button({
   const k = buttonKinds[kind];
   const inactive = disabled || loading;
   if (Platform.OS === 'web') {
-    const variant = { primary: 'btn-primary', ink: 'btn-neutral', outline: 'btn-outline', ghost: 'btn-ghost', outlineLight: 'btn-outline', ghostLight: 'btn-ghost' }[kind];
-    return <View style={style}>
-      <button type="button" className={`btn ${variant}`} disabled={inactive} aria-busy={loading} onClick={onPress}
-        style={{ minHeight: size === 'md' ? 52 : 44, color: k.text, borderColor: kind === 'outlineLight' ? colors.pauseMuted : undefined }}>
-        {loading ? <span className="loading loading-spinner loading-sm" aria-hidden="true" /> : icon ? <Icon name={icon} size={18} color={k.text} /> : null}
-        <span>{label}</span>
-      </button>
-    </View>;
+    const variant = {
+      primary: 'btn-primary',
+      ink: 'btn-neutral',
+      outline: 'btn-outline',
+      ghost: 'btn-ghost',
+      outlineLight: 'btn-outline',
+      ghostLight: 'btn-ghost',
+    }[kind];
+    return (
+      <View style={style}>
+        <button
+          type="button"
+          className={`btn ${variant}`}
+          disabled={inactive}
+          aria-busy={loading}
+          onClick={onPress}
+          style={{
+            minHeight: size === 'md' ? 52 : 44,
+            color: k.text,
+            borderColor: kind === 'outlineLight' ? colors.pauseMuted : undefined,
+          }}
+        >
+          {loading ? (
+            <span className="loading loading-spinner loading-sm" aria-hidden="true" />
+          ) : icon ? (
+            <Icon name={icon} size={18} color={k.text} />
+          ) : null}
+          <span>{label}</span>
+        </button>
+      </View>
+    );
   }
   return (
     <Pressable
@@ -424,7 +458,11 @@ export function Button({
         style,
       ]}
     >
-      {loading ? <ActivityIndicator color={k.text} /> : icon ? <Icon name={icon} size={18} color={k.text} /> : null}
+      {loading ? (
+        <ActivityIndicator color={k.text} />
+      ) : icon ? (
+        <Icon name={icon} size={18} color={k.text} />
+      ) : null}
       <Text variant="strong" color={k.text} style={{ fontSize: size === 'md' ? 16 : 14 }}>
         {label}
       </Text>
@@ -572,22 +610,55 @@ export function Field({
   const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 6 }}>
-      {Platform.OS === 'web' ? <label htmlFor={id} style={{ fontFamily: fonts.semibold, color: colors.textSoft, fontSize: 13 }}>{label}</label> : <Text variant="caption" color={colors.textSoft} style={{ fontFamily: fonts.semibold }}>
-        {label}
-      </Text>}
+      {Platform.OS === 'web' ? (
+        <label
+          htmlFor={id}
+          style={{ fontFamily: fonts.semibold, color: colors.textSoft, fontSize: 13 }}
+        >
+          {label}
+        </label>
+      ) : (
+        <Text variant="caption" color={colors.textSoft} style={{ fontFamily: fonts.semibold }}>
+          {label}
+        </Text>
+      )}
       <TextInput
         nativeID={id}
         placeholderTextColor={colors.textFaint}
-        style={[formStyles.input, focused && { borderColor: colors.lagoon }, error ? { borderColor: colors.danger } : null, style]}
+        style={[
+          formStyles.input,
+          focused && { borderColor: colors.lagoon },
+          error ? { borderColor: colors.error } : null,
+          style,
+        ]}
         accessibilityLabel={label}
         accessibilityHint={error || hint}
         aria-invalid={!!error}
         aria-describedby={error || hint ? `${id}-help` : undefined}
-        onFocus={(event) => { setFocused(true); onFocus?.(event); }}
-        onBlur={(event) => { setFocused(false); onBlur?.(event); }}
+        onFocus={(event) => {
+          setFocused(true);
+          onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          setFocused(false);
+          onBlur?.(event);
+        }}
         {...input}
       />
-      {error ? <Text nativeID={`${id}-help`} accessibilityRole="alert" variant="caption" color={colors.danger}>{error}</Text> : hint ? <Text nativeID={`${id}-help`} variant="caption">{hint}</Text> : null}
+      {error ? (
+        <Text
+          nativeID={`${id}-help`}
+          accessibilityRole="alert"
+          variant="caption"
+          color={colors.error}
+        >
+          {error}
+        </Text>
+      ) : hint ? (
+        <Text nativeID={`${id}-help`} variant="caption">
+          {hint}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -642,7 +713,16 @@ export function EmptyState({
   onAction?: () => void;
 }) {
   return (
-    <View style={{ alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, gap: spacing.sm, backgroundColor: colors.surfaceMuted, borderRadius: radius.lg }}>
+    <View
+      style={{
+        alignItems: 'center',
+        paddingVertical: spacing.xxl,
+        paddingHorizontal: spacing.xl,
+        gap: spacing.sm,
+        backgroundColor: colors.surfaceMuted,
+        borderRadius: radius.lg,
+      }}
+    >
       <Ginto mood={mood} size={76} />
       <Text variant="heading" align="center">
         {title}
@@ -698,11 +778,16 @@ export function Sheet({
             },
           ]}
         >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+          >
             {mascot ? <Ginto mood={mascot} size={60} /> : <View />}
             <IconButton icon="close" label="Close dialog" onPress={onClose} />
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.sm }}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.sm }}
+          >
             {children}
           </ScrollView>
         </View>
@@ -830,7 +915,12 @@ export function Section({
           {title}
         </Text>
         {action && onAction ? (
-          <Pressable accessibilityRole="button" onPress={onAction} hitSlop={6} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onAction}
+            hitSlop={6}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
             <Text variant="strong" color={colors.link} style={{ fontSize: 12 }}>
               {action}
             </Text>
@@ -853,9 +943,7 @@ export function Group({ children }: { children: ReactNode }) {
     >
       {items.map((child, i) => (
         <View key={i}>
-          {i > 0 ? (
-            <View style={{ height: 1, backgroundColor: colors.border }} />
-          ) : null}
+          {i > 0 ? <View style={{ height: 1, backgroundColor: colors.border }} /> : null}
           {child}
         </View>
       ))}

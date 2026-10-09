@@ -111,21 +111,28 @@ export default function MessageCheckScreen() {
             <Tag label="Indication, not proof" tone="records" />
           </Row>
 
-          <Button label={details ? 'Hide how this was checked' : 'How was this checked?'} kind="ghost" size="sm" onPress={() => setDetails(!details)} />
-          {details && <View style={styles.modelRead}>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <Tag label="On-device classifier" tone="calculated" />
-              <Text variant="caption" color={colors.textSoft}>
-                {Math.round(result.risk.model.confidence * 100)}% pattern match
+          <Button
+            label={details ? 'Hide how this was checked' : 'How was this checked?'}
+            kind="ghost"
+            size="sm"
+            onPress={() => setDetails(!details)}
+          />
+          {details && (
+            <View style={styles.modelRead}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Tag label="On-device classifier" tone="calculated" />
+                <Text variant="caption" color={colors.textSoft}>
+                  {Math.round(result.risk.model.confidence * 100)}% pattern match
+                </Text>
+              </Row>
+              <Text variant="strong">{MODEL_LABEL[result.risk.model.category]}</Text>
+              <Text variant="caption">
+                {result.risk.model.matchedTokens.length
+                  ? `Matched locally: ${result.risk.model.matchedTokens.join(', ')}`
+                  : 'No strong learned phrase matched. Exact safety rules still checked the text.'}
               </Text>
-            </Row>
-            <Text variant="strong">{MODEL_LABEL[result.risk.model.category]}</Text>
-            <Text variant="caption">
-              {result.risk.model.matchedTokens.length
-                ? `Matched locally: ${result.risk.model.matchedTokens.join(', ')}`
-                : 'No strong learned phrase matched. Exact safety rules still checked the text.'}
-            </Text>
-          </View>}
+            </View>
+          )}
 
           <View style={styles.message}>
             <RNText style={styles.messageText}>
@@ -166,7 +173,14 @@ export default function MessageCheckScreen() {
           </FormSection>
 
           {result.risk.level !== 'low' && (
-            <View style={{ gap: spacing.md, padding: spacing.lg, backgroundColor: colors.surfaceMuted, borderRadius: radius.md }}>
+            <View
+              style={{
+                gap: spacing.md,
+                padding: spacing.lg,
+                backgroundColor: colors.surfaceMuted,
+                borderRadius: radius.md,
+              }}
+            >
               <Text variant="heading">Give yourself room to verify.</Text>
               <Text variant="small">
                 Do not send money to personal numbers. Keep the message as evidence. Abusive
@@ -175,19 +189,32 @@ export default function MessageCheckScreen() {
               </Text>
             </View>
           )}
-          <FormSection title="Keep a private copy" description="Save the original message in your Evidence Pack for your own records.">
-              <Field
-                label="Who sent it? (optional)"
-                placeholder="Lending app or number"
-                value={lender}
-                onChangeText={setLender}
-              />
-              <ActionError message={action.error} />
-              <Button label={saved ? 'Saved to your evidence' : 'Save as evidence'} kind="ink" icon={saved ? 'check' : 'shield'} disabled={saved} loading={action.pending} onPress={() => void action.run(save)} />
+          <FormSection
+            title="Keep a private copy"
+            description="Save the original message in your Evidence Pack for your own records."
+          >
+            <Field
+              label="Who sent it? (optional)"
+              placeholder="Lending app or number"
+              value={lender}
+              onChangeText={setLender}
+            />
+            <ActionError message={action.error} />
+            <Button
+              label={saved ? 'Saved to your evidence' : 'Save as evidence'}
+              kind="ink"
+              icon={saved ? 'check' : 'shield'}
+              disabled={saved}
+              loading={action.pending}
+              onPress={() => void action.run(save)}
+            />
           </FormSection>
         </Rise>
       )}
-      <Text variant="caption">A pattern check can miss context. A low-risk result does not verify the sender or make a payment request safe.</Text>
+      <Text variant="caption">
+        A pattern check can miss context. A low-risk result does not verify the sender or make a
+        payment request safe.
+      </Text>
     </FlowScreen>
   );
 }

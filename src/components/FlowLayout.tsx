@@ -14,7 +14,15 @@ export function FlowScreen({ children, bg }: { children: ReactNode; bg?: string 
   );
 }
 
-export function FormSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+export function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
   return (
     <View style={styles.section}>
       <View style={{ gap: spacing.xs }}>
@@ -26,13 +34,21 @@ export function FormSection({ title, description, children }: { title: string; d
   );
 }
 
-export function ActionError({ message, onRetry }: { message?: string | null; onRetry?: () => void }) {
+export function ActionError({
+  message,
+  onRetry,
+}: {
+  message?: string | null;
+  onRetry?: () => void;
+}) {
   if (!message) return null;
   return (
     <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
       <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
-        <Icon name="alert" size={20} color={colors.danger} />
-        <Text variant="small" color={colors.danger} style={{ flex: 1 }}>{message}</Text>
+        <Icon name="alert" size={20} color={colors.error} />
+        <Text variant="small" color={colors.error} style={{ flex: 1 }}>
+          {message}
+        </Text>
       </View>
       {onRetry ? <Button label="Try again" kind="outline" size="sm" onPress={onRetry} /> : null}
     </View>
@@ -41,6 +57,17 @@ export function ActionError({ message, onRetry }: { message?: string | null; onR
 
 const styles = StyleSheet.create({
   flow: { width: '100%', maxWidth: 720, alignSelf: 'center', gap: spacing.xxl },
-  section: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.xl, gap: spacing.lg },
-  error: { borderLeftWidth: 3, borderLeftColor: colors.danger, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md },
+  section: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.xl,
+    gap: spacing.lg,
+  },
+  error: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.error,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
 });

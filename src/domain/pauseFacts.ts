@@ -25,10 +25,18 @@ export function borrowPauseFacts(
     amount: number;
     owedTotal: number;
     dueThisMonth: number;
+    spentThisMonth?: number;
     budget?: BudgetProfile | null;
   },
 ): PauseFactResult {
   const amount = positiveCentavos(input.amount) ? input.amount : null;
+  const remainingBudget = input.budget
+    ? input.budget.monthlyIncome -
+      input.budget.monthlyFixedBills -
+      input.budget.savingsGoalMonthly -
+      (input.spentThisMonth ?? 0) -
+      input.dueThisMonth
+    : null;
   return {
     title: amount === null ? 'Before you borrow' : `Before you borrow ${formatPHP(amount)}`,
     item: '',
@@ -42,6 +50,9 @@ export function borrowPauseFacts(
             monthlyFixedBills: input.budget.monthlyFixedBills,
             savingsGoalMonthly: input.budget.savingsGoalMonthly,
           }
+        : {}),
+      ...(remainingBudget !== null && Number.isSafeInteger(remainingBudget)
+        ? { remainingBudget }
         : {}),
       ...(input.nextDueLabel ? { nextDueLabel: input.nextDueLabel } : {}),
     },

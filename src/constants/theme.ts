@@ -23,6 +23,7 @@ export const colors = {
   lagoonDeep: '#203D35',
   shell: '#EDF0E8',
   danger: '#B3261E', // high-risk messages only, never user setbacks
+  error: '#9A3A0B', // calm ember for form and loading errors (not alarm red)
   success: '#326846',
   white: '#FFFFFF',
   // Module identity

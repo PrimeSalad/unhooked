@@ -15,9 +15,17 @@ export function BudgetSetup() {
   const incomeC = parsePesoInput(income);
   const billsC = parsePesoInput(bills);
   const savingsC = parsePesoInput(savings);
-  const valid = !!incomeC && (!bills.trim() || billsC !== null) && (!savings.trim() || savingsC !== null);
+  const valid =
+    !!incomeC && (!bills.trim() || billsC !== null) && (!savings.trim() || savingsC !== null);
   return (
-    <View style={{ gap: spacing.lg, padding: spacing.xl, backgroundColor: colors.surfaceMuted, borderRadius: 12 }}>
+    <View
+      style={{
+        gap: spacing.lg,
+        padding: spacing.xl,
+        backgroundColor: colors.surfaceMuted,
+        borderRadius: 12,
+      }}
+    >
       <Text variant="heading">Give your budget a starting point.</Text>
       <Text variant="small" color={colors.textMuted}>
         Three rough numbers so I can tell you what a purchase really costs you. Stays on this phone.

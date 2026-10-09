@@ -32,7 +32,7 @@ import { useAsyncAction } from '@/hooks/useAsyncAction';
 const VERDICT = {
   comfortable: { label: 'Looks affordable', bg: colors.surfaceMuted, fg: colors.success },
   tight: { label: 'Tight', bg: colors.surfaceMuted, fg: colors.link },
-  conflicts: { label: 'Clashes with repayments', bg: '#FBE3E0', fg: '#8C1D18' },
+  conflicts: { label: 'Clashes with repayments', bg: colors.surfaceMuted, fg: colors.error },
 } as const;
 
 export default function SpendCheckScreen() {
@@ -93,7 +93,11 @@ export default function SpendCheckScreen() {
   const saveForLater = async () => {
     if (!ready || !priceC) return;
     await db.withTransactionAsync(async () => {
-      const id = await addPurchase(db, { item: item.trim(), price: priceC, isNeed: need === 'need' });
+      const id = await addPurchase(db, {
+        item: item.trim(),
+        price: priceC,
+        isNeed: need === 'need',
+      });
       await setPurchaseStatus(db, id, 'cooling');
     });
     const reminder = await remindIn(
@@ -103,7 +107,11 @@ export default function SpendCheckScreen() {
     );
     reset();
     goBack();
-    showToast(reminder ? 'Saved for 24 hours. A reminder is set.' : 'Saved for 24 hours. Come back to Spend when you are ready.');
+    showToast(
+      reminder
+        ? 'Saved for 24 hours. A reminder is set.'
+        : 'Saved for 24 hours. Come back to Spend when you are ready.',
+    );
   };
 
   return (
@@ -115,7 +123,14 @@ export default function SpendCheckScreen() {
       />
 
       {!budget && <BudgetSetup />}
-      <ActionError message={error ? 'Your saved records could not be loaded, so the budget estimate is unavailable.' : null} onRetry={retry} />
+      <ActionError
+        message={
+          error
+            ? 'Your saved records could not be loaded, so the budget estimate is unavailable.'
+            : null
+        }
+        onRetry={retry}
+      />
 
       <Rise>
         <FormSection title="What caught your eye?">
@@ -314,7 +329,9 @@ export default function SpendCheckScreen() {
         disabled={!ready || action.pending}
         onPress={() => void action.run(saveForLater)}
       />
-      <Text variant="caption">Your choice stays yours. Estimates use only the budget and records you have entered.</Text>
+      <Text variant="caption">
+        Your choice stays yours. Estimates use only the budget and records you have entered.
+      </Text>
     </FlowScreen>
   );
 }

@@ -46,7 +46,11 @@ export default function SitesScreen() {
       schedule: null,
     });
     setText('');
-    showToast(native ? `${domain} is added to your guard list.` : `${domain} is saved. Website guards run in the Android build.`);
+    showToast(
+      native
+        ? `${domain} is added to your guard list.`
+        : `${domain} is saved. Website guards run in the Android build.`,
+    );
   };
 
   const add = async (domain: string) => {
@@ -66,31 +70,52 @@ export default function SitesScreen() {
         subtitle="Choose websites where you would like a pause."
       />
 
-      {!native && <View style={{ padding: spacing.lg, backgroundColor: colors.surfaceMuted, gap: spacing.sm }}><Text variant="strong">Prepare your list here.</Text><Text variant="small">Website guards work in the Android build. Saving a site here does not block this browser or other apps.</Text></View>}
-      <ActionError message={error ? 'Your saved website list could not be loaded.' : null} onRetry={retry} />
+      {!native && (
+        <View
+          style={{ padding: spacing.lg, backgroundColor: colors.surfaceMuted, gap: spacing.sm }}
+        >
+          <Text variant="strong">Prepare your list here.</Text>
+          <Text variant="small">
+            Website guards work in the Android build. Saving a site here does not block this browser
+            or other apps.
+          </Text>
+        </View>
+      )}
+      <ActionError
+        message={error ? 'Your saved website list could not be loaded.' : null}
+        onRetry={retry}
+      />
 
       <FormSection title="Add a website">
-      <Field
-        label="Website"
-        placeholder="Paste a link, like shopee.ph"
-        value={text}
-        onChangeText={setText}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="url"
-        error={result && !result.ok ? result.error : undefined}
-      />
-      {result && (
-        <Text variant="small" color={result.ok ? colors.text : colors.spend}>
-          {result.ok ? `Will guard ${result.domain} and its subpages.` : result.error}
-        </Text>
-      )}
-      <Button
-        label={result?.ok && sites.some((site) => site.target === result.domain) ? 'Already on your list' : 'Add website'}
-        disabled={!result?.ok || !!error || (result?.ok && sites.some((site) => site.target === result.domain))}
-        loading={action.pending}
-        onPress={() => result?.ok && void action.run(() => add(result.domain))}
-      />
+        <Field
+          label="Website"
+          placeholder="Paste a link, like shopee.ph"
+          value={text}
+          onChangeText={setText}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          error={result && !result.ok ? result.error : undefined}
+        />
+        {result && (
+          <Text variant="small" color={result.ok ? colors.text : colors.spend}>
+            {result.ok ? `Will guard ${result.domain} and its subpages.` : result.error}
+          </Text>
+        )}
+        <Button
+          label={
+            result?.ok && sites.some((site) => site.target === result.domain)
+              ? 'Already on your list'
+              : 'Add website'
+          }
+          disabled={
+            !result?.ok ||
+            !!error ||
+            (result?.ok && sites.some((site) => site.target === result.domain))
+          }
+          loading={action.pending}
+          onPress={() => result?.ok && void action.run(() => add(result.domain))}
+        />
       </FormSection>
       <ActionError message={action.error} />
 
@@ -102,7 +127,11 @@ export default function SitesScreen() {
                 key={s.id}
                 leading={<Avatar label={s.label} bg={colors.scrollSoft} fg={colors.scroll} />}
                 title={s.label}
-                subtitle={native ? 'Included when website guards are enabled' : 'Ready for the Android build'}
+                subtitle={
+                  native
+                    ? 'Included when website guards are enabled'
+                    : 'Ready for the Android build'
+                }
                 trailing={
                   <IconButton
                     icon="close"
@@ -159,12 +188,14 @@ export default function SitesScreen() {
         <Button
           label="Continue to Android permission"
           loading={action.pending}
-          onPress={() => void action.run(async () => {
-            const domain = disclose;
-            if (domain && (await prepareWebGuard())) await save(domain);
-            else showToast('Website guard stays off. App guards still work.');
-            setDisclose(null);
-          })}
+          onPress={() =>
+            void action.run(async () => {
+              const domain = disclose;
+              if (domain && (await prepareWebGuard())) await save(domain);
+              else showToast('Website guard stays off. App guards still work.');
+              setDisclose(null);
+            })
+          }
         />
         <Button label="Not now" kind="ghost" size="sm" onPress={() => setDisclose(null)} />
       </Sheet>

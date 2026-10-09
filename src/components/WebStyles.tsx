@@ -1,1 +1,3 @@
-export function WebStyles() { return null; }
+export function WebStyles() {
+  return null;
+}

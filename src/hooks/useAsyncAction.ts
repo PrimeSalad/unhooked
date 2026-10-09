@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
 
 /** Prevent duplicate submissions and keep failures visible without discarding the user's draft. */
-export function useAsyncAction(failure = 'Could not save this change. Your details are still here. Please try again.') {
+export function useAsyncAction(
+  failure = 'Could not save this change. Your details are still here. Please try again.',
+) {
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -65,7 +65,19 @@ export function localReply(input: string, c: ChatContext): string {
     return 'That sounds heavy. Let us keep today small: one breath, one decision at a time. If money is part of it, I can show you exactly what is due so it feels less foggy.';
   }
 
-  if (has(t, 'afford', 'safe to spend', 'safely spend', 'kaya ko', 'bilhin', 'buy', 'bibili', 'purchase')) {
+  if (
+    has(
+      t,
+      'afford',
+      'safe to spend',
+      'safely spend',
+      'kaya ko',
+      'bilhin',
+      'buy',
+      'bibili',
+      'purchase',
+    )
+  ) {
     const amount = findAmount(input);
     if (!c.budget) {
       return 'I can check that once you add your monthly budget in Spend. It takes about 20 seconds, and it stays on your phone.';
@@ -132,7 +144,16 @@ export function localReply(input: string, c: ChatContext): string {
       : `Estimate: about ${formatPHP(position.safeToSpend)} is safe to spend after bills, savings, recorded purchases and ${formatPHP(o.dueThisMonth)} in repayments.`;
   }
 
-  if (has(t, 'what needs attention', 'what needs my attention', 'what should i focus', 'what do you notice', 'pressure')) {
+  if (
+    has(
+      t,
+      'what needs attention',
+      'what needs my attention',
+      'what should i focus',
+      'what do you notice',
+      'pressure',
+    )
+  ) {
     const inference = inferDailyPressure({
       monthlyIncome: c.budget?.monthlyIncome ?? 0,
       monthlyFixedBills: c.budget?.monthlyFixedBills ?? 0,

@@ -25,32 +25,76 @@ export default function CheckInScreen() {
   const action = useAsyncAction();
   const [answers, setAnswers] = useState<Partial<Record<Key, Score>>>({});
   const complete = QUESTIONS.every((q) => answers[q.key]);
-  const save = () => action.run(async () => {
-    if (!complete) return;
-    const { stress, mood, fatigue } = answers as Record<Key, Score>;
-    await db.runAsync('INSERT INTO checkins (id, stress, mood, fatigue, created_at) VALUES (?, ?, ?, ?, ?)', Crypto.randomUUID(), stress, mood, fatigue, new Date().toISOString());
-    await logEvent(db, 'checkin_completed', { stress, mood, fatigue });
-    bumpData();
-    goBack();
-    showToast(stress >= 4 || fatigue >= 4 ? 'Check-in saved. Your guidance will be gentler today.' : 'Check-in saved. Take today at your own pace.');
-  });
+  const save = () =>
+    action.run(async () => {
+      if (!complete) return;
+      const { stress, mood, fatigue } = answers as Record<Key, Score>;
+      await db.runAsync(
+        'INSERT INTO checkins (id, stress, mood, fatigue, created_at) VALUES (?, ?, ?, ?, ?)',
+        Crypto.randomUUID(),
+        stress,
+        mood,
+        fatigue,
+        new Date().toISOString(),
+      );
+      await logEvent(db, 'checkin_completed', { stress, mood, fatigue });
+      bumpData();
+      goBack();
+      showToast(
+        stress >= 4 || fatigue >= 4
+          ? 'Check-in saved. Your guidance will be gentler today.'
+          : 'Check-in saved. Take today at your own pace.',
+      );
+    });
   return (
     <FlowScreen>
-      <ScreenHeader back title="How are you, really?" subtitle="A small check-in, with no right answers." />
-      <Text>Your answers help Ginto choose a gentler pause when you need one. They stay on this device and are never a diagnosis.</Text>
+      <ScreenHeader
+        back
+        title="How are you, really?"
+        subtitle="A small check-in, with no right answers."
+      />
+      <Text>
+        Your answers help Ginto choose a gentler pause when you need one. They stay on this device
+        and are never a diagnosis.
+      </Text>
       {QUESTIONS.map((q, index) => (
         <FormSection key={q.key} title={`${String(index + 1).padStart(2, '0')}  ${q.q}`}>
           <View accessibilityRole="radiogroup" accessibilityLabel={q.q} style={styles.options}>
             {([1, 2, 3, 4, 5] as Score[]).map((n) => {
               const active = answers[q.key] === n;
-              return <Pressable key={n} accessibilityRole="radio" accessibilityState={{ checked: active }} accessibilityLabel={`${q.q} ${n} of 5${n === 1 ? `, ${q.low}` : n === 5 ? `, ${q.high}` : ''}`} onPress={() => setAnswers((a) => ({ ...a, [q.key]: n }))} style={({ pressed }) => [styles.option, active && styles.selected, pressed && { opacity: 0.75 }]}><Text variant="heading" color={active ? colors.bg : colors.textSoft}>{n}</Text></Pressable>;
+              return (
+                <Pressable
+                  key={n}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                  accessibilityLabel={`${q.q} ${n} of 5${n === 1 ? `, ${q.low}` : n === 5 ? `, ${q.high}` : ''}`}
+                  onPress={() => setAnswers((a) => ({ ...a, [q.key]: n }))}
+                  style={({ pressed }) => [
+                    styles.option,
+                    active && styles.selected,
+                    pressed && { opacity: 0.75 },
+                  ]}
+                >
+                  <Text variant="heading" color={active ? colors.bg : colors.textSoft}>
+                    {n}
+                  </Text>
+                </Pressable>
+              );
             })}
           </View>
-          <Row style={{ justifyContent: 'space-between' }}><Text variant="caption">{q.low}</Text><Text variant="caption">{q.high}</Text></Row>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Text variant="caption">{q.low}</Text>
+            <Text variant="caption">{q.high}</Text>
+          </Row>
         </FormSection>
       ))}
       <ActionError message={action.error} />
-      <Button label="Save my check-in" disabled={!complete} loading={action.pending} onPress={() => void save()} />
+      <Button
+        label="Save my check-in"
+        disabled={!complete}
+        loading={action.pending}
+        onPress={() => void save()}
+      />
       <Button label="Skip for now" kind="ghost" onPress={goBack} disabled={action.pending} />
     </FlowScreen>
   );
@@ -58,6 +102,15 @@ export default function CheckInScreen() {
 
 const styles = StyleSheet.create({
   options: { flexDirection: 'row', gap: spacing.sm },
-  option: { flex: 1, minHeight: 56, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  option: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   selected: { backgroundColor: colors.text, borderColor: colors.text },
 });

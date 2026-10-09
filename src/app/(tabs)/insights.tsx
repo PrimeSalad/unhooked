@@ -59,9 +59,10 @@ export default function InsightsScreen() {
   const total = week.reduce((a, d) => a + d.n, 0);
   const firstDay = week[0]?.date;
   const lastDay = week[week.length - 1]?.date;
-  const dateRange = firstDay && lastDay
-    ? `${firstDay.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} – ${lastDay.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`
-    : 'Last seven days';
+  const dateRange =
+    firstDay && lastDay
+      ? `${firstDay.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} – ${lastDay.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`
+      : 'Last seven days';
 
   return (
     <Screen>

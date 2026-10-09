@@ -23,7 +23,12 @@ export function useDbQuery<T>(query: (db: SQLiteDatabase) => Promise<T>, initial
     query(db)
       .then((data) => alive && setState({ data, loaded: true, error: null }))
       .catch((e: unknown) => {
-        if (alive) setState((current) => ({ ...current, loaded: true, error: e instanceof Error ? e : new Error('Could not read your records.') }));
+        if (alive)
+          setState((current) => ({
+            ...current,
+            loaded: true,
+            error: e instanceof Error ? e : new Error('Could not read your records.'),
+          }));
       });
     return () => {
       alive = false;

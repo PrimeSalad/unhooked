@@ -5,18 +5,20 @@
 
 **Status (Oct 9):** Phases 0–4 built on real user data · two explainable Local AI models integrated · Phase 4B built, **not yet run on a device**.
 
-| Area                                                                                                                                                                                            | State                                                                                                                                                                     |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Today, Debt, Spend, Scroll, Insights                                                                                                                                                            | Real data from SQLite; focused empty states; decision-first hierarchy; floating tab bar with a center AI action                                                           |
-| AI Pause, Unhooked                                                                                                                                                                              | `ginto-jitai-v1` ranks local pressure signals, explains its factors, changes the recommendation, and records its output with the user's decision; real countdown + haptic |
-| Debt                                                                                                                                                                                            | Add owed/lent, payments, settle, delete, borrowing pause, Evidence Pack (screenshots + saved messages)                                                                    |
-| Spend                                                                                                                                                                                           | Budget, purchase check (affordability, cheaper option, BNPL true cost), 24h cooling with reminder, recent                                                                 |
-| Scroll                                                                                                                                                                                          | Guards (apps + sites, schedules, Pause/Strict), Unhook timer, scroll timer with check-in, stats                                                                           |
-| Safety                                                                                                                                                                                          | `ginto-message-nb-v1` English/Taglish statistical classifier + exact explainable rules, risky-language highlights, Evidence Pack; Help                                    |
-| Ask Ginto                                                                                                                                                                                       | On-device answers grounded in the user's real budget, debts, purchases and scroll records                                                                                 |
-| Phase 4B native                                                                                                                                                                                 | `AppGuardService` (usage events → shield deep link), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested               |
-| Still open                                                                                                                                                                                      | Evidence PDF export, repayment planner screen, broader Taglish copy, device test of 4B, Play declarations                                                                 |
-| **Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone. |
+| Area | State |
+|---|---|
+| Today, Debt, Spend, Scroll, Insights | Real data from SQLite; focused empty states; decision-first hierarchy; floating pill tab bar with a center pause button (sidebar on desktop web) |
+| AI Pause, Unhooked | `ginto-jitai-v1` ranks local pressure signals, explains its factors, changes the recommendation, and records its output with the user's decision; real countdown + haptic |
+| Debt | Add owed/lent, payments, settle, delete, repayment planner, polite reminder, reminders the day before, borrowing pause, Evidence Pack with PDF export |
+| Spend | Budget, purchase check (affordability, cheaper option, BNPL true cost), 24h cooling with reminder, recent |
+| Scroll | Guards (apps + sites, schedules, Pause/Strict), Unhook timer, scroll timer with check-in, doomscroll fade, stats |
+| Safety | `ginto-message-nb-v1` English/Taglish classifier + explainable rules, highlights, Evidence Pack; crisis language points to NCMH 1553 / 911 |
+| Ask Ginto | On-device answers from the user's records; optional Gemma model download; photo attachments |
+| Demo | Settings → "Load demo data (Ana)" in dev builds |
+| Phase 4B native | `AppGuardService` (usage events → shield deep link, doomscroll fade), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested |
+| Still open | Device tap-through (Phase 2 PDF sharing, 4B guards), broader Taglish copy, Play declarations |
+
+**Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone.
 
 ---
 
@@ -173,18 +175,18 @@ The pause uses real on-device records and deterministic local templates. Gemma a
 **Done when:** each tab's trigger button opens a pause, countdown blocks decisions, decision is in the `events` table.
 
 ### Phase 2 — Debt
-
-- [ ] `src/db/debts.ts` repository: create/list/close debts, add payments, list with balances.
-- [ ] Implement `domain/repayment.ts` (`balances`, `planRepayment`: due-date / avalanche / snowball, unrealistic-plan warning) + replace `it.todo`s.
-- [ ] Debt tab: segmented **I owe / Owed to me** list, outstanding total, next due date; add-debt form; record partial payment.
-- [ ] Repayment planner screen: budget input → ordered plan, months-to-clear, warning (labeled _estimate_).
-- [ ] Money owed to you: "Draft a polite reminder" (template, copy to clipboard/share).
-- [ ] Repayment reminders: local notification the day before `dueDate`.
-- [ ] **Debt Evidence Pack**: pick screenshots (`expo-image-picker`) → copy into app document dir → tag lender + incident date + note → list grouped by lender/date → **Export PDF** (`expo-print` → `expo-sharing`). Include a cover page with dates and a disclaimer.
-- [ ] **Borrowing pause**: "I'm thinking of borrowing" → amount input → facts = upcoming repayments this month, remaining budget → `/pause?kind=borrow`.
-- [ ] `deleteAllData` also deletes evidence image files.
+- [x] `src/db/debts.ts` repository: create/list/close debts, add payments, list with balances.
+- [x] Implement `domain/repayment.ts` (`balances`, `planRepayment`: due-date / avalanche / snowball, unrealistic-plan warning) + tests.
+- [x] Debt tab: segmented **I owe / Owed to me** list, outstanding total, next due date; add-debt form; record partial payment.
+- [x] Repayment planner screen: budget input → ordered plan, months-to-clear, warning (labeled *estimate*).
+- [x] Money owed to you: "Draft a polite reminder" (template, shareable text).
+- [x] Repayment reminders: local notification the day before `dueDate`.
+- [x] **Debt Evidence Pack** (phone app): pick screenshots (`expo-image-picker`) → copy into app document dir → tag lender + incident date + note → list grouped by lender/date → **Export PDF** (`expo-print` → `expo-sharing`). Include a cover page with dates and a disclaimer. Web can list saved messages but cannot export the pack.
+- [x] **Borrowing pause**: "I'm thinking of borrowing" → amount input → facts = upcoming repayments this month, remaining budget → `/pause?kind=borrow`.
+- [x] `deleteAllData` also deletes evidence image files.
 
 **Done when:** demo script steps D1–D3 (§5) work end to end.
+**Verification remaining:** tap through D1–D3 and PDF sharing in Expo Go on a phone; automated checks, Expo Doctor and Android bundling pass.
 
 ### Phase 3 — Spend
 

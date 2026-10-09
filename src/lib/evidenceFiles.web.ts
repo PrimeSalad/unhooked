@@ -14,3 +14,22 @@ export async function persistEvidenceImage(uri: string): Promise<string> {
 
 // On web, deleting the SQLite evidence records also removes their stored image data.
 export async function deleteEvidenceImages(): Promise<void> {}
+
+// Same API as the native module; screenshots are stored as data URIs in SQLite on web.
+export const isAppCacheFile = (_uri: string): boolean => false;
+
+export async function saveEvidenceImage(
+  sourceUri: string,
+  _id: string,
+  _mimeType: string | null,
+): Promise<string> {
+  return persistEvidenceImage(sourceUri);
+}
+
+export function deleteEvidenceImage(_uri: string | null): void {}
+
+export function deleteAllEvidenceImages(): void {}
+
+export async function evidenceImageDataUri(uri: string): Promise<string | null> {
+  return uri.startsWith('data:image/') ? uri : null;
+}

@@ -59,6 +59,8 @@ describe('pause facts from records', () => {
       amount: toCentavos(2000),
       owedTotal: toCentavos(7500),
       dueThisMonth: toCentavos(3000),
+      spentThisMonth: 0,
+      budget,
       nextDueLabel: '',
       checkIn: null,
     });
@@ -67,6 +69,11 @@ describe('pause facts from records', () => {
       amount: toCentavos(2000),
       owedTotal: toCentavos(7500),
       dueThisMonth: toCentavos(3000),
+      // Budget inputs feed the local decision model; remainingBudget feeds the reflection.
+      monthlyIncome: budget.monthlyIncome,
+      monthlyFixedBills: budget.monthlyFixedBills,
+      savingsGoalMonthly: budget.savingsGoalMonthly,
+      remainingBudget: toCentavos(6000),
     });
     expect(result.facts).not.toHaveProperty('projectedDue');
   });

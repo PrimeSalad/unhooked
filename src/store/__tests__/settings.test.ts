@@ -22,15 +22,13 @@ beforeEach(() => {
 });
 
 it('restores an unfinished setup and its exact inputs from persisted storage', async () => {
-  await useSettings
-    .getState()
-    .updateOnboardingDraft({
-      step: 2,
-      name: 'Mika',
-      focus: 'spend',
-      income: '25,000',
-      bills: '8000.50',
-    });
+  await useSettings.getState().updateOnboardingDraft({
+    step: 2,
+    name: 'Mika',
+    focus: 'spend',
+    income: '25,000',
+    bills: '8000.50',
+  });
   const persisted = await settingsStorage.getItem('unhooked-settings');
   useSettings.getState().reset();
   await settingsStorage.setItem('unhooked-settings', persisted!);
