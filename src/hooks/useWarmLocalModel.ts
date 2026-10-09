@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import {
   hasAndroidLocalAiRuntime,
+  removeRetiredModels,
   setAndroidPerformanceMode,
   setAndroidProcessor,
   warmAndroidLocalModel,
@@ -23,6 +24,7 @@ export function useWarmLocalModel(delayMs = 2500) {
     if (!hydrated || !hasAndroidLocalAiRuntime()) return;
     const timer = setTimeout(() => {
       void (async () => {
+        await removeRetiredModels();
         await setAndroidPerformanceMode(mode);
         await setAndroidProcessor(processor);
         await warmAndroidLocalModel(choice);

@@ -64,6 +64,23 @@ export function vetModelText(
   return { ok: true };
 }
 
+/**
+ * True when a rephrasing still carries every number of the computed answer, so a model
+ * can soften the wording but never drop the amount, date or count the answer rests on.
+ */
+export function keepsNumbers(rephrased: string, computed: string): boolean {
+  const kept = new Set(numbersIn(rephrased).map((n) => n.replace(/,/g, '')));
+  return numbersIn(computed).every((n) => kept.has(n.replace(/,/g, '')));
+}
+
+const TAGALOG_WORDS =
+  /\b(ako|ko|mo|ba|ang|ng|nga|sa|na|po|lang|naman|kaya|ano|anong|magkano|paano|bakit|saan|kailan|ilan|utang|pera|gastos|bayaran|sahod|sweldo|wala|meron|may|hindi|oo|gusto|pwede|puwede|akong|ako'y|sana|talaga|kasi)\b/gi;
+
+/** Two or more common Tagalog words reads as Tagalog/Taglish; a single "na" or "ba" may not. */
+export function soundsTagalog(text: string): boolean {
+  return (text.match(TAGALOG_WORDS) ?? []).length >= 2;
+}
+
 /** Strips markdown noise (bullets, bold, quotes) that small models like to add. */
 export function tidyModelLine(line: string): string {
   return line

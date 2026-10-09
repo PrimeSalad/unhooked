@@ -302,7 +302,9 @@ class GintoLocalAiModule : Module() {
       "You are Ginto, a concise and kind Filipino budgeting companion. " +
         "Understand English, Filipino, Tagalog, and natural Taglish. Reply in the language " +
         "the user used; when they mix languages, answer in natural Taglish. " +
-        "Use only the current app-record summary and conversation for personal facts. " +
+        "Use only the current app-record summary and conversation for personal facts; " +
+        "if something is not in them, say you do not have it yet instead of guessing. " +
+        "Only help with money, debt, spending, scrolling and the Unhooked app. " +
         "Be clear when something is an estimate, do not invent missing financial details, " +
         "do not calculate money when the app already provides a computed value, and never " +
         "shame or pressure the user. The user always decides. Encourage checking official " +
@@ -332,6 +334,7 @@ class GintoLocalAiModule : Module() {
               modelPath = path,
               backend = backendFor(backendName),
               visionBackend = backendFor(backendName),
+              maxNumTokens = MAX_CONTEXT_TOKENS,
               maxNumImages = 1,
               cacheDir = context.cacheDir.absolutePath,
             )
@@ -339,6 +342,7 @@ class GintoLocalAiModule : Module() {
             EngineConfig(
               modelPath = path,
               backend = backendFor(backendName),
+              maxNumTokens = MAX_CONTEXT_TOKENS,
               cacheDir = context.cacheDir.absolutePath,
             )
           },
@@ -372,7 +376,9 @@ class GintoLocalAiModule : Module() {
     val memoryManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     val memory = ActivityManager.MemoryInfo()
     memoryManager.getMemoryInfo(memory)
-    val needed = modelBytes * 3 / 4
+    // GPU/CPU backends copy the weights out of the mmap, plus KV cache and runtime buffers:
+    // Gemma 4 E4B (3.6 GB) was OOM-killed on a 12 GB phone with ~3.9 GB available.
+    val needed = modelBytes + LOAD_HEADROOM_BYTES
     if (memory.lowMemory || memory.availMem < needed) {
       throw IllegalStateException(
         "Not enough free memory to start this model. Close other apps or pick a smaller model.",
@@ -633,5 +639,9 @@ class GintoLocalAiModule : Module() {
   private companion object {
     const val DEFAULT_SPEECH_LANGUAGE = "en-US"
     const val FALLBACK_SPEECH_LANGUAGE = "en-US"
+    const val LOAD_HEADROOM_BYTES = 768L * 1024 * 1024
+    // KV cache size: the prompts are capped near 1,500 tokens, so a 2K window is enough
+    // and far smaller in memory than the model's full default context.
+    const val MAX_CONTEXT_TOKENS = 2048
   }
 }

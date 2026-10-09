@@ -39,7 +39,7 @@ import {
   stopAndroidSpeechRecognition,
   warmAndroidLocalModel,
 } from '@/ai/androidLocalAi';
-import { allowedNumbers, vetModelText } from '@/ai/guard';
+import { allowedNumbers, keepsNumbers, vetModelText } from '@/ai/guard';
 import { LOCAL_MODEL_BY_ID, type LocalModelId } from '@/ai/localModels';
 import { ensureSpeechModel, isSpeechModelReady, SPEECH_MODEL_BYTES } from '@/ai/speechModel';
 import { Ginto } from '@/components/mascot/Ginto';
@@ -287,7 +287,10 @@ export default function ChatScreen() {
           false,
           onPhase,
         );
-        if (generation && !vetModelText(generation.text, allowed, 700).ok) {
+        // A rephrasing must also keep every number the rules computed, or the rules' reply stands.
+        const passes = (draft: string) =>
+          vetModelText(draft, allowed, 700).ok && (!computed || keepsNumbers(draft, computed));
+        if (generation && !passes(generation.text)) {
           // One retry with a stricter instruction when the guard rejects the draft.
           generation = await generateAndroidLocalReply(
             localAiModel,
@@ -302,7 +305,7 @@ export default function ChatScreen() {
         }
         if (generation) {
           setActiveBackend(generation.backend);
-          if (vetModelText(generation.text, allowed, 700).ok) {
+          if (passes(generation.text)) {
             setAnsweredWith(generation.modelId);
             reply = {
               id: nextId(),

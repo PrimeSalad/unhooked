@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
-export type LocalModelId = 'qwen3-0.6b' | 'qwen2.5-1.5b' | 'gemma4-e2b' | 'gemma4-e4b';
+export type LocalModelId = 'gemma4-e2b' | 'gemma4-e4b';
 export type LocalModelChoice = 'auto' | LocalModelId;
 export type PerformanceMode = 'balanced' | 'max';
 export type ProcessorChoice = 'auto' | 'npu' | 'gpu' | 'cpu';
@@ -37,6 +37,8 @@ export type LocalModelProfile = {
   repo: string;
   revision: string;
   hardware: string;
+  /** Smallest phone RAM (as Android reports it) the model is offered on. */
+  minRamBytes: number;
   use: string;
   url: string;
 };
@@ -47,37 +49,9 @@ const model = (profile: Omit<LocalModelProfile, 'url'>): LocalModelProfile => ({
 });
 
 export const LOCAL_MODELS: LocalModelProfile[] = [
-  // The Gemma 3 1B repo on Hugging Face is license-gated (401 without a token),
-  // so Qwen 3 0.6B is the downloadable entry-level model.
-  model({
-    id: 'qwen3-0.6b',
-    tier: 'Lighter',
-    name: 'Qwen 3 0.6B',
-    modality: 'Text',
-    sizeLabel: '~500 MB',
-    bytes: 497_516_544,
-    fileName: 'qwen3_0_6b_mixed_int4.litertlm',
-    repo: 'litert-community/Qwen3-0.6B',
-    revision: 'a3c5d805ae362dff7f580bc25f2dfb9a5a7eaa76',
-    hardware: '3–4 GB RAM',
-    use: 'Fast replies · low memory or battery',
-  }),
-  model({
-    id: 'qwen2.5-1.5b',
-    tier: 'Primary',
-    name: 'Qwen 2.5 1.5B',
-    modality: 'Text',
-    sizeLabel: '~1.6 GB',
-    bytes: 1_597_931_520,
-    fileName: 'Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm',
-    repo: 'litert-community/Qwen2.5-1.5B-Instruct',
-    revision: '19edb84c69a0212f29a6ef17ba0d6f278b6a1614',
-    hardware: '4–6 GB RAM',
-    use: 'Filipino + Taglish chat · stronger reasoning',
-  }),
   model({
     id: 'gemma4-e2b',
-    tier: 'Higher',
+    tier: 'Default',
     name: 'Gemma 4 E2B',
     modality: 'Text + Vision',
     sizeLabel: '~2.6 GB',
@@ -86,11 +60,13 @@ export const LOCAL_MODELS: LocalModelProfile[] = [
     repo: 'litert-community/gemma-4-E2B-it-litert-lm',
     revision: 'b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1',
     hardware: '6 GB+ RAM',
-    use: 'Images · receipts · deeper reasoning',
+    // A "6 GB" phone reports about 5.6 GB.
+    minRamBytes: 5_500_000_000,
+    use: 'Recommended · chat, receipts and photos',
   }),
   model({
     id: 'gemma4-e4b',
-    tier: 'Higher+',
+    tier: 'Higher',
     name: 'Gemma 4 E4B',
     modality: 'Text + Vision',
     sizeLabel: '~3.7 GB',
@@ -98,9 +74,17 @@ export const LOCAL_MODELS: LocalModelProfile[] = [
     fileName: 'gemma-4-E4B-it.litertlm',
     repo: 'litert-community/gemma-4-E4B-it-litert-lm',
     revision: '2eee7ac325f20eb8c9ac1d0e972f7c84663062da',
-    hardware: '8 GB+ RAM',
-    use: 'Best quality · detailed visual reasoning',
+    hardware: '12 GB+ RAM · high-end phones',
+    // High-end only: a "12 GB" phone reports about 12.0 GB; 8 GB phones run out of memory.
+    minRamBytes: 11_500_000_000,
+    use: 'Sharper answers · detailed photo reading',
   }),
+];
+
+/** Files of models dropped from the catalog; deleted on launch to give the storage back. */
+export const RETIRED_MODEL_FILES = [
+  'qwen3_0_6b_mixed_int4.litertlm',
+  'Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm',
 ];
 
 export const LOCAL_MODEL_BY_ID = Object.fromEntries(
@@ -140,75 +124,44 @@ export function planModelDownload(
   return { kind: 'fresh' };
 }
 
-export function recommendLocalModel(device: AndroidDeviceProfile | null): LocalModelId {
-  // Unknown hardware: the lightest model is the one most likely to start.
-  if (!device?.totalMemoryBytes) return 'qwen3-0.6b';
+/** Gemma 4 E2B is the default on every phone; E4B is an opt-in for phones with RAM to spare. */
+export function recommendLocalModel(_device: AndroidDeviceProfile | null): LocalModelId {
+  return 'gemma4-e2b';
+}
 
-  const totalRam = device.totalMemoryBytes;
-  const availableRam = device.availableMemoryBytes ?? totalRam;
-  const lowBattery =
-    device.batteryPercent != null && device.batteryPercent < 20 && device.charging !== true;
-  const tightRam = device.lowMemory === true || availableRam < 1.5 * GB;
-
-  if (totalRam < 4 * GB || lowBattery || tightRam) return 'qwen3-0.6b';
-
-  const hasSpace = (id: LocalModelId) =>
-    device.freeStorageBytes == null ||
-    device.freeStorageBytes >= LOCAL_MODEL_BY_ID[id].bytes + STORAGE_HEADROOM;
-
-  if (totalRam >= 4 * GB && availableRam >= 2 * GB && hasSpace('qwen2.5-1.5b')) {
-    return 'qwen2.5-1.5b';
-  }
-  return 'qwen3-0.6b';
+/** Unknown RAM (web, Expo Go) offers every model; the native memory guard still applies. */
+export function fitsDevice(id: LocalModelId, totalMemoryBytes: number | null | undefined): boolean {
+  return totalMemoryBytes == null || totalMemoryBytes >= LOCAL_MODEL_BY_ID[id].minRamBytes;
 }
 
 export function isVisionModel(id: LocalModelId): boolean {
   return LOCAL_MODEL_BY_ID[id]?.modality === 'Text + Vision';
 }
 
-const VISION_MODELS: LocalModelId[] = ['gemma4-e2b', 'gemma4-e4b'];
-
 export function pickLocalModel(
   choice: LocalModelChoice,
   recommended: LocalModelId,
   installed: ReadonlySet<LocalModelId>,
-  needs: 'any' | 'text' | 'vision' = 'any',
+  needs: 'any' | 'vision' = 'any',
   loaded: LocalModelId | null = null,
 ): LocalModelId | null {
+  // A persisted choice can name a model that has since left the catalog.
+  const known = choice === 'auto' || choice in LOCAL_MODEL_BY_ID;
+  const pinned = known && choice !== 'auto' ? choice : null;
   // Auto keeps the model already in memory when it fits the need: switching the engine
   // to another file costs a multi-second reload.
-  if (choice === 'auto' && loaded != null && installed.has(loaded)) {
-    const satisfies =
-      needs === 'any' ||
-      (needs === 'vision' && isVisionModel(loaded)) ||
-      (needs === 'text' && !isVisionModel(loaded));
-    if (satisfies) return loaded;
+  if (!pinned && loaded != null && installed.has(loaded)) {
+    if (needs === 'any' || isVisionModel(loaded)) return loaded;
   }
-  const preferred = choice === 'auto' ? recommended : choice;
-  if (needs === 'vision') {
-    if (installed.has(preferred) && isVisionModel(preferred)) return preferred;
-    return VISION_MODELS.find((id) => installed.has(id)) ?? null;
-  }
-  const pool = LOCAL_MODELS.filter(
-    (m) => installed.has(m.id) && (needs === 'any' || m.modality === 'Text'),
-  );
-  if (!pool.length) return null;
-  const poolIds = new Set(pool.map((m) => m.id));
-  const cap = LOCAL_MODEL_BY_ID[recommended].bytes;
   const order: LocalModelId[] = [
-    ...(choice !== 'auto' ? [choice] : []),
+    ...(pinned ? [pinned] : []),
     recommended,
-    // Prefer models no bigger than the recommendation (largest first), then the rest.
-    ...pool
-      .filter((m) => m.bytes <= cap)
-      .sort((a, b) => b.bytes - a.bytes)
-      .map((m) => m.id),
-    ...pool
-      .filter((m) => m.bytes > cap)
-      .sort((a, b) => a.bytes - b.bytes)
-      .map((m) => m.id),
+    // Then the smallest installed model, the one most likely to fit in memory.
+    ...[...LOCAL_MODELS].sort((a, b) => a.bytes - b.bytes).map((m) => m.id),
   ];
-  return order.find((id) => installed.has(id) && poolIds.has(id)) ?? null;
+  return (
+    order.find((id) => installed.has(id) && (needs === 'any' || isVisionModel(id))) ?? null
+  );
 }
 
 export function formatModelStorage(bytes: number): string {

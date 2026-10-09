@@ -15,6 +15,7 @@ import {
   formatModelStorage,
   LOCAL_MODEL_BY_ID,
   LOCAL_MODELS,
+  fitsDevice as fitsModelToDevice,
   modelUri,
   recommendLocalModel,
   STORAGE_HEADROOM,
@@ -49,10 +50,6 @@ const PROCESSOR_CAPTIONS: Record<ProcessorChoice, string> = {
 
 const PROFILE_GROUPS = [
   {
-    title: 'Chat',
-    ids: ['qwen2.5-1.5b', 'qwen3-0.6b'] as LocalModelId[],
-  },
-  {
     title: 'Text + vision',
     ids: ['gemma4-e2b', 'gemma4-e4b'] as LocalModelId[],
   },
@@ -74,8 +71,6 @@ type Props = {
 };
 
 const emptyInstalled = (): Record<LocalModelId, boolean> => ({
-  'qwen3-0.6b': false,
-  'qwen2.5-1.5b': false,
   'gemma4-e2b': false,
   'gemma4-e4b': false,
 });
@@ -326,7 +321,32 @@ export function GemmaModelSheet({
     }
   };
 
+  // Turning Auto off pins the model already in use, so nothing reloads.
+  const runningModelId =
+    LOCAL_MODELS.find(
+      (model) => runtime?.ready && runtime.modelPath?.endsWith(model.fileName),
+    )?.id ?? null;
+  const pinnedModelId =
+    runningModelId ??
+    (recommendedModelId && installed[recommendedModelId] ? recommendedModelId : null) ??
+    LOCAL_MODELS.find((model) => installed[model.id])?.id ??
+    null;
+
+  const handleTurnAutoOff = () => {
+    if (!pinnedModelId) {
+      setError('Download a model first to choose it yourself.');
+      return;
+    }
+    onModelChoiceChange(pinnedModelId);
+    setError(null);
+    setMessage(`Auto is off. Ginto will keep using ${LOCAL_MODEL_BY_ID[pinnedModelId].name}.`);
+  };
+
   const handleUseAutomaticFit = async () => {
+    if (modelChoice === 'auto') {
+      handleTurnAutoOff();
+      return;
+    }
     if (!recommendedModelId) return;
     onModelChoiceChange('auto');
     setMessage('Ginto will pick the model that fits this phone.');
@@ -356,8 +376,7 @@ export function GemmaModelSheet({
         </View>
 
         <Text variant="caption" color={colors.textMuted}>
-          Auto uses Qwen 2.5 1.5B when memory allows, with Qwen 3 0.6B as the
-          low-memory fallback.
+          Auto uses Gemma 4 E2B. Gemma 4 E4B is sharper but needs more free memory.
         </Text>
 
         <View style={styles.deviceCard}>
@@ -369,8 +388,7 @@ export function GemmaModelSheet({
               </Text>
             </View>
             <Button
-              label={modelChoice === 'auto' ? 'Auto · On' : 'Use auto'}
-              kind={modelChoice === 'auto' ? 'ghost' : 'ink'}
+              label={modelChoice === 'auto' ? 'Auto · On' : 'Auto · Off'}              kind={modelChoice === 'auto' ? 'ghost' : 'ink'}
               size="sm"
               disabled={!deviceReady}
               onPress={() => void handleUseAutomaticFit()}
@@ -471,8 +489,7 @@ export function GemmaModelSheet({
               const isSelected = modelChoice === modelId;
               const isRunning = runtime?.ready && runtime.backend && runtime.modelPath?.endsWith(model.fileName);
               const thisDownload = download?.modelId === modelId ? download : null;
-              const fitsDevice =
-                device?.totalMemoryBytes == null || model.bytes <= device.totalMemoryBytes / 2;
+              const fitsDevice = fitsModelToDevice(modelId, device?.totalMemoryBytes);
               return (
                 <View
                   key={model.id}
@@ -501,7 +518,9 @@ export function GemmaModelSheet({
                   ) : null}
                   {!fitsDevice ? (
                     <Text variant="caption" color={colors.danger}>
-                      This model needs more RAM than this phone has.
+                      {modelId === 'gemma4-e4b'
+                        ? 'For high-end phones with 12 GB+ RAM. Gemma 4 E2B runs well here.'
+                        : 'This model needs more RAM than this phone has.'}
                     </Text>
                   ) : null}
                   <View style={styles.progressGroup}>

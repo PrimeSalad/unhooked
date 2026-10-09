@@ -173,7 +173,7 @@ function LocalAi() {
         </Line>
         <Line certainty="fact">Your records show ₱3,000 due by month-end.</Line>
         <Line certainty="suggestion">Saving it for 24 hours keeps your options open.</Line>
-        <Text variant="caption">Phrased on this phone · Qwen 2.5 1.5B · 1.8 s</Text>
+        <Text variant="caption">Phrased on this phone · Gemma 4 E2B</Text>
       </View>
       <View style={{ flex: 1 }} />
       <Copy

@@ -5,7 +5,12 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { BudgetProfile } from '@/domain/types';
-import type { LocalModelChoice, PerformanceMode, ProcessorChoice } from '@/ai/localModels';
+import {
+  LOCAL_MODEL_BY_ID,
+  type LocalModelChoice,
+  type PerformanceMode,
+  type ProcessorChoice,
+} from '@/ai/localModels';
 
 import { settingsStorage } from './storage';
 
@@ -77,6 +82,12 @@ export const useSettings = create<SettingsState>()(
     {
       name: 'unhooked-settings',
       storage: createJSONStorage(() => settingsStorage),
+      // A saved model that has left the catalog (the Qwen models) falls back to Auto.
+      merge: (persisted, current) => {
+        const saved = { ...current, ...(persisted as Partial<SettingsState>) };
+        const known = saved.localAiModel === 'auto' || saved.localAiModel in LOCAL_MODEL_BY_ID;
+        return known ? saved : { ...saved, localAiModel: 'auto' };
+      },
     },
   ),
 );

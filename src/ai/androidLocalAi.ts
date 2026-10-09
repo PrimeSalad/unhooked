@@ -12,11 +12,17 @@ import type {
 } from './localModels';
 import {
   LOCAL_MODELS,
+  MODEL_DIRECTORY,
+  RETIRED_MODEL_FILES,
   isVisionModel,
   modelUri,
   pickLocalModel,
   recommendLocalModel,
 } from './localModels';
+import { settingsStorage } from '@/store/storage';
+
+import { APP_GUIDE } from './chat';
+import { soundsTagalog } from './guard';
 import { PAUSE_SYSTEM_INSTRUCTION } from './pausePhrasing';
 
 type RuntimeStatus = {
@@ -75,11 +81,28 @@ const NativeLocalAi = requireOptionalNativeModule<GintoLocalAiNativeModule>('Gin
 /** Local inference is unbounded by nature; the UI always has a deterministic fallback. */
 export const LOCAL_AI_TIMEOUT_MS = 20_000;
 
+/** Larger models (Gemma 4) on mid-range chipsets fall back to CPU and need more time. */
+export const LARGE_MODEL_TIMEOUT_MS = 60_000;
+
 /** Engine start is a file mmap + compile: generous, and no longer billed to the reply. */
 export const MODEL_START_TIMEOUT_MS = 90_000;
 
 /** Reading a photo is slower than text; give vision turns a wider window. */
 export const IMAGE_REPLY_TIMEOUT_MS = 60_000;
+
+/** Returns a generation timeout scaled to the model. Gemma 4 models get a wider window. */
+export function generationTimeoutFor(modelId: LocalModelId): number {
+  return isVisionModel(modelId) ? LARGE_MODEL_TIMEOUT_MS : LOCAL_AI_TIMEOUT_MS;
+}
+
+/**
+ * Prompt budget. The native engine holds 2048 tokens (prompt + reply + one photo);
+ * ~4 characters per token keeps the text near 1,500 tokens with room to answer.
+ */
+const MAX_PROMPT_CHARS = 5_600;
+const MAX_HISTORY_TURNS = 4;
+const MAX_TURN_CHARS = 240;
+const MAX_MESSAGE_CHARS = 600;
 
 export class LocalAiTimeout extends Error {
   constructor(ms: number) {
@@ -107,6 +130,7 @@ async function nativeStartModel(uri: string, vision: boolean): Promise<RuntimeSt
     throw new Error('Install an Android development build to run local models.');
   }
   const fn = NativeLocalAi.startModel as unknown as (...args: unknown[]) => Promise<RuntimeStatus>;
+  await settingsStorage.setItem(LOADING_MODEL_KEY, uri);
   try {
     return await fn(uri, vision);
   } catch (error: unknown) {
@@ -118,7 +142,19 @@ async function nativeStartModel(uri: string, vision: boolean): Promise<RuntimeSt
       return await fn(uri);
     }
     throw error;
+  } finally {
+    await settingsStorage.removeItem(LOADING_MODEL_KEY);
   }
+}
+
+/**
+ * Set while a model is loading. Android's low-memory killer ends the app without running any
+ * JS, so a key that survives to the next launch means that model did not fit in memory.
+ */
+const LOADING_MODEL_KEY = 'ginto.loadingModelUri';
+
+async function modelKilledLastLaunch(uri: string): Promise<boolean> {
+  return (await settingsStorage.getItem(LOADING_MODEL_KEY)) === uri;
 }
 
 /**
@@ -367,7 +403,7 @@ export interface InstalledModel {
  */
 export async function resolveInstalledModel(
   choice: LocalModelChoice,
-  needs: 'any' | 'text' | 'vision' = 'any',
+  needs: 'any' | 'vision' = 'any',
 ): Promise<InstalledModel | null> {
   const [device, installed, loaded] = await Promise.all([
     inspectAndroidDevice(),
@@ -384,6 +420,16 @@ export async function resolveInstalledModel(
   if (!modelId) return null;
   const uri = modelUri(modelId);
   return uri ? { modelId, uri } : null;
+}
+
+/** Deletes downloads of models no longer in the catalog (and their partial files). */
+export async function removeRetiredModels(): Promise<void> {
+  if (!MODEL_DIRECTORY) return;
+  for (const file of RETIRED_MODEL_FILES) {
+    for (const uri of [`${MODEL_DIRECTORY}${file}`, `${MODEL_DIRECTORY}${file}.partial`]) {
+      await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+    }
+  }
 }
 
 /** True when at least one model is downloaded; cheap enough to call at launch. */
@@ -403,6 +449,8 @@ export async function warmAndroidLocalModel(
     if (!hasAndroidLocalAiRuntime() || !NativeLocalAi) return null;
     const model = await resolveInstalledModel(choice);
     if (!model) return null;
+    // A background warm must never retry a load that killed the app, or every launch crashes.
+    if (await modelKilledLastLaunch(model.uri)) return null;
     const status = await nativeStartModel(model.uri, isVisionModel(model.modelId));
     return status.backend;
   } catch {
@@ -434,28 +482,49 @@ export async function generateAndroidLocalReply(
     imageUri && !question
       ? 'What is in this photo? If it is a bill, receipt, loan offer or a message from a lender or collector, list the key amounts, dates and any warning signs.'
       : question;
-  const turns = history
-    .filter((m) => m.text.trim())
-    .slice(-6)
-    .map((m) => `${m.role === 'user' ? 'Them' : 'You'}: ${m.text.slice(0, 300)}`);
-  const prompt = [
-    'Current private app records (use only these numbers for personal facts):',
-    contextSummary,
-    ...(computedAnswer
-      ? [
-          '',
-          'Facts the app computed for this question (use these numbers exactly):',
-          computedAnswer,
-        ]
-      : []),
-    ...(turns.length ? ['', 'Conversation so far:', ...turns] : []),
-    '',
-    strict
-      ? 'Your previous draft was rejected for using a number not written above or for being too long. Reply again in at most two short sentences. Only use numbers copied exactly from above; if a number is not there, say you do not have it yet.'
-      : "Answer the person's latest message using the records above. Reply in at most three short sentences. Do not introduce any amount, date or count that is not written above.",
-    '',
-    `User's message: ${message}`,
-  ].join('\n');
+  // Small models ignore "reply in the user's language", so name the language outright.
+  const language = soundsTagalog(question)
+    ? 'Write in natural Taglish (casual Filipino mixed with English), like a kind friend.'
+    : 'Write in simple, warm English.';
+  const length = strict ? 'two short sentences' : 'three short sentences';
+  // With a computed answer the model only rephrases it; the rules already decided it.
+  const task = computedAnswer
+    ? [
+        `Correct answer from the app: "${computedAnswer}"`,
+        '',
+        `Task: Rewrite the correct answer for the user. Keep its meaning and copy every amount, date and count exactly. Do not add advice, numbers or facts that are not in it. ${language} At most ${length}. Reply with only the rewritten answer.`,
+      ]
+    : [
+        'Rules: Use only the records above for anything about their money, debts or habits. ' +
+          'If the records do not have it, say you do not have that yet and name the screen where they can add it. ' +
+          'Never invent amounts, dates, lenders or app features. ' +
+          'If the message is not about money, debt, spending, scrolling or this app, say kindly that you can only help with those.',
+        `Task: Answer the user's message directly. ${language} At most ${length}.`,
+      ];
+  const build = (turnCount: number) => {
+    const turns = history
+      .filter((m) => m.text.trim())
+      .slice(-turnCount)
+      .map((m) => `${m.role === 'user' ? 'Them' : 'You'}: ${m.text.slice(0, MAX_TURN_CHARS)}`);
+    return [
+      'Current private app records (use only these numbers for personal facts):',
+      contextSummary,
+      '',
+      APP_GUIDE,
+      ...(turns.length ? ['', 'Conversation so far:', ...turns] : []),
+      '',
+      `User's message: ${message.slice(0, MAX_MESSAGE_CHARS)}`,
+      ...(strict
+        ? ['', 'Your previous draft was rejected: it changed a number or was too long.']
+        : []),
+      '',
+      ...task,
+    ].join('\n');
+  };
+  // Older turns go first when the prompt would crowd the engine's token window.
+  let turnCount = MAX_HISTORY_TURNS;
+  let prompt = build(turnCount);
+  while (prompt.length > MAX_PROMPT_CHARS && turnCount > 0) prompt = build(--turnCount);
   // One job: start the model (separate, longer timeout) only when the engine holds a
   // different file, then generate. Model load time no longer eats the reply timeout.
   const result = await enqueueGeneration(async () => {
@@ -474,7 +543,7 @@ export async function generateAndroidLocalReply(
         imageUri ?? null,
         isVisionModel(model.modelId),
       ),
-      imageUri ? IMAGE_REPLY_TIMEOUT_MS : LOCAL_AI_TIMEOUT_MS,
+      imageUri ? IMAGE_REPLY_TIMEOUT_MS : generationTimeoutFor(model.modelId),
     );
   });
   return { ...result, modelId: model.modelId };
@@ -524,7 +593,7 @@ export async function analyzeAndroidMessageRisk(
 ): Promise<(LocalGeneration & { modelId: LocalModelId }) | null> {
   if (!supportsAndroidMessageRiskAnalysis() || !NativeLocalAi?.analyzeMessageRisk) return null;
 
-  const model = await resolveInstalledModel('auto', 'text');
+  const model = await resolveInstalledModel('auto');
   if (!model) return null;
 
   const result = await withTimeout(NativeLocalAi.analyzeMessageRisk(model.uri, message));

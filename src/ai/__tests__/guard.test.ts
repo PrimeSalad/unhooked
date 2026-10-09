@@ -1,9 +1,32 @@
-import { allowedNumbers, numbersIn, tidyModelLine, vetModelText } from '../guard';
+import {
+  allowedNumbers,
+  keepsNumbers,
+  numbersIn,
+  soundsTagalog,
+  tidyModelLine,
+  vetModelText,
+} from '../guard';
 import { localProvider } from '../localProvider';
 import { applyPausePhrasing, buildPausePrompt, parsePausePhrasing } from '../pausePhrasing';
 import type { PauseContext } from '../types';
 
 describe('guard', () => {
+  it('requires a rephrasing to keep every computed number', () => {
+    const computed = 'Estimate: after ₱1,500, about ₱3,200 would be left this month.';
+    expect(keepsNumbers('Kaya mo! Pagkatapos ng ₱1,500, may ₱3,200 ka pa.', computed)).toBe(true);
+    expect(keepsNumbers('Kaya mo, may ₱3200 ka pa after ₱1500.', computed)).toBe(true);
+    expect(keepsNumbers('Kaya mo naman, may natitira pa.', computed)).toBe(false);
+    expect(keepsNumbers('Okay lang.', 'Add your budget in Spend first.')).toBe(true);
+  });
+
+  it('spots Tagalog and Taglish questions', () => {
+    expect(soundsTagalog('Kaya ko ba ang ₱1,500?')).toBe(true);
+    expect(soundsTagalog('Ano ang babayaran ko this month?')).toBe(true);
+    expect(soundsTagalog('Stressed ako sa pera')).toBe(true);
+    expect(soundsTagalog('Can I afford ₱1,500?')).toBe(false);
+    expect(soundsTagalog('How much is due this month?')).toBe(false);
+  });
+
   it('derives every rendering of a centavo amount', () => {
     const allowed = allowedNumbers([450_000, 'Due on 2026-10-15']);
     expect(allowed).toEqual(new Set(['450000', '4,500', '4500', '2026', '10', '15']));

@@ -30,6 +30,36 @@ export interface ChatContext {
   overview: Overview;
 }
 
+/** Most items listed one by one; the totals above them always cover everything. */
+const MAX_LISTED = 5;
+
+/** Open debts the user owes, soonest due first, without lender names. */
+function debtLines(o: Overview): string[] {
+  const open = o.debts
+    .filter((b) => b.debt.direction === 'owed' && b.outstanding > 0)
+    .sort((a, b) => (a.debt.dueDate ?? '9999').localeCompare(b.debt.dueDate ?? '9999'));
+  return open.slice(0, MAX_LISTED).map(
+    (b, i) =>
+      `Debt ${i + 1}: ${formatPHP(b.outstanding)} left of ${formatPHP(b.debt.principal)}${
+        b.debt.dueDate ? `, due ${b.debt.dueDate}` : ', no due date'
+      }.`,
+  );
+}
+
+/**
+ * What the app can do and where, so the model points to a real screen instead of inventing
+ * one. Fixed text: it never carries user data.
+ */
+export const APP_GUIDE = [
+  'Unhooked app (only suggest these):',
+  '- Today tab: daily summary, check-in (stress, mood, fatigue), Help and safety hotlines.',
+  '- Debt tab: add a debt, log payments, repayment plan, Utang Scanner for loan app screenshots, Evidence Pack for collector messages, number log.',
+  '- Spend tab: monthly budget, check a purchase before buying, 24-hour cooling off.',
+  '- Scroll tab: guard apps and websites, Unhook timer, scroll fade, log scroll sessions.',
+  '- Pause button (middle of the bar): a real countdown before buying, borrowing or scrolling.',
+  '- Scan a message: check a lender text for warning signs.',
+].join('\n');
+
 /** Numbers only: no names of lenders, no message text, no screenshots leave the phone. */
 export function contextSummary(c: ChatContext): string {
   const o = c.overview;
@@ -41,10 +71,19 @@ export function contextSummary(c: ChatContext): string {
     o.nextDue
       ? `Next due: ${formatPHP(o.nextDue.outstanding)} on ${o.nextDue.debt.dueDate}.`
       : 'No dated repayments.',
+    ...debtLines(o),
     `Owed to them by others: ${formatPHP(o.lentTotal)}.`,
-    `Purchases cooling off: ${o.cooling.length}.`,
+    `Purchases cooling off: ${o.cooling.length}${
+      o.cooling.length
+        ? ` (${o.cooling
+            .slice(0, MAX_LISTED)
+            .map((p) => formatPHP(p.price))
+            .join(', ')})`
+        : ''
+    }.`,
     `Tracked scrolling today: ${o.scroll.todayMinutes} min; this week: ${o.scroll.weekMinutes} min.`,
     `Pauses where they chose to wait today: ${o.dodgedToday}. Breaks today: ${o.breaksToday}.`,
+    `Saved collector messages (Evidence Pack): ${o.evidence.count}.`,
     o.checkIn
       ? `Today's check-in (1-5): stress ${o.checkIn.stress}, mood ${o.checkIn.mood}, fatigue ${o.checkIn.fatigue}.`
       : 'No check-in today.',

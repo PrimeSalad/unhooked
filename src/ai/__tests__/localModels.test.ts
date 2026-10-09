@@ -1,4 +1,5 @@
 import {
+  fitsDevice,
   pickLocalModel,
   planModelDownload,
   recommendLocalModel,
@@ -9,98 +10,60 @@ import {
 const set = (...ids: LocalModelId[]) => new Set<LocalModelId>(ids);
 
 describe('pickLocalModel', () => {
-  it('returns an explicit installed text choice', () => {
-    expect(
-      pickLocalModel('qwen2.5-1.5b', 'qwen3-0.6b', set('qwen2.5-1.5b'), 'any'),
-    ).toBe('qwen2.5-1.5b');
-  });
-
-  it('falls back to an installed model for an explicit choice that is not installed', () => {
-    expect(pickLocalModel('qwen2.5-1.5b', 'qwen3-0.6b', set('qwen3-0.6b'), 'any')).toBe(
-      'qwen3-0.6b',
+  it('auto uses the recommended Gemma 4 E2B when installed', () => {
+    expect(pickLocalModel('auto', 'gemma4-e2b', set('gemma4-e2b', 'gemma4-e4b'))).toBe(
+      'gemma4-e2b',
     );
   });
 
-  it('auto falls back to the largest installed model within the recommended size', () => {
-    expect(
-      pickLocalModel('auto', 'gemma4-e2b', set('qwen3-0.6b', 'qwen2.5-1.5b'), 'any'),
-    ).toBe('qwen2.5-1.5b');
-  });
-
-  it('auto falls back to a model larger than recommended when nothing smaller is installed', () => {
-    expect(pickLocalModel('auto', 'qwen3-0.6b', set('qwen2.5-1.5b'), 'any')).toBe(
-      'qwen2.5-1.5b',
+  it('returns an explicit installed choice', () => {
+    expect(pickLocalModel('gemma4-e4b', 'gemma4-e2b', set('gemma4-e2b', 'gemma4-e4b'))).toBe(
+      'gemma4-e4b',
     );
   });
 
-  it('text skips an installed vision model for an explicit vision choice', () => {
-    expect(
-      pickLocalModel('gemma4-e2b', 'qwen3-0.6b', set('gemma4-e2b', 'qwen3-0.6b'), 'text'),
-    ).toBe('qwen3-0.6b');
+  it('falls back to an installed model when the choice is not installed', () => {
+    expect(pickLocalModel('gemma4-e2b', 'gemma4-e2b', set('gemma4-e4b'))).toBe('gemma4-e4b');
   });
 
-  it('text returns null when only vision models are installed', () => {
-    expect(pickLocalModel('auto', 'qwen3-0.6b', set('gemma4-e2b'), 'text')).toBeNull();
+  it('returns null when nothing is installed', () => {
+    expect(pickLocalModel('auto', 'gemma4-e2b', set())).toBeNull();
   });
 
-  it('vision picks an installed vision model even when a text model is chosen', () => {
+  it('treats a choice that left the catalog as auto', () => {
     expect(
-      pickLocalModel('qwen3-0.6b', 'qwen3-0.6b', set('qwen3-0.6b', 'gemma4-e2b'), 'vision'),
+      pickLocalModel('qwen2.5-1.5b' as LocalModelId, 'gemma4-e2b', set('gemma4-e2b')),
     ).toBe('gemma4-e2b');
   });
 
-  it('vision returns null when no vision model is installed', () => {
-    expect(
-      pickLocalModel('auto', 'gemma4-e2b', set('qwen3-0.6b', 'qwen2.5-1.5b'), 'vision'),
-    ).toBeNull();
-  });
-
-  it('vision prefers the chosen vision model when installed', () => {
-    expect(
-      pickLocalModel('gemma4-e4b', 'gemma4-e2b', set('gemma4-e2b', 'gemma4-e4b'), 'vision'),
-    ).toBe('gemma4-e4b');
+  it('vision picks an installed Gemma model', () => {
+    expect(pickLocalModel('auto', 'gemma4-e2b', set('gemma4-e4b'), 'vision')).toBe(
+      'gemma4-e4b',
+    );
   });
 
   it('auto keeps the already-loaded model to avoid an engine reload', () => {
     expect(
-      pickLocalModel(
-        'auto',
-        'qwen2.5-1.5b',
-        set('qwen2.5-1.5b', 'gemma4-e2b'),
-        'any',
-        'gemma4-e2b',
-      ),
-    ).toBe('gemma4-e2b');
-  });
-
-  it('auto ignores the loaded model when the need does not match', () => {
-    expect(
-      pickLocalModel(
-        'auto',
-        'qwen2.5-1.5b',
-        set('qwen2.5-1.5b', 'gemma4-e2b'),
-        'vision',
-        'qwen2.5-1.5b',
-      ),
-    ).toBe('gemma4-e2b');
+      pickLocalModel('auto', 'gemma4-e2b', set('gemma4-e2b', 'gemma4-e4b'), 'any', 'gemma4-e4b'),
+    ).toBe('gemma4-e4b');
   });
 
   it('an explicit choice ignores the loaded model', () => {
     expect(
       pickLocalModel(
-        'qwen2.5-1.5b',
-        'qwen2.5-1.5b',
-        set('qwen2.5-1.5b', 'gemma4-e2b'),
-        'any',
         'gemma4-e2b',
+        'gemma4-e2b',
+        set('gemma4-e2b', 'gemma4-e4b'),
+        'any',
+        'gemma4-e4b',
       ),
-    ).toBe('qwen2.5-1.5b');
+    ).toBe('gemma4-e2b');
   });
 
   it('ignores a loaded model that is not installed', () => {
-    expect(
-      pickLocalModel('auto', 'qwen2.5-1.5b', set('qwen2.5-1.5b'), 'any', 'gemma4-e2b'),
-    ).toBe('qwen2.5-1.5b');
+    expect(pickLocalModel('auto', 'gemma4-e2b', set('gemma4-e2b'), 'any', 'gemma4-e4b')).toBe(
+      'gemma4-e2b',
+    );
   });
 });
 
@@ -137,18 +100,19 @@ const device = (overrides: Partial<AndroidDeviceProfile> = {}): AndroidDevicePro
 });
 
 describe('recommendLocalModel', () => {
-  it('uses Qwen 2.5 1.5B on a high-end phone', () => {
-    expect(recommendLocalModel(device())).toBe('qwen2.5-1.5b');
+  it('defaults to Gemma 4 E2B on every phone', () => {
+    expect(recommendLocalModel(device())).toBe('gemma4-e2b');
+    expect(recommendLocalModel(device({ totalMemoryBytes: 3_000_000_000 }))).toBe('gemma4-e2b');
+    expect(recommendLocalModel(null)).toBe('gemma4-e2b');
   });
+});
 
-  it('keeps Qwen 3 0.6B for tight memory or low battery', () => {
-    expect(recommendLocalModel(device({ totalMemoryBytes: 3_000_000_000 }))).toBe('qwen3-0.6b');
-    expect(
-      recommendLocalModel(device({ batteryPercent: 12, charging: false })),
-    ).toBe('qwen3-0.6b');
-  });
-
-  it('falls back when there is not enough storage for Qwen', () => {
-    expect(recommendLocalModel(device({ freeStorageBytes: 500_000_000 }))).toBe('qwen3-0.6b');
+describe('fitsDevice', () => {
+  it('offers Gemma 4 E4B on high-end phones only', () => {
+    expect(fitsDevice('gemma4-e4b', 12_050_000_000)).toBe(true);
+    expect(fitsDevice('gemma4-e4b', 7_800_000_000)).toBe(false);
+    expect(fitsDevice('gemma4-e2b', 5_600_000_000)).toBe(true);
+    expect(fitsDevice('gemma4-e2b', 3_800_000_000)).toBe(false);
+    expect(fitsDevice('gemma4-e4b', null)).toBe(true);
   });
 });
