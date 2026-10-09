@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CLOUD_URL, cloudReply, localImageReply, localReply, type ChatMessage } from '@/ai/chat';
 import { Ginto } from '@/components/mascot/Ginto';
+import { GemmaModelSheet } from '@/components/chat/GemmaModelSheet';
 import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { addEvidence, getOverview } from '@/db/repo';
@@ -58,6 +59,7 @@ export default function ChatScreen() {
   const [typing, setTyping] = useState(false);
   const [photo, setPhoto] = useState<ChatMessage['image'] | null>(null);
   const [askConsent, setAskConsent] = useState(false);
+  const [showModelSettings, setShowModelSettings] = useState(false);
 
   const pickPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -128,6 +130,11 @@ export default function ChatScreen() {
           <Text variant="heading">Ginto</Text>
           <StatusLine cloud={cloud} />
         </View>
+        <IconButton
+          icon="settings"
+          label="Chat model settings"
+          onPress={() => setShowModelSettings(true)}
+        />
       </View>
 
       <ScrollView
@@ -297,6 +304,7 @@ export default function ChatScreen() {
           }}
         />
       </Sheet>
+      <GemmaModelSheet visible={showModelSettings} onClose={() => setShowModelSettings(false)} />
     </KeyboardAvoidingView>
   );
 }

@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ginto } from '@/components/mascot/Ginto';
 import { Text, type IconName } from '@/components/ui';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { colors, fonts, radius, shadow, spacing } from '@/constants/theme';
 import { useSession } from '@/store/session';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -105,6 +105,15 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
         </View>
         {visible.slice(half).map(renderTab)}
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Chat with Ginto"
+        accessibilityHint="Opens a conversation with your money assistant."
+        onPress={() => router.push('/chat')}
+        style={({ pressed }) => [styles.chatButton, pressed && { opacity: 0.82 }]}
+      >
+        <Icon name="chat" size={24} color={colors.text} />
+      </Pressable>
       <QuickPauseSheet />
     </View>
   );
@@ -243,6 +252,19 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, height: '100%' },
   centerSlot: { width: 76, alignItems: 'center', justifyContent: 'center' },
+  chatButton: {
+    position: 'absolute',
+    right: 0,
+    bottom: 90,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.card,
+    elevation: 8,
+  },
   center: {
     width: 64,
     height: 64,
