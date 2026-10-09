@@ -38,9 +38,16 @@ export function clearCompletedDownload() {
 let task: FileSystem.DownloadResumable | null = null;
 let cancelRequested = false;
 let lastProgressWrite = 0;
+let currentSession = 0;
 
-export async function startModelDownload(modelId: LocalModelId): Promise<void> {
-  if (useModelDownloads.getState().active) return;
+export async function startModelDownload(modelId: LocalModelId, forceFresh = false): Promise<void> {
+  if (useModelDownloads.getState().active) {
+    if (forceFresh) {
+      await cancelModelDownload();
+    } else {
+      return;
+    }
+  }
 
   const profile = LOCAL_MODEL_BY_ID[modelId];
   const uri = modelUri(modelId);
@@ -53,6 +60,11 @@ export async function startModelDownload(modelId: LocalModelId): Promise<void> {
     return;
   }
 
+  if (forceFresh) {
+    await FileSystem.deleteAsync(partialUri, { idempotent: true }).catch(() => undefined);
+  }
+
+  const session = ++currentSession;
   cancelRequested = false;
   lastProgressWrite = 0;
   useModelDownloads.setState({ active: { modelId, value: 0 }, error: null });
@@ -84,6 +96,7 @@ export async function startModelDownload(modelId: LocalModelId): Promise<void> {
         partialUri,
         {},
         ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+          if (currentSession !== session) return;
           // Resumed downloads report totals that already include the offset.
           const total = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : profile.bytes;
           const value = Math.min(1, totalBytesWritten / total);
@@ -102,7 +115,7 @@ export async function startModelDownload(modelId: LocalModelId): Promise<void> {
       } finally {
         if (task === resumable) task = null;
       }
-      if (!result || cancelRequested) return;
+      if (currentSession !== session || !result || cancelRequested) return;
       if (plan.kind === 'resume' && result.status === 200) {
         // The host ignored the Range header and appended a whole fresh copy: the
         // partial is corrupt. Retry once from scratch; a fresh 200 is a success.
@@ -118,6 +131,8 @@ export async function startModelDownload(modelId: LocalModelId): Promise<void> {
       break;
     }
 
+    if (currentSession !== session) return;
+
     const downloaded = await FileSystem.getInfoAsync(partialUri);
     if (!downloaded.exists || (downloaded.size ?? 0) < profile.bytes) {
       throw new Error('The model download was incomplete. Check your connection and try again.');
@@ -130,7 +145,7 @@ export async function startModelDownload(modelId: LocalModelId): Promise<void> {
       void remindIn(1, 'Download finished', 'Your offline AI model is ready.');
     }
   } catch (e) {
-    if (cancelRequested) return;
+    if (currentSession !== session || cancelRequested) return;
     useModelDownloads.setState({
       active: null,
       error: {
@@ -146,6 +161,7 @@ export async function pauseModelDownload(): Promise<void> {
   const current = task;
   cancelRequested = true;
   task = null;
+  ++currentSession;
   useModelDownloads.setState({ active: null, error: null });
   if (current) await current.pauseAsync().catch(() => undefined);
 }
@@ -155,12 +171,33 @@ export async function cancelModelDownload(): Promise<void> {
   const modelId = useModelDownloads.getState().active?.modelId;
   cancelRequested = true;
   task = null;
+  ++currentSession;
   useModelDownloads.setState({ active: null });
   if (current) await current.cancelAsync().catch(() => undefined);
   const partialUri = modelId ? modelPartialUri(modelId) : null;
   if (partialUri) {
     await FileSystem.deleteAsync(partialUri, { idempotent: true }).catch(() => undefined);
   }
+}
+
+/** Discards the .partial file for a model so the next download starts from scratch. */
+export async function resetModelDownload(modelId: LocalModelId): Promise<void> {
+  const current = task;
+  cancelRequested = true;
+  task = null;
+  ++currentSession;
+  useModelDownloads.setState({ active: null, error: null });
+  if (current) await current.cancelAsync().catch(() => undefined);
+  const partialUri = modelPartialUri(modelId);
+  if (partialUri) {
+    await FileSystem.deleteAsync(partialUri, { idempotent: true }).catch(() => undefined);
+  }
+}
+
+/** Discards any partial file and starts fresh from 0%. */
+export async function restartModelDownload(modelId: LocalModelId): Promise<void> {
+  await resetModelDownload(modelId);
+  await startModelDownload(modelId, true);
 }
 
 /** How much of a model is already sitting in its .partial file (0 when none). */

@@ -1,4 +1,3 @@
-import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
@@ -22,6 +21,12 @@ export async function exportNumberLog(reports: NumberReport[]): Promise<void> {
 /** Returns null on cancellation; validation runs before callers write anything to SQLite. */
 export async function pickNumberLog(): Promise<NumberReport[] | null> {
   if (Platform.OS === 'web') throw new Error('Import is available in the phone app.');
+  let DocumentPicker: typeof import('expo-document-picker');
+  try {
+    DocumentPicker = await import('expo-document-picker');
+  } catch {
+    throw new Error('File picker is not available in this build.');
+  }
   const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
   if (result.canceled) return null;
   const asset = result.assets[0];

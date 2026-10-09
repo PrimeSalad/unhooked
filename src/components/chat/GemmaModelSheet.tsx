@@ -27,6 +27,7 @@ import {
 import {
   pauseModelDownload,
   readPartialProgress,
+  restartModelDownload,
   startModelDownload,
   useModelDownloads,
 } from '@/ai/modelDownloads';
@@ -273,15 +274,41 @@ export function GemmaModelSheet({
   const confirmDownload = (modelId: LocalModelId) => {
     const profile = LOCAL_MODEL_BY_ID[modelId];
     const resumable = (partial[modelId] ?? 0) > 0;
+    if (resumable) {
+      const pct = Math.round((partial[modelId] ?? 0) * 100);
+      Alert.alert(
+        `${profile.name} · ${pct}%`,
+        'Would you like to resume where it stopped, or restart fresh from 0%?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Restart (0%)',
+            style: 'destructive',
+            onPress: () => {
+              setError(null);
+              setPartial((previous) => ({ ...previous, [modelId]: 0 }));
+              void restartModelDownload(modelId);
+            },
+          },
+          {
+            text: 'Resume',
+            onPress: () => {
+              setError(null);
+              void startModelDownload(modelId);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     Alert.alert(
-      resumable ? `Resume ${profile.name}?` : `Download ${profile.name}?`,
-      resumable
-        ? 'Picks up where it stopped.'
-        : `About ${profile.sizeLabel}. Keep ${formatModelStorage(profile.bytes + STORAGE_HEADROOM)} free.`,
+      `Download ${profile.name}?`,
+      `About ${profile.sizeLabel}. Keep ${formatModelStorage(profile.bytes + STORAGE_HEADROOM)} free.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: resumable ? 'Resume' : 'Download',
+          text: 'Download',
           onPress: () => {
             setError(null);
             void startModelDownload(modelId);
@@ -503,18 +530,93 @@ export function GemmaModelSheet({
                     ) : null}
                   </View>
                   {thisDownload ? (
-                    <Button
-                      label="Pause"
-                      kind="ghost"
-                      size="sm"
-                      onPress={() => {
-                        setPartial((previous) => ({
-                          ...previous,
-                          [modelId]: thisDownload.value,
-                        }));
-                        void pauseModelDownload();
-                      }}
-                    />
+                    <View style={styles.actionRow}>
+                      <Button
+                        label="Pause"
+                        kind="ghost"
+                        size="sm"
+                        style={{ flex: 1 }}
+                        onPress={() => {
+                          setPartial((previous) => ({
+                            ...previous,
+                            [modelId]: thisDownload.value,
+                          }));
+                          void pauseModelDownload();
+                        }}
+                      />
+                      <Button
+                        label="Restart"
+                        kind="ghost"
+                        size="sm"
+                        style={{ flex: 1 }}
+                        onPress={() => {
+                          Alert.alert(
+                            `Restart ${model.name}?`,
+                            'This will cancel the active download and start over from 0%.',
+                            [
+                              { text: 'Keep downloading', style: 'cancel' },
+                              {
+                                text: 'Restart (0%)',
+                                style: 'destructive',
+                                onPress: () => {
+                                  setError(null);
+                                  setPartial((previous) => ({ ...previous, [modelId]: 0 }));
+                                  void restartModelDownload(modelId);
+                                },
+                              },
+                            ],
+                          );
+                        }}
+                      />
+                    </View>
+                  ) : (partial[modelId] ?? 0) > 0 && !installed[modelId] ? (
+                    <View style={styles.actionRow}>
+                      <Button
+                        label="Continue"
+                        kind={isSelected || isRecommended ? 'ink' : 'ghost'}
+                        size="sm"
+                        style={{ flex: 1 }}
+                        disabled={
+                          startingModelId != null ||
+                          download != null ||
+                          !nativeAvailable ||
+                          !fitsDevice ||
+                          Platform.OS !== 'android'
+                        }
+                        onPress={() => chooseModel(modelId)}
+                      />
+                      <Button
+                        label="Restart"
+                        kind="ghost"
+                        size="sm"
+                        style={{ flex: 1 }}
+                        disabled={
+                          startingModelId != null ||
+                          download != null ||
+                          !nativeAvailable ||
+                          !fitsDevice ||
+                          Platform.OS !== 'android'
+                        }
+                        onPress={() => {
+                          Alert.alert(
+                            `Restart ${model.name}?`,
+                            'This will delete the saved partial download and start over from 0%.',
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              {
+                                text: 'Restart (0%)',
+                                style: 'destructive',
+                                onPress: () => {
+                                  setError(null);
+                                  setPartial((previous) => ({ ...previous, [modelId]: 0 }));
+                                  void restartModelDownload(modelId);
+                                },
+                              },
+                            ],
+                          );
+                        }}
+                      />
+                    </View>
                   ) : (
                     <Button
                       label={
@@ -526,9 +628,7 @@ export function GemmaModelSheet({
                               ? isSelected
                                 ? 'Start this model'
                                 : 'Use this model'
-                              : (partial[modelId] ?? 0) > 0
-                                ? 'Continue'
-                                : `Download · ${model.sizeLabel}`
+                              : `Download · ${model.sizeLabel}`
                       }
                       kind={isSelected || isRecommended ? 'ink' : 'ghost'}
                       size="sm"
@@ -607,4 +707,8 @@ const styles = {
   },
   recommendedBadgeText: { color: colors.text, fontFamily: fonts.semibold },
   progressGroup: { gap: spacing.sm },
+  actionRow: {
+    flexDirection: 'row' as const,
+    gap: spacing.sm,
+  },
 };
