@@ -4,13 +4,28 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
-import { Image, Linking, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Icon } from '@/components/Icon';
 import {
   Button,
   Card,
   Field,
+  IconButton,
+  ProgressBar,
   Row,
   Screen,
   ScreenHeader,
@@ -18,12 +33,13 @@ import {
   Tag,
   Text,
 } from '@/components/ui';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { addDebt, addEvidence, evidenceSummary } from '@/db/repo';
 import { formatPHP, parsePesoInput, toPesos } from '@/domain/money';
 import { LENDER_CHECK_COPY, lenderCheck, scanLoanText, type LoanScan } from '@/domain/utangScan';
-import { readImageText } from '@/lib/ocr';
+import { readImageText, type OcrProgress } from '@/lib/ocr';
 import { exportSecComplaint } from '@/lib/secComplaint';
+import { shortDate } from '@/lib/format';
 import { useSession } from '@/store/session';
 
 const CHECK_TITLE = {
@@ -38,17 +54,24 @@ const RISK_TITLE = {
   high: 'Harassment warning signs',
 } as const;
 
+type Picked = { uri: string; mimeType: string | null };
+
 export default function ScanScreen() {
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
-  const [image, setImage] = useState<{ uri: string; mimeType: string | null } | null>(null);
+  const [image, setImage] = useState<Picked | null>(null);
+  const [viewing, setViewing] = useState(false);
+  const [progress, setProgress] = useState<OcrProgress | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [pasting, setPasting] = useState(false);
   const [text, setText] = useState('');
-  const [reading, setReading] = useState(false);
+  const [showText, setShowText] = useState(false);
   const [scan, setScan] = useState<LoanScan | null>(null);
   const [lender, setLender] = useState('');
   const [amount, setAmount] = useState('');
   const [due, setDue] = useState('');
   const [saved, setSaved] = useState({ debt: false, evidence: false });
+  const reading = !!progress && progress.value !== 1;
 
   const run = (raw: string) => {
     const s = scanLoanText(raw);
@@ -59,25 +82,42 @@ export default function ScanScreen() {
     setSaved({ debt: false, evidence: false });
   };
 
+  const readImage = async (picked: Picked) => {
+    setFailed(false);
+    setScan(null);
+    setProgress({ label: 'Opening the screenshot', value: 0 });
+    const found = await readImageText(picked.uri, setProgress);
+    setProgress(null);
+    if (found) {
+      setText(found);
+      run(found);
+    } else {
+      setFailed(true);
+      setPasting(true);
+    }
+  };
+
   const pick = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
       const asset = result.assets?.[0];
       if (result.canceled || !asset) return;
-      setImage({ uri: asset.uri, mimeType: asset.mimeType ?? null });
-      setReading(true);
-      const found = await readImageText(asset.uri);
-      setReading(false);
-      if (found) {
-        setText(found);
-        run(found);
-      } else {
-        showToast('Could not read text here. Paste it below instead.');
-      }
+      const picked = { uri: asset.uri, mimeType: asset.mimeType ?? null };
+      setImage(picked);
+      await readImage(picked);
     } catch {
-      setReading(false);
+      setProgress(null);
       showToast('Could not open your images. Please try again.');
     }
+  };
+
+  const startOver = () => {
+    setImage(null);
+    setScan(null);
+    setText('');
+    setFailed(false);
+    setPasting(false);
+    setShowText(false);
   };
 
   const amountC = parsePesoInput(amount);
@@ -139,46 +179,172 @@ export default function ScanScreen() {
 
   const check = scan ? lenderCheck(scan) : 'none';
   const risky = !!scan && scan.risk.level !== 'low';
+  const found = scan
+    ? [
+        scan.lender && { label: 'Lender', value: scan.lender },
+        scan.amount && { label: 'Amount', value: formatPHP(scan.amount) },
+        scan.dueDate && { label: 'Due', value: shortDate(scan.dueDate) },
+      ].filter((f): f is { label: string; value: string } => !!f)
+    : [];
 
   return (
     <Screen tabs={false}>
       <ScreenHeader
         back
         title="Utang scanner"
-        subtitle="Screenshot your loan app. I fill in the debt and check what the lender shows."
+        subtitle="Add a screenshot from your loan app. I fill in the debt and check what the lender shows."
       />
 
-      <Card>
-        {image ? (
-          <Image source={{ uri: image.uri }} style={styles.thumb} resizeMode="cover" />
-        ) : null}
-        <Button
-          label={
-            reading
-              ? 'Reading the screenshot…'
-              : image
-                ? 'Choose another screenshot'
-                : 'Choose a screenshot'
-          }
-          kind="outline"
-          icon="images"
-          disabled={reading}
+      {!image ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add a screenshot"
           onPress={() => void pick()}
-        />
-        <Field
-          label="Or paste the text"
-          value={text}
-          onChangeText={setText}
-          multiline
-          placeholder="Total amount due ₱3,000 · Due Oct 15 · SEC Reg. No. …"
-          style={{ minHeight: 96, textAlignVertical: 'top' }}
-        />
-        <Button label="Read it" kind="ink" disabled={!text.trim()} onPress={() => run(text)} />
-        <Text variant="caption">Read on this phone. Nothing is uploaded.</Text>
-      </Card>
+          style={({ pressed }) => [styles.drop, pressed && { opacity: 0.85 }]}
+        >
+          <View style={styles.dropIcon}>
+            <Icon name="scan" size={30} color={colors.text} />
+          </View>
+          <Text variant="heading" align="center">
+            Add a screenshot
+          </Text>
+          <Text variant="small" align="center" color={colors.textMuted}>
+            The loan details or a collector&apos;s message. It is read on this device and never
+            uploaded.
+          </Text>
+          <View style={styles.dropButton}>
+            <Icon name="images" size={18} color={colors.bg} />
+            <Text variant="strong" color={colors.bg}>
+              Choose from photos
+            </Text>
+          </View>
+        </Pressable>
+      ) : (
+        <Card style={{ gap: spacing.md }}>
+          <Pressable
+            accessibilityRole="imagebutton"
+            accessibilityLabel="View the screenshot"
+            onPress={() => setViewing(true)}
+          >
+            <Image source={{ uri: image.uri }} style={styles.preview} resizeMode="contain" />
+            <View style={styles.viewChip}>
+              <Icon name="expand" size={14} color={colors.bg} />
+              <Text variant="caption" color={colors.bg} style={{ fontFamily: fonts.semibold }}>
+                View
+              </Text>
+            </View>
+          </Pressable>
+
+          {progress ? (
+            <ReadingProgress progress={progress} />
+          ) : (
+            <Row style={{ gap: spacing.sm }}>
+              <Button
+                label="Change"
+                kind="outline"
+                size="sm"
+                icon="images"
+                style={{ flex: 1 }}
+                onPress={() => void pick()}
+              />
+              <Button
+                label="Read again"
+                kind="outline"
+                size="sm"
+                icon="refresh"
+                style={{ flex: 1 }}
+                onPress={() => void readImage(image)}
+              />
+            </Row>
+          )}
+
+          {failed ? (
+            <Text variant="small" color={colors.textMuted}>
+              I could not read the text in this screenshot. Type or paste what it says below.
+            </Text>
+          ) : null}
+        </Card>
+      )}
+
+      {!scan && !reading && (
+        <>
+          {pasting ? (
+            <Card>
+              <Field
+                label="Paste or type the text"
+                value={text}
+                onChangeText={setText}
+                multiline
+                placeholder="Total amount due ₱3,000 · Due Oct 15 · SEC Reg. No. …"
+                style={{ minHeight: 110, textAlignVertical: 'top', paddingTop: 14 }}
+              />
+              <Button
+                label="Read it"
+                kind="ink"
+                icon="scan"
+                disabled={!text.trim()}
+                onPress={() => run(text)}
+              />
+            </Card>
+          ) : (
+            <Button
+              label="Paste text instead"
+              kind="ghost"
+              icon="paste"
+              onPress={() => setPasting(true)}
+            />
+          )}
+        </>
+      )}
 
       {scan && (
         <>
+          <Card tone={colors.shell} flat style={{ gap: spacing.sm }}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Text variant="strong">
+                {found.length ? `Found ${found.length} of 3 details` : 'No loan details found'}
+              </Text>
+              <Pressable accessibilityRole="button" onPress={() => setShowText((v) => !v)}>
+                <Text variant="caption" style={{ fontFamily: fonts.semibold }}>
+                  {showText ? 'Hide text' : 'See text'}
+                </Text>
+              </Pressable>
+            </Row>
+            {found.length ? (
+              <View style={styles.chips}>
+                {found.map((f) => (
+                  <View key={f.label} style={styles.chip}>
+                    <Text variant="caption">{f.label}</Text>
+                    <Text variant="strong">{f.value}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text variant="small" color={colors.textMuted}>
+                Fill in the details below, or check that the text was read right.
+              </Text>
+            )}
+            {showText ? (
+              <>
+                <Field
+                  label="Text I read"
+                  value={text}
+                  onChangeText={setText}
+                  multiline
+                  style={{ minHeight: 110, textAlignVertical: 'top', paddingTop: 14 }}
+                />
+                <Button
+                  label="Read this text again"
+                  kind="outline"
+                  size="sm"
+                  icon="refresh"
+                  disabled={!text.trim()}
+                  onPress={() => run(text)}
+                />
+              </>
+            ) : null}
+          </Card>
+
           <Section title="Debt details">
             <Card>
               <Field
@@ -274,9 +440,90 @@ export default function ScanScreen() {
               ) : null}
             </Card>
           </Section>
+
+          <Button label="Scan another" kind="ghost" icon="refresh" onPress={startOver} />
         </>
       )}
+
+      {image ? (
+        <ImageViewer uri={image.uri} open={viewing} onClose={() => setViewing(false)} />
+      ) : null}
     </Screen>
+  );
+}
+
+/** Real percentage when the reader reports it (web); a moving bar when it cannot (ML Kit). */
+function ReadingProgress({ progress }: { progress: OcrProgress }) {
+  const slide = useState(() => new Animated.Value(0))[0];
+  const indeterminate = progress.value == null;
+  useEffect(() => {
+    if (!indeterminate) return;
+    const loop = Animated.loop(
+      Animated.timing(slide, {
+        toValue: 1,
+        duration: 1100,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [indeterminate, slide]);
+
+  return (
+    <View style={{ gap: spacing.sm }} accessibilityLiveRegion="polite">
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Text variant="strong">{progress.label}…</Text>
+        {progress.value != null ? (
+          <Text variant="strong">{Math.round(progress.value * 100)}%</Text>
+        ) : null}
+      </Row>
+      {indeterminate ? (
+        <View style={styles.track}>
+          <Animated.View
+            style={[
+              styles.runner,
+              {
+                transform: [
+                  {
+                    translateX: slide.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-140, 340],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        </View>
+      ) : (
+        <ProgressBar value={progress.value ?? 0} color={colors.text} height={10} />
+      )}
+      <Text variant="caption">Stays on this device. Keep this screen open.</Text>
+    </View>
+  );
+}
+
+function ImageViewer({ uri, open, onClose }: { uri: string; open: boolean; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={open} animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <View style={styles.viewer}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          maximumZoomScale={4}
+          minimumZoomScale={1}
+          centerContent
+          showsVerticalScrollIndicator={false}
+        >
+          <Image source={{ uri }} style={{ flex: 1, minHeight: 400 }} resizeMode="contain" />
+        </ScrollView>
+        <View style={[styles.viewerBar, { top: insets.top + spacing.sm }]}>
+          <IconButton icon="close" label="Close" onPress={onClose} />
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -292,11 +539,68 @@ function Num({ label, value }: { label: string; value: string | null }) {
 }
 
 const styles = StyleSheet.create({
-  thumb: {
+  drop: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.xl,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  dropIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
+    marginBottom: spacing.xs,
+  },
+  dropButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.pill,
+    backgroundColor: colors.text,
+  },
+  preview: {
     width: '100%',
-    height: 180,
+    height: 260,
     borderRadius: radius.lg,
     backgroundColor: colors.surfaceMuted,
+  },
+  viewChip: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(42,22,8,0.72)',
+  },
+  track: {
+    height: 10,
+    borderRadius: radius.pill,
+    backgroundColor: colors.track,
+    overflow: 'hidden',
+  },
+  runner: { width: 120, height: '100%', borderRadius: radius.pill, backgroundColor: colors.text },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: {
+    gap: 2,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
   },
   nums: {
     flexDirection: 'row',
@@ -305,4 +609,6 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: spacing.md,
   },
+  viewer: { flex: 1, backgroundColor: '#000' },
+  viewerBar: { position: 'absolute', right: spacing.lg },
 });
