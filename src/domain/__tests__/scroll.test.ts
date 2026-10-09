@@ -1,4 +1,12 @@
-import { elapsedSeconds, formatClock, formatMinutes, shouldCheckIn } from '../scroll';
+import {
+  BREAK_IDEAS,
+  elapsedSeconds,
+  formatClock,
+  formatMinutes,
+  partOfDay,
+  pickBreakIdea,
+  shouldCheckIn,
+} from '../scroll';
 import type { ScrollSession } from '../types';
 
 const session: ScrollSession = {
@@ -26,5 +34,34 @@ describe('scroll', () => {
     expect(formatClock(1274)).toBe('21:14');
     expect(formatMinutes(52)).toBe('52 min');
     expect(formatMinutes(370)).toBe('6h 10m');
+  });
+});
+
+describe('pickBreakIdea', () => {
+  it('never repeats the last idea', () => {
+    for (const idea of BREAK_IDEAS) {
+      for (const r of [0, 0.33, 0.66, 0.999]) {
+        expect(pickBreakIdea(idea.id, () => r).id).not.toBe(idea.id);
+      }
+    }
+  });
+
+  it('always returns a real idea, even with edge random values', () => {
+    expect(BREAK_IDEAS).toContain(pickBreakIdea(null, () => 0));
+    expect(BREAK_IDEAS).toContain(pickBreakIdea(null, () => 0.9999));
+    expect(BREAK_IDEAS).toContain(pickBreakIdea('not-an-idea', () => 0.5));
+  });
+});
+
+describe('partOfDay', () => {
+  it('buckets local hours into four parts of the day', () => {
+    expect(partOfDay(0)).toBe('night');
+    expect(partOfDay(5)).toBe('night');
+    expect(partOfDay(6)).toBe('morning');
+    expect(partOfDay(11)).toBe('morning');
+    expect(partOfDay(12)).toBe('afternoon');
+    expect(partOfDay(17)).toBe('afternoon');
+    expect(partOfDay(18)).toBe('evening');
+    expect(partOfDay(23)).toBe('evening');
   });
 });

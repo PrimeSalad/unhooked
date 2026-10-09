@@ -8,18 +8,17 @@ import { Ginto } from '@/components/mascot/Ginto';
 import { Button, Card, Rise, Row, Text, TopBar } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { logBreak } from '@/db/repo';
+import { pickBreakIdea } from '@/domain/scroll';
 import { useSession } from '@/store/session';
-
-const STEPS = [
-  'Roll your shoulders back five times',
-  'Look at something far away for 20 seconds',
-  'Drink a glass of water',
-];
+import { useSettings } from '@/store/settings';
 
 export default function BreakScreen() {
   const insets = useSafeAreaInsets();
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
+  const lastBreakIdea = useSettings((s) => s.lastBreakIdea);
+  const setLastBreakIdea = useSettings((s) => s.setLastBreakIdea);
+  const [idea] = useState(() => pickBreakIdea(lastBreakIdea));
   const [left, setLeft] = useState(120);
 
   useEffect(() => {
@@ -46,9 +45,9 @@ export default function BreakScreen() {
           Break · {mm}:{ss}
         </Text>
         <Text variant="title" style={{ fontSize: 30 }}>
-          Stretch with me
+          {idea.title}
         </Text>
-        {STEPS.map((step, i) => (
+        {idea.steps.map((step, i) => (
           <Card key={step} style={{ paddingVertical: spacing.md }}>
             <Row>
               <View style={styles.num}>
@@ -66,6 +65,7 @@ export default function BreakScreen() {
         kind="ink"
         onPress={async () => {
           await logBreak(db);
+          setLastBreakIdea(idea.id);
           router.dismissTo('/');
           showToast('Break logged. Your feed will still be there.');
         }}

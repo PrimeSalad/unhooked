@@ -10,6 +10,7 @@ import {
   Avatar,
   Button,
   Chips,
+  Field,
   Group,
   GroupRow,
   IconChip,
@@ -25,10 +26,23 @@ import {
 import { colors, radius, spacing } from '@/constants/theme';
 import { attemptsToday, listRules, removeRule, setRuleEnabled, updateRule } from '@/db/blockRules';
 import { logEvent } from '@/db/events';
-import { activeSession, endSession, scrollStats, setSessionOutcome, startSession } from '@/db/repo';
+import {
+  activeSession,
+  endSession,
+  logPastSession,
+  scrollStats,
+  setSessionOutcome,
+  startSession,
+} from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 import { formatSchedule, isGuardActive, type GuardMode, type GuardRule } from '@/domain/blocking';
-import { elapsedSeconds, formatClock, formatMinutes } from '@/domain/scroll';
+import {
+  elapsedSeconds,
+  formatClock,
+  formatMinutes,
+  PART_OF_DAY_LABELS,
+  type PartOfDay,
+} from '@/domain/scroll';
 import { SCHEDULE_PRESETS, type PresetKey, presetFor } from '@/lib/schedules';
 import { isGuardAvailable, syncGuard } from '@/lib/guard';
 import { cancelReminder, remindIn } from '@/lib/notifications';
@@ -42,12 +56,17 @@ const clockTime = (ms: number) =>
 const TIMER_OPTIONS = ['15', '30', '60', '120'] as const;
 const SESSION_APPS = ['TikTok', 'Facebook', 'Instagram', 'YouTube', 'X', 'Other'] as const;
 const LIMITS = ['10', '20', '30', '45'] as const;
+const PAST_DURATIONS = ['15', '30', '45', '60', '90'] as const;
+const PARTS_OF_DAY: PartOfDay[] = ['morning', 'afternoon', 'evening', 'night'];
 const emptyStats = {
   todayMinutes: 0,
   longestToday: 0,
   weekMinutes: 0,
+  longestWeek: 0,
   weekSessions: 0,
   peakHour: null as number | null,
+  byPartOfDay: { night: 0, morning: 0, afternoon: 0, evening: 0 } as Record<PartOfDay, number>,
+  breaksWeek: 0,
 };
 
 function useNow(active: boolean) {
@@ -279,15 +298,48 @@ export default function ScrollScreen() {
           <GroupRow icon="sun" title="Today" value={formatMinutes(stats.todayMinutes)} />
           <GroupRow icon="calendar" title="This week" value={formatMinutes(stats.weekMinutes)} />
           <GroupRow
-            icon="moon"
-            title="Usual time"
-            value={
-              stats.peakHour === null
-                ? '–'
-                : `${stats.peakHour % 12 === 0 ? 12 : stats.peakHour % 12} ${stats.peakHour >= 12 ? 'PM' : 'AM'}`
-            }
+            icon="hourglass"
+            title="Longest session this week"
+            value={stats.longestWeek ? formatMinutes(stats.longestWeek) : '–'}
+          />
+          <GroupRow
+            icon="leaf"
+            title="Breaks taken this week"
+            value={stats.breaksWeek ? String(stats.breaksWeek) : '–'}
           />
         </Group>
+        <View style={[styles.card, { marginTop: spacing.md, gap: spacing.sm }]}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Text variant="caption" color={colors.textSoft}>
+              When you usually scroll
+            </Text>
+            <Text variant="caption" color={colors.textSoft}>
+              {stats.peakHour === null
+                ? '–'
+                : `peak ${stats.peakHour % 12 === 0 ? 12 : stats.peakHour % 12} ${stats.peakHour >= 12 ? 'PM' : 'AM'}`}
+            </Text>
+          </Row>
+          <Row style={{ alignItems: 'flex-end', gap: spacing.xl }}>
+            {PARTS_OF_DAY.map((p) => {
+              const mins = stats.byPartOfDay[p];
+              const max = Math.max(1, ...PARTS_OF_DAY.map((q) => stats.byPartOfDay[q]));
+              const height = Math.max(4, Math.round((mins / max) * 48));
+              return (
+                <View key={p} style={{ alignItems: 'center', gap: 6 }}>
+                  <View
+                    style={{
+                      width: 30,
+                      height,
+                      borderRadius: 6,
+                      backgroundColor: mins > 0 ? colors.lagoon : colors.track,
+                    }}
+                  />
+                  <Text variant="caption">{PART_OF_DAY_LABELS[p]}</Text>
+                </View>
+              );
+            })}
+          </Row>
+        </View>
       </Section>
 
       <RuleSheet key={editing?.id ?? 'none'} rule={editing} onClose={() => setEditing(null)} />
@@ -311,17 +363,21 @@ function ScrollSession({
   const scrollReminderIds = useSession((s) => s.scrollReminderIds);
   const setScrollReminderId = useSession((s) => s.setScrollReminderId);
   const [app, setApp] = useState<(typeof SESSION_APPS)[number]>('TikTok');
+  const [customApp, setCustomApp] = useState('');
   const [limit, setLimit] = useState(String(defaultLimit));
+  const [logOpen, setLogOpen] = useState(false);
 
   const elapsed = session ? elapsedSeconds(session, now) : 0;
   const limitS = session ? session.limitMinutes * 60 : 1;
   const due =
     !!session && elapsed >= limitS && now.getTime() >= (scrollPauseUntil[session.id] ?? 0);
 
+  const appName = (a: string) => (a === 'Other' ? customApp.trim() || 'Other app' : a);
+
   const start = async () => {
     const minutes = Number(limit);
     setDefaultLimit(minutes);
-    await startSession(db, app, minutes);
+    await startSession(db, appName(app), minutes);
     const started = await activeSession(db);
     if (!started) return;
     setScrollReminderId(
@@ -404,13 +460,23 @@ function ScrollSession({
         ) : (
           <>
             <Text variant="small" color={colors.textMuted}>
-              Opening a feed anyway? Set when to stop. I will check in gently when time is up.
+              Unhooked cannot see other apps automatically yet — start a session when you
+              open one, and I will check in gently when time is up.
             </Text>
             <Chips
               value={app}
               onChange={setApp}
               options={SESSION_APPS.map((a) => ({ value: a, label: a }))}
             />
+            {app === 'Other' ? (
+              <Field
+                label="Which app?"
+                value={customApp}
+                onChangeText={setCustomApp}
+                placeholder="e.g. Reddit"
+                autoCapitalize="words"
+              />
+            ) : null}
             <Chips
               value={limit}
               onChange={setLimit}
@@ -422,9 +488,17 @@ function ScrollSession({
               icon="timer"
               onPress={() => void start()}
             />
+            <Button
+              label="Log a past session"
+              kind="ghost"
+              size="sm"
+              onPress={() => setLogOpen(true)}
+            />
           </>
         )}
       </View>
+
+      <LogPastSheet open={logOpen} onClose={() => setLogOpen(false)} />
 
       <Sheet open={due} onClose={() => void snooze(10)} mascot="sleepy">
         <Text variant="heading" align="center" style={{ fontSize: 21, lineHeight: 27 }}>
@@ -456,6 +530,72 @@ function ScrollSession({
         />
       </Sheet>
     </Section>
+  );
+}
+
+type LogWhen = 'today' | 'yesterday';
+
+function LogPastSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const db = useSQLiteContext();
+  const showToast = useSession((s) => s.showToast);
+  const [app, setApp] = useState<(typeof SESSION_APPS)[number]>('TikTok');
+  const [customApp, setCustomApp] = useState('');
+  const [minutes, setMinutes] = useState<(typeof PAST_DURATIONS)[number]>('30');
+  const [when, setWhen] = useState<LogWhen>('today');
+
+  const save = async () => {
+    const end = new Date();
+    if (when === 'yesterday') {
+      end.setDate(end.getDate() - 1);
+      end.setHours(21, 0, 0, 0);
+    }
+    const name = app === 'Other' ? customApp.trim() || 'Other app' : app;
+    await logPastSession(db, name, Number(minutes), end);
+    onClose();
+    showToast('Logged. Every bit of honesty helps.');
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose}>
+      <Text variant="heading">Log a past session</Text>
+      <Text variant="caption" color={colors.textSoft}>
+        Which app?
+      </Text>
+      <Chips
+        value={app}
+        onChange={setApp}
+        options={SESSION_APPS.map((a) => ({ value: a, label: a }))}
+      />
+      {app === 'Other' ? (
+        <Field
+          label="App name"
+          value={customApp}
+          onChangeText={setCustomApp}
+          placeholder="e.g. Reddit"
+          autoCapitalize="words"
+        />
+      ) : null}
+      <Text variant="caption" color={colors.textSoft} style={{ marginTop: spacing.sm }}>
+        For how long?
+      </Text>
+      <Chips
+        value={minutes}
+        onChange={setMinutes}
+        options={PAST_DURATIONS.map((m) => ({ value: m, label: `${m} min` }))}
+      />
+      <Text variant="caption" color={colors.textSoft} style={{ marginTop: spacing.sm }}>
+        When?
+      </Text>
+      <Chips
+        value={when}
+        onChange={setWhen}
+        options={[
+          { value: 'today', label: 'Earlier today' },
+          { value: 'yesterday', label: 'Yesterday evening' },
+        ]}
+      />
+      <Button label="Save entry" style={{ marginTop: spacing.md }} onPress={() => void save()} />
+    </Sheet>
   );
 }
 

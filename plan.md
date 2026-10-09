@@ -195,14 +195,14 @@ The pause uses real on-device records and deterministic local templates. Gemma a
 **Done when:** the full §5 user journey (S1–S5) runs without touching code.
 **Verification remaining:** tap through S1–S5 and the 24-hour notification on a phone; typecheck, lint, tests, Android/web bundles pass.
 
-### Phase 4 — Scroll
-- [ ] Implement `domain/scroll.ts` + tests.
-- [ ] App picker (Facebook, TikTok, Instagram, YouTube, X, custom) + per-session limit (default `settings.scrollLimitMinutes`).
-- [ ] Session runner: start → timer → local notification at the limit (works when the app is backgrounded) → opens `/pause?kind=scroll`.
-- [ ] Manual entry fallback ("I scrolled 45 min on TikTok last night").
-- [ ] Break suggestions (walk, stretch, water, unfinished task, offline activity) — rotate, never repeat twice in a row; log `break_taken`.
-- [ ] Habit insights: longest sessions, time-of-day histogram, breaks taken this week.
-- [ ] Honest copy: "Unhooked can't see other apps automatically yet — start a session when you open one."
+### Phase 4 — Scroll ✅
+- [x] Implement `domain/scroll.ts` + tests.
+- [x] App picker (Facebook, TikTok, Instagram, YouTube, X, custom name via "Other") + per-session limit (default `settings.scrollLimitMinutes`).
+- [x] Session runner: start → timer → local notification at the limit (works when the app is backgrounded) → opens `/pause?kind=scroll`.
+- [x] Manual entry fallback ("I scrolled 45 min on TikTok last night" → `logPastSession`).
+- [x] Break suggestions (walk, stretch, water, unfinished task, offline activity) — rotate via `pickBreakIdea`, never repeat twice in a row (`settings.lastBreakIdea`); log `break_taken`.
+- [x] Habit insights: longest session this week, part-of-day histogram, breaks taken this week.
+- [x] Honest copy: "Unhooked cannot see other apps automatically yet — start a session when you open one."
 
 ### Phase 4B — App & website blocking (Android only, dev build)
 The user picks which apps and websites get a "hook guard". Opening one shows Ginto's pause (R1) instead of the app or site. This is a speed bump the user sets up for themselves, not parental control. **It needs native code, so it does not run in Expo Go.** It ships in a development build (`npx expo run:android` or `eas build --profile development`) and the Expo Go demo must still work without it.
