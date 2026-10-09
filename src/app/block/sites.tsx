@@ -13,28 +13,25 @@ import {
   Group,
   GroupRow,
   IconButton,
+  Screen,
   ScreenHeader,
   Section,
   Sheet,
   Text,
 } from '@/components/ui';
-import { ActionError, FlowScreen, FormSection } from '@/components/FlowLayout';
 import { colors, spacing } from '@/constants/theme';
 import { addRules, listRules, removeRule } from '@/db/blockRules';
 import { useDbQuery } from '@/db/useDbQuery';
 import { normalizeDomain } from '@/domain/blocking';
 import { isGuardAvailable } from '@/lib/guard';
 import { useSession } from '@/store/session';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
 
 const SUGGESTED = ['tiktok.com', 'facebook.com', 'youtube.com', 'shopee.ph', 'lazada.com.ph'];
 
 export default function SitesScreen() {
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
-  const { data: rules, error, retry } = useDbQuery(listRules, []);
-  const action = useAsyncAction();
-  const native = isGuardAvailable();
+  const { data: rules } = useDbQuery(listRules, []);
   const [text, setText] = useState('');
   const [disclose, setDisclose] = useState<string | null>(null);
   const sites = rules.filter((r) => r.kind === 'site');
@@ -46,11 +43,7 @@ export default function SitesScreen() {
       schedule: null,
     });
     setText('');
-    showToast(
-      native
-        ? `${domain} is added to your guard list.`
-        : `${domain} is saved. Website guards run in the Android build.`,
-    );
+    showToast(`${domain} is guarded.`);
   };
 
   const add = async (domain: string) => {
@@ -63,81 +56,48 @@ export default function SitesScreen() {
   };
 
   return (
-    <FlowScreen>
+    <Screen tabs={false}>
       <ScreenHeader
         back
-        title="Leave a little space."
-        subtitle="Choose websites where you would like a pause."
+        title="Guard websites"
+        subtitle="For shopping or video sites in your browser."
       />
 
-      {!native && (
-        <View
-          style={{ padding: spacing.lg, backgroundColor: colors.surfaceMuted, gap: spacing.sm }}
-        >
-          <Text variant="strong">Prepare your list here.</Text>
-          <Text variant="small">
-            Website guards work in the Android build. Saving a site here does not block this browser
-            or other apps.
-          </Text>
-        </View>
+      <Field
+        label="Website"
+        placeholder="Paste a link, like shopee.ph"
+        value={text}
+        onChangeText={setText}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+      />
+      {result && (
+        <Text variant="small" color={result.ok ? colors.text : colors.spend}>
+          {result.ok ? `Will guard ${result.domain} and its subpages.` : result.error}
+        </Text>
       )}
-      <ActionError
-        message={error ? 'Your saved website list could not be loaded.' : null}
-        onRetry={retry}
+      <Button
+        label="Add"
+        disabled={!result?.ok}
+        onPress={() => result?.ok && void add(result.domain)}
       />
-
-      <FormSection title="Add a website">
-        <Field
-          label="Website"
-          placeholder="Paste a link, like shopee.ph"
-          value={text}
-          onChangeText={setText}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          error={result && !result.ok ? result.error : undefined}
-        />
-        {result && (
-          <Text variant="small" color={result.ok ? colors.text : colors.spend}>
-            {result.ok ? `Will guard ${result.domain} and its subpages.` : result.error}
-          </Text>
-        )}
-        <Button
-          label={
-            result?.ok && sites.some((site) => site.target === result.domain)
-              ? 'Already on your list'
-              : 'Add website'
-          }
-          disabled={
-            !result?.ok ||
-            !!error ||
-            (result?.ok && sites.some((site) => site.target === result.domain))
-          }
-          loading={action.pending}
-          onPress={() => result?.ok && void action.run(() => add(result.domain))}
-        />
-      </FormSection>
-      <ActionError message={action.error} />
 
       {sites.length > 0 && (
-        <Section title={native ? 'Your guarded websites' : 'Your saved websites'}>
+        <Section title="Guarded sites">
           <Group>
             {sites.map((s) => (
               <GroupRow
                 key={s.id}
                 leading={<Avatar label={s.label} bg={colors.scrollSoft} fg={colors.scroll} />}
                 title={s.label}
-                subtitle={
-                  native
-                    ? 'Included when website guards are enabled'
-                    : 'Ready for the Android build'
-                }
+                subtitle="Opening it shows a pause first"
                 trailing={
                   <IconButton
                     icon="close"
                     label={`Remove ${s.label}`}
                     tone={colors.track}
-                    onPress={() => void action.run(() => removeRule(db, s.id))}
+                    onPress={() => void removeRule(db, s.id)}
                   />
                 }
               />
@@ -158,7 +118,7 @@ export default function SitesScreen() {
                   icon="add"
                   label={`Guard ${d}`}
                   tone={colors.track}
-                  onPress={() => void action.run(() => add(d))}
+                  onPress={() => void add(d)}
                 />
               }
             />
@@ -186,19 +146,16 @@ export default function SitesScreen() {
           </Text>
         </View>
         <Button
-          label="Continue to Android permission"
-          loading={action.pending}
-          onPress={() =>
-            void action.run(async () => {
-              const domain = disclose;
-              if (domain && (await prepareWebGuard())) await save(domain);
-              else showToast('Website guard stays off. App guards still work.');
-              setDisclose(null);
-            })
-          }
+          label="Allow"
+          onPress={async () => {
+            const domain = disclose;
+            setDisclose(null);
+            if (domain && (await prepareWebGuard())) await save(domain);
+            else showToast('Website guard stays off. App guards still work.');
+          }}
         />
         <Button label="Not now" kind="ghost" size="sm" onPress={() => setDisclose(null)} />
       </Sheet>
-    </FlowScreen>
+    </Screen>
   );
 }

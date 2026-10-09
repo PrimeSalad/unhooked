@@ -6,17 +6,24 @@ import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getReflectionProvider, type Reflection } from '@/ai';
-import { ActionError, FlowScreen } from '@/components/FlowLayout';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { bumpData } from '@/db/useDbQuery';
+import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
+import { Hook } from '@/components/mascot/Hook';
 import { CountdownRing } from '@/components/pause/CountdownRing';
-import { Button, goBack, Rise, Tag, Text, TopBar } from '@/components/ui';
-import { colors, spacing } from '@/constants/theme';
+import { Button, goBack, Rise, Row, Tag, Text, TopBar } from '@/components/ui';
+import { colors, motion, radius, spacing } from '@/constants/theme';
 import { logEvent } from '@/db/events';
 import {
   activeSession,
@@ -41,12 +48,15 @@ import { useSettings } from '@/store/settings';
 
 type Kind = 'checkout' | 'borrow' | 'scroll';
 
+const STAGE = 290;
+const RING = 244;
+const FISH = 200;
+
 async function buildFacts(
   db: SQLiteDatabase,
   kind: Kind,
   params: { purchaseId?: string; amount?: string; app?: string; minutes?: string },
   budget: BudgetProfile | null,
-  scrollLimit: number,
 ): Promise<PauseFactResult> {
   const o = await getOverview(db);
   const nextDueLabel = o.nextDue
@@ -64,12 +74,7 @@ async function buildFacts(
     });
   }
   if (kind === 'scroll') {
-    return scrollPauseFacts({
-      ...shared,
-      app: params.app ?? '',
-      minutes: Number(params.minutes),
-      limitMinutes: scrollLimit,
-    });
+    return scrollPauseFacts({ ...shared, app: params.app ?? '', minutes: Number(params.minutes) });
   }
   const p = params.purchaseId ? await getPurchase(db, params.purchaseId) : null;
   return checkoutPauseFacts({
@@ -78,8 +83,6 @@ async function buildFacts(
     budget,
     dueThisMonth: o.dueThisMonth,
     spentThisMonth: o.spentThisMonth,
-    owedTotal: o.owedTotal,
-    modelContext: true,
   });
 }
 
@@ -99,14 +102,11 @@ export default function PauseScreen() {
   const db = useSQLiteContext();
   const total = useSettings((s) => s.pauseSeconds);
   const budget = useSettings((s) => s.budget);
-  const scrollLimit = useSettings((s) => s.scrollLimitMinutes);
   const showToast = useSession((s) => s.showToast);
   const snoozeScrollPause = useSession((s) => s.snoozeScrollPause);
   const setScrollReminderId = useSession((s) => s.setScrollReminderId);
-  const action = useAsyncAction('Could not save your choice. Please try again.');
-  const reduced = useReducedMotion();
-  const [factsError, setFactsError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
 
   const [left, setLeft] = useState(total);
   const [title, setTitle] = useState(
@@ -114,21 +114,20 @@ export default function PauseScreen() {
   );
   const [item, setItem] = useState('');
   const [reflection, setReflection] = useState<Reflection | null>(null);
-  const [endsAt] = useState(() => Date.now() + total * 1000);
+  const [reveal] = useState(() => new Animated.Value(0));
   const scrollDecisionPending = useRef(false);
   const locked = left > 0;
 
   useEffect(() => {
-    void logEvent(db, 'pause_shown', { kind }).catch(() =>
-      setFactsError('The activity record could not be saved.'),
-    );
+    void logEvent(db, 'pause_shown', { kind });
     const timer = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
-      setLeft(remaining);
-      if (remaining === 0) clearInterval(timer);
+      setLeft((l) => {
+        if (l <= 1) clearInterval(timer);
+        return Math.max(0, l - 1);
+      });
     }, 1000);
     return () => clearInterval(timer);
-  }, [db, kind, endsAt]);
+  }, [db, kind]);
 
   useEffect(() => {
     let alive = true;
@@ -142,7 +141,6 @@ export default function PauseScreen() {
         minutes: params.minutes,
       },
       budget,
-      scrollLimit,
     )
       .then(async ({ title: t, item: i, facts, checkIn }) => {
         const r = await getReflectionProvider().reflect({ kind, facts, latestCheckIn: checkIn });
@@ -151,43 +149,26 @@ export default function PauseScreen() {
         setItem(i);
         setReflection(r);
       })
-      .catch(() => {
-        if (alive)
-          setFactsError(
-            'Your records could not be loaded. Retry or close this pause to return to your draft.',
-          );
-      });
+      .catch((e: unknown) => console.warn('pause facts failed', e));
     return () => {
       alive = false;
     };
-  }, [
-    budget,
-    db,
-    kind,
-    params.amount,
-    params.purchaseId,
-    params.app,
-    params.minutes,
-    scrollLimit,
-    attempt,
-  ]);
+  }, [budget, db, kind, params.amount, params.purchaseId, params.app, params.minutes]);
 
   useEffect(() => {
-    if (!locked && !reduced && Platform.OS !== 'web') {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    }
-  }, [locked, reduced]);
+    if (locked) return;
+    if (Platform.OS !== 'web')
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Animated.timing(reveal, {
+      toValue: 1,
+      duration: motion.swim,
+      easing: Easing.bezier(0.45, 0.05, 0.25, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [locked, reveal]);
 
-  const done = async (decision: PauseDecision, outcome: string) => {
-    await logEvent(db, 'pause_decision', {
-      kind,
-      decision,
-      secondsViewed: total,
-      modelVersion: reflection?.inference?.modelVersion,
-      pressureScore: reflection?.inference?.score,
-      pressureBand: reflection?.inference?.band,
-    });
-    bumpData();
+  const done = (decision: PauseDecision, outcome: string) => {
+    void logEvent(db, 'pause_decision', { kind, decision, secondsViewed: total });
     router.replace({
       pathname: '/unhooked',
       params: { outcome, item, amount: params.amount ?? '' },
@@ -201,32 +182,17 @@ export default function PauseScreen() {
       'Ready to decide?',
       'Something you saved yesterday is waiting for a decision.',
     );
-    await done('save_for_later', 'saved');
+    done('save_for_later', 'saved');
   };
   const checkoutB = () => done('reconsider', 'cheaper');
   const checkoutC = async () => {
     if (params.purchaseId) await setPurchaseStatus(db, params.purchaseId, 'bought');
-    await logEvent(db, 'pause_decision', {
-      kind,
-      decision: 'continue',
-      secondsViewed: total,
-      modelVersion: reflection?.inference?.modelVersion,
-      pressureScore: reflection?.inference?.score,
-      pressureBand: reflection?.inference?.band,
-    });
-    bumpData();
+    void logEvent(db, 'pause_decision', { kind, decision: 'continue', secondsViewed: total });
     goBack();
     showToast('Your call. Logged without judgment.');
   };
-  const borrowC = async () => {
-    void logEvent(db, 'pause_decision', {
-      kind,
-      decision: 'continue',
-      secondsViewed: total,
-      modelVersion: reflection?.inference?.modelVersion,
-      pressureScore: reflection?.inference?.score,
-      pressureBand: reflection?.inference?.band,
-    });
+  const borrowC = () => {
+    void logEvent(db, 'pause_decision', { kind, decision: 'continue', secondsViewed: total });
     router.replace({
       pathname: '/debt-new',
       params: { direction: 'owed', amount: params.amount ?? '', counterparty: params.lender ?? '' },
@@ -261,8 +227,11 @@ export default function PauseScreen() {
       if (outcome === 'break') router.replace('/break');
       else {
         goBack();
-        if (outcome === 'snooze') showToast('The next in-app check-in is in 10 minutes.');
+        if (outcome === 'snooze') showToast('Got it. I will check back in 10 minutes.');
       }
+    } catch (error) {
+      console.warn('scroll pause decision failed', error);
+      showToast('Could not save that choice. Please try again.');
     } finally {
       scrollDecisionPending.current = false;
     }
@@ -283,117 +252,164 @@ export default function PauseScreen() {
   const elapsed = total - left;
   const breath = Math.floor(elapsed / 4) % 2 === 0 ? 'Breathe in' : 'Breathe out';
   const mood = locked ? 'calm' : isBorrow ? 'worried' : isScroll ? 'sleepy' : 'curious';
-  const disabled = locked || !reflection || action.pending;
+  const stageW = width - spacing.xl * 2;
+
   return (
-    <FlowScreen bg={colors.pause}>
+    <View
+      style={[
+        styles.root,
+        { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
+      ]}
+    >
+      <DotPattern color="#FFF6EC" opacity={0.1} gap={26} />
       <TopBar icon="close" dark />
-      <View style={{ gap: spacing.sm }}>
+
+      <View style={{ gap: 4, maxWidth: '68%' }}>
         <Text variant="eyebrow" color={colors.pauseMuted}>
-          {isBorrow ? 'Before you borrow' : isScroll ? 'Your time, your choice' : 'Before you buy'}
+          {isBorrow ? 'Borrowing pause' : isScroll ? 'Scroll check-in' : 'Checkout pause'}
         </Text>
-        <Text variant="title" color={colors.pauseText}>
+        <Text
+          variant="title"
+          color={colors.pauseText}
+          style={{ fontSize: 26, lineHeight: 32 }}
+          numberOfLines={2}
+        >
           {title}
         </Text>
-        {item ? <Text color={colors.pauseMuted}>{item}</Text> : null}
       </View>
-      <View style={{ alignItems: 'center', paddingVertical: spacing.md, gap: spacing.lg }}>
-        {locked ? (
-          <CountdownRing seconds={total} size={210}>
-            <Ginto mood={mood} size={148} />
-          </CountdownRing>
-        ) : (
-          <Ginto mood={mood} size={120} />
-        )}
-        <Text variant="heading" color={colors.pauseText}>
-          {locked ? breath : 'You have a little more space now.'}
-        </Text>
-        <Text variant="small" color={colors.pauseMuted} align="center">
-          {locked
-            ? left + (left === 1 ? ' second' : ' seconds') + ' · then choose what comes next'
-            : 'There is no perfect answer. There is your next choice.'}
-        </Text>
-      </View>
-      <ActionError
-        message={factsError}
-        onRetry={() => {
-          setFactsError(null);
-          setAttempt((value) => value + 1);
-        }}
-      />
-      {!locked && reflection ? (
-        <Rise
-          style={{
-            gap: spacing.lg,
-            paddingTop: spacing.xl,
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(255,255,255,0.18)',
-          }}
+
+      <View style={{ height: STAGE, marginTop: spacing.lg }}>
+        <Hook
+          x={stageW / 2 + 92}
+          y={locked ? 28 : 12}
+          shown
+          lineColor="#FFDBA4"
+          hookColor="#FFC56B"
+        />
+        <Animated.View
+          style={[
+            styles.center,
+            { opacity: reveal.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0] }) },
+          ]}
         >
-          <Tag certainty={reflection.headlineCertainty} dark />
-          <Text variant="heading" color={colors.pauseText}>
-            {reflection.headline}
-          </Text>
-          {[...reflection.lines, ...reflection.suggestions].map((line) => (
-            <View key={line.text} style={{ gap: spacing.xs }}>
-              <Text variant="small" color={colors.pauseMuted}>
-                {line.certainty === 'fact'
-                  ? 'From your records'
-                  : line.certainty === 'estimate'
-                    ? 'Estimate'
-                    : 'One option'}
+          <CountdownRing seconds={total} size={RING} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.center,
+            {
+              transform: [
+                { translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [0, -36] }) },
+                { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [1, 0.8] }) },
+              ],
+            },
+          ]}
+        >
+          <Ginto mood={mood} size={FISH} />
+        </Animated.View>
+      </View>
+
+      <ScrollView
+        style={{ flex: 1, marginTop: locked ? -40 : -76, marginBottom: spacing.md }}
+        showsVerticalScrollIndicator={false}
+      >
+        {locked || !reflection ? (
+          <View style={{ alignItems: 'center', gap: 4, marginTop: spacing.xxl }}>
+            <Text variant="heading" color={colors.pauseText} style={{ fontSize: 22 }}>
+              {breath}
+            </Text>
+            <Text variant="small" color={colors.pauseMuted}>
+              {left} {left === 1 ? 'second' : 'seconds'} · choices unlock after the pause
+            </Text>
+          </View>
+        ) : (
+          <Rise>
+            <View style={styles.reflection}>
+              <Tag certainty={reflection.headlineCertainty} dark />
+              <Text variant="heading" color={colors.pauseText}>
+                {reflection.headline}
               </Text>
-              <Text color={colors.pauseText}>{line.text}</Text>
+              {[...reflection.lines, ...reflection.suggestions].map((l) => (
+                <View key={l.text} style={{ gap: 4 }}>
+                  <Tag certainty={l.certainty} dark />
+                  <Text variant="small" color="#FFE9D2">
+                    {l.text}
+                  </Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </Rise>
-      ) : !locked && !factsError ? (
-        <Text color={colors.pauseMuted}>Reading your records…</Text>
-      ) : null}
-      <ActionError message={action.error} />
-      <View style={{ gap: spacing.md }}>
+          </Rise>
+        )}
+      </ScrollView>
+
+      <View style={{ gap: 10 }}>
         <Button
           label={options.a}
-          disabled={disabled}
-          loading={action.pending}
+          disabled={locked}
           onPress={() =>
-            void action.run(() =>
-              isBorrow
-                ? done('reconsider', 'review')
-                : isScroll
-                  ? scrollDecision('continue', 'intentional')
-                  : checkoutA(),
-            )
+            isBorrow
+              ? done('reconsider', 'review')
+              : isScroll
+                ? void scrollDecision('continue', 'intentional')
+                : void checkoutA()
           }
         />
         <Button
           label={options.b}
           kind="outlineLight"
-          disabled={disabled}
+          disabled={locked}
           onPress={() =>
-            void action.run(() =>
-              isBorrow
-                ? done('reconsider', 'plan')
-                : isScroll
-                  ? scrollDecision('break', 'break')
-                  : checkoutB(),
-            )
+            isBorrow
+              ? done('reconsider', 'plan')
+              : isScroll
+                ? void scrollDecision('break', 'break')
+                : checkoutB()
           }
         />
-        <Button
-          label={options.c}
-          kind="ghostLight"
-          disabled={disabled}
-          onPress={() =>
-            void action.run(() =>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <Button
+            label={options.c}
+            kind="ghostLight"
+            size="sm"
+            disabled={locked}
+            onPress={() =>
               isBorrow
                 ? borrowC()
                 : isScroll
-                  ? scrollDecision('reconsider', 'snooze')
-                  : checkoutC(),
-            )
-          }
-        />
+                  ? void scrollDecision('reconsider', 'snooze')
+                  : void checkoutC()
+            }
+          />
+          <Button
+            label="Need to talk to someone?"
+            kind="ghostLight"
+            size="sm"
+            onPress={() => router.push('/help')}
+          />
+        </Row>
       </View>
-    </FlowScreen>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.pause,
+    paddingHorizontal: spacing.xl,
+    overflow: 'hidden',
+  },
+  center: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reflection: {
+    backgroundColor: 'rgba(255,246,236,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,246,236,0.14)',
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+});

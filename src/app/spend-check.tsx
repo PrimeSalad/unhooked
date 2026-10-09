@@ -12,12 +12,12 @@ import {
   goBack,
   Rise,
   Row,
+  Screen,
   ScreenHeader,
   Tag,
   Text,
 } from '@/components/ui';
 import { BudgetSetup } from '@/components/BudgetSetup';
-import { ActionError, FlowScreen, FormSection } from '@/components/FlowLayout';
 import { colors, radius, spacing } from '@/constants/theme';
 import { addPurchase, emptyOverview, getOverview, setPurchaseStatus } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
@@ -27,20 +27,18 @@ import { formatPHP, parsePesoInput } from '@/domain/money';
 import { remindIn } from '@/lib/notifications';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
 
 const VERDICT = {
-  comfortable: { label: 'Looks affordable', bg: colors.surfaceMuted, fg: colors.success },
-  tight: { label: 'Tight', bg: colors.surfaceMuted, fg: colors.link },
-  conflicts: { label: 'Clashes with repayments', bg: colors.surfaceMuted, fg: colors.error },
+  comfortable: { label: 'Looks affordable', bg: '#F3ECE4', fg: '#1E5E3B' },
+  tight: { label: 'Tight', bg: '#F3ECE4', fg: '#7A4A00' },
+  conflicts: { label: 'Clashes with repayments', bg: '#FBE3E0', fg: '#8C1D18' },
 } as const;
 
 export default function SpendCheckScreen() {
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
   const budget = useSettings((s) => s.budget);
-  const { data: o, error, retry, loaded } = useDbQuery(getOverview, emptyOverview);
-  const action = useAsyncAction();
+  const { data: o } = useDbQuery(getOverview, emptyOverview);
 
   const [item, setItem] = useState('');
   const [price, setPrice] = useState('');
@@ -54,7 +52,7 @@ export default function SpendCheckScreen() {
   const priceC = parsePesoInput(price);
   const altC = parsePesoInput(alt);
   const result =
-    budget && priceC && loaded && !error
+    budget && priceC
       ? checkAffordability({
           price: priceC,
           budget,
@@ -71,7 +69,7 @@ export default function SpendCheckScreen() {
           fees: parsePesoInput(fee) ?? 0,
         })
       : null;
-  const ready = item.trim().length > 0 && !!priceC && (!alt.trim() || altC !== null);
+  const ready = item.trim().length > 0 && !!priceC;
 
   const reset = () => {
     setItem('');
@@ -92,54 +90,36 @@ export default function SpendCheckScreen() {
 
   const saveForLater = async () => {
     if (!ready || !priceC) return;
-    await db.withTransactionAsync(async () => {
-      const id = await addPurchase(db, {
-        item: item.trim(),
-        price: priceC,
-        isNeed: need === 'need',
-      });
-      await setPurchaseStatus(db, id, 'cooling');
-    });
-    const reminder = await remindIn(
+    const id = await addPurchase(db, { item: item.trim(), price: priceC, isNeed: need === 'need' });
+    await setPurchaseStatus(db, id, 'cooling');
+    void remindIn(
       24 * 3600,
       'Ready to decide?',
       'Something you saved yesterday is waiting for a decision.',
     );
     reset();
     goBack();
-    showToast(
-      reminder
-        ? 'Saved for 24 hours. A reminder is set.'
-        : 'Saved for 24 hours. Come back to Spend when you are ready.',
-    );
+    showToast('Saved for 24 hours. I will check in with you tomorrow.');
   };
 
   return (
-    <FlowScreen>
+    <Screen tabs={false}>
       <ScreenHeader
         back
-        title="Is it worth your month?"
-        subtitle="A little perspective before you check out."
+        title="Check a purchase"
+        subtitle="Before you check out, see what it really costs you."
       />
 
       {!budget && <BudgetSetup />}
-      <ActionError
-        message={
-          error
-            ? 'Your saved records could not be loaded, so the budget estimate is unavailable.'
-            : null
-        }
-        onRetry={retry}
-      />
 
       <Rise>
-        <FormSection title="What caught your eye?">
+        <Card style={{ gap: spacing.md }}>
+          <Text variant="strong">What are you thinking of buying?</Text>
           <Field
             label="Item"
             placeholder="Wireless earbuds, shoes, a game…"
             value={item}
             onChangeText={setItem}
-            maxLength={100}
           />
           <Field
             label="Price"
@@ -147,7 +127,6 @@ export default function SpendCheckScreen() {
             keyboardType="decimal-pad"
             value={price}
             onChangeText={setPrice}
-            error={price && !priceC ? 'Enter a price greater than zero.' : undefined}
           />
           <Chips
             value={need}
@@ -163,9 +142,8 @@ export default function SpendCheckScreen() {
             keyboardType="decimal-pad"
             value={alt}
             onChangeText={setAlt}
-            error={alt && altC === null ? 'Enter a valid amount or leave this blank.' : undefined}
           />
-        </FormSection>
+        </Card>
       </Rise>
 
       {priceC && result && (
@@ -230,7 +208,7 @@ export default function SpendCheckScreen() {
               <Row
                 style={{
                   alignItems: 'flex-start',
-                  backgroundColor: colors.surfaceMuted,
+                  backgroundColor: '#F3ECE4',
                   borderRadius: radius.md,
                   padding: spacing.md,
                 }}
@@ -245,7 +223,7 @@ export default function SpendCheckScreen() {
         </Rise>
       )}
 
-      <FormSection title="Paying over time?">
+      <Card style={{ gap: spacing.md }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
             <Text variant="strong">Paying in installments?</Text>
@@ -304,7 +282,7 @@ export default function SpendCheckScreen() {
                 <Text variant="caption">
                   {bnpl.extraCost > 0
                     ? 'than paying upfront.'
-                    : 'No extra cost in the amounts you entered. Check the agreement for other fees.'}
+                    : 'Same as paying upfront. No hidden cost.'}
                 </Text>
               </View>
             ) : (
@@ -312,26 +290,20 @@ export default function SpendCheckScreen() {
             )}
           </>
         )}
-      </FormSection>
-
-      <ActionError message={action.error} />
+      </Card>
 
       <Button
-        label="Pause before I decide"
+        label="Check out"
         icon="arrow-forward"
         disabled={!ready}
-        loading={action.pending}
-        onPress={() => void action.run(checkout)}
+        onPress={() => void checkout()}
       />
       <Button
         label="Save for 24 hours instead"
         kind="outline"
-        disabled={!ready || action.pending}
-        onPress={() => void action.run(saveForLater)}
+        disabled={!ready}
+        onPress={() => void saveForLater()}
       />
-      <Text variant="caption">
-        Your choice stays yours. Estimates use only the budget and records you have entered.
-      </Text>
-    </FlowScreen>
+    </Screen>
   );
 }

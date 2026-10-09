@@ -4,9 +4,7 @@
 
 import { SQLiteProvider } from 'expo-sqlite';
 import { useState, type ReactNode } from 'react';
-import { View } from 'react-native';
-
-import { Button, Text } from '@/components/ui';
+import { Text, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
 
@@ -36,23 +34,10 @@ export function DatabaseGate({ children }: { children: ReactNode }) {
   if (error) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.bg }}>
-        <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', gap: 16 }}>
-          <Text variant="eyebrow">Your private workspace</Text>
-          <Text variant="title">Let’s reconnect to your records.</Text>
-          <Text>
-            Unhooked could not open its local storage. Close any other Unhooked tabs, then try
-            again. Your saved records have not been deleted.
-          </Text>
-          <Button
-            label="Try again"
-            onPress={() => {
-              scheduled.clear();
-              setError(null);
-              setAttempt((value) => value + 1);
-            }}
-          />
-          <Text variant="caption">{error.message}</Text>
-        </View>
+        <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 8 }}>
+          Unhooked could not open its local database.
+        </Text>
+        <Text style={{ fontSize: 14, color: colors.textMuted }}>{error.message}</Text>
       </View>
     );
   }

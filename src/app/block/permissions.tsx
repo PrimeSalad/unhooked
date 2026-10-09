@@ -13,12 +13,11 @@ import {
   openUsageAccessSettings,
 } from '../../../modules/unhooked-guard';
 
-import { Button, Text, ScreenHeader } from '@/components/ui';
-import { ActionError, FlowScreen, FormSection } from '@/components/FlowLayout';
+import { Ginto } from '@/components/mascot/Ginto';
+import { Button, Card, Screen, Text, TopBar } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
-import { isGuardAvailable, syncGuard } from '@/lib/guard';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
+import { syncGuard } from '@/lib/guard';
 
 function Step({
   done,
@@ -32,7 +31,7 @@ function Step({
   onAllow: () => void;
 }) {
   return (
-    <FormSection title={title}>
+    <Card style={{ gap: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <Icon
           name={done ? 'check-circle' : 'circle'}
@@ -40,20 +39,17 @@ function Step({
           color={done ? colors.success : colors.textFaint}
         />
         <Text variant="strong" style={{ flex: 1 }}>
-          {done ? 'Permission enabled' : 'Permission needed'}
+          {title}
         </Text>
       </View>
       <Text variant="small">{why}</Text>
-      {!done && <Button label={`Enable ${title.toLowerCase()}`} size="sm" onPress={onAllow} />}
-    </FormSection>
+      {!done && <Button label="Allow" size="sm" onPress={onAllow} />}
+    </Card>
   );
 }
 
 export default function GuardPermissionsScreen() {
   const db = useSQLiteContext();
-  const action = useAsyncAction(
-    'Could not enable your guards. Check the permissions and try again.',
-  );
   const [usage, setUsage] = useState(hasUsageAccess());
   const [overlay, setOverlay] = useState(canDrawOverlays());
 
@@ -72,30 +68,14 @@ export default function GuardPermissionsScreen() {
     router.dismissTo('/scroll');
   };
 
-  if (!isGuardAvailable())
-    return (
-      <FlowScreen>
-        <ScreenHeader
-          back
-          title="Guards need the Android build."
-          subtitle="App permissions are not available on this platform."
-        />
-        <Text>
-          You can still track sessions, take a pause and prepare your website list. No system
-          permission is needed for those features.
-        </Text>
-        <Button label="Back to Scroll" onPress={() => router.dismissTo('/scroll')} />
-      </FlowScreen>
-    );
-
   return (
-    <FlowScreen>
-      <ScreenHeader
-        back
-        title="Two permissions. Your choice."
-        subtitle="Enable only what you feel comfortable using."
-      />
+    <Screen tabs={false}>
+      <TopBar />
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
+        <Ginto mood="brave" size={130} />
+        <Text variant="title" align="center">
+          Two switches, then I can help
+        </Text>
         <Text variant="small" align="center" color={colors.textMuted}>
           Both are Android settings you control. What you open stays on this phone. Nothing is sent
           anywhere.
@@ -116,15 +96,13 @@ export default function GuardPermissionsScreen() {
       <Button
         label={usage && overlay ? 'Turn on guards' : 'Done for now'}
         kind="ink"
-        loading={action.pending}
-        onPress={() => void action.run(finish)}
+        onPress={() => void finish()}
       />
-      <ActionError message={action.error} />
       {!(usage && overlay) && (
         <Text variant="caption" align="center">
           Not now is fine. The rest of Unhooked keeps working.
         </Text>
       )}
-    </FlowScreen>
+    </Screen>
   );
 }

@@ -1,27 +1,17 @@
 # Unhooked
 
-**Pause. Understand. Decide.** — a private decision layer for **debt**, **spending**, and **screen time**, built for the AI in Health category.
+**Pause. Understand. Decide.** — an AI-powered wellness assistant that helps people build healthier habits around **debt**, **spending**, and **screen time**, built for the AI in Health category.
 
 Instead of only tracking problems after they happen, Unhooked steps in at the moment of a risky decision — borrowing, checking out, or doomscrolling — with a short real pause, a personalized reflection, and practical options. The user always makes the final call.
 
-| Module       | What it does                                                                                                                               |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Debt**     | Track money owed and lent, partial payments, repayment plans, a harassment Evidence Pack (PDF export), and a pause before borrowing again. |
-| **Spend**    | Affordability checks against your budget and repayments, BNPL true-cost calculator, checkout pause, 24-hour cooling period.                |
-| **Scroll**   | Scroll sessions with gentle check-ins, break suggestions, and habit insights.                                                              |
-| **Messages** | Private English/Taglish pressure detection and an Evidence Pack for screenshots and saved messages.                                        |
+| Module | What it does |
+|---|---|
+| **Debt** | Track money owed and lent, partial payments, repayment plans, a harassment Evidence Pack (PDF export), and a pause before borrowing again. |
+| **Spend** | Affordability checks against your budget and repayments, BNPL true-cost calculator, checkout pause, 24-hour cooling period. |
+| **Scroll** | Scroll sessions with gentle check-ins, break suggestions, and habit insights. |
+| **Safety** | Suspicious-message detector, verified Philippine support resources, and on-device privacy controls. |
 
 Everything is stored **on your phone** (SQLite). Unhooked is a self-help tool, not medical, legal, or financial advice.
-
-## Local AI that changes the product
-
-Unhooked does not use “AI” as a chat badge. Its core intervention works offline:
-
-- **Ginto JITAI v1** is an explainable on-device model that combines repayment pressure, purchase impact, scroll overruns, and an optional wellbeing check-in. It ranks how much care a moment needs, shows the contributing factors, and changes the recommendation inside the real pause flow.
-- **Ginto Message NB v1** is a compact English/Taglish statistical classifier for payment pressure, harassment, and suspicious payment requests. It runs beside exact safety rules so the app can catch paraphrases while still highlighting the words that triggered a warning.
-- **Grounded local answers** use the user’s SQLite records and tested financial calculations. The language layer never invents money figures.
-
-Every model result is marked as an estimate, explains its strongest signals, and keeps the final decision with the user. Model output appears where it can change a choice: inside **Pause**, **Ask Ginto**, and **Message Check**.
 
 ## Getting started
 
@@ -32,13 +22,13 @@ npm install
 npm start          # scan the QR code with Expo Go
 ```
 
-| Script                            | Purpose                         |
-| --------------------------------- | ------------------------------- |
-| `npm run android` / `ios` / `web` | Start on a specific platform    |
-| `npm run check`                   | Typecheck + lint + tests        |
-| `npm test`                        | Unit tests (Jest)               |
-| `npm run format`                  | Prettier                        |
-| `npm run doctor`                  | `expo-doctor` dependency checks |
+| Script | Purpose |
+|---|---|
+| `npm run android` / `ios` / `web` | Start on a specific platform |
+| `npm run check` | Typecheck + lint + tests |
+| `npm test` | Unit tests (Jest) |
+| `npm run format` | Prettier |
+| `npm run doctor` | `expo-doctor` dependency checks |
 
 ## App and website guards (Android)
 
@@ -49,6 +39,17 @@ npx expo run:android
 ```
 
 Then open Scroll → Guards, pick apps or add websites, and allow Usage access and Display over other apps when asked. In Expo Go and on web you can still set up guards and preview the pause.
+
+## Ask Ginto with Claude (optional)
+
+Ask Ginto answers on the phone by default. To try Claude, run the proxy with your key and point the app at it:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... npm run ginto-server
+cp .env.example .env.local   # set EXPO_PUBLIC_GINTO_API_URL to http://<your-computer-ip>:8787
+```
+
+Then turn on "Smarter Ask Ginto" in Settings. Only a numbers-only summary is sent.
 
 ## Prototype
 

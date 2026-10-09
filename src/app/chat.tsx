@@ -1,8 +1,7 @@
-// Ask Ginto: chat grounded in the user's own records and processed on-device.
+// Ask Ginto: chat grounded in the user's own records. Local by default, Claude when opted in.
 
 import { Icon } from '@/components/Icon';
 import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
 import {
@@ -17,24 +16,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { localImageReply, localReply, type ChatMessage } from '@/ai/chat';
-import { Button, goBack, IconButton, Text } from '@/components/ui';
-import { ActionError } from '@/components/FlowLayout';
+import { CLOUD_URL, cloudReply, localImageReply, localReply, type ChatMessage } from '@/ai/chat';
 import { Ginto } from '@/components/mascot/Ginto';
 import { GemmaModelSheet } from '@/components/chat/GemmaModelSheet';
+import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { addEvidence, getOverview } from '@/db/repo';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 const SUGGESTIONS = [
-  'What needs my attention?',
-  'Can I safely spend ₱1,500?',
-  'What should I pay first?',
+  'Can I afford ₱1,500?',
+  'What do I owe this month?',
+  'How much did I scroll today?',
   'Should I borrow ₱2,000?',
-  'Help me stop scrolling',
+  'I feel stressed about money',
 ];
 
 let seq = 0;
@@ -45,69 +41,81 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const name = useSettings((s) => s.name);
   const budget = useSettings((s) => s.budget);
-  const scrollLimitMinutes = useSettings((s) => s.scrollLimitMinutes);
+  const cloudOn = useSettings((s) => s.cloudAiEnabled);
+  const setCloudAi = useSettings((s) => s.setCloudAi);
   const showToast = useSession((s) => s.showToast);
+  const cloud = cloudOn && !!CLOUD_URL;
   const scroller = useRef<ScrollView>(null);
-  const action = useAsyncAction(
-    'Could not access your records. Your message is still here. Please try again.',
-  );
-  const attachment = useAsyncAction('Could not open or save this image. Please try again.');
-  const reduced = useReducedMotion();
-  const [savedImages, setSavedImages] = useState<string[]>([]);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'hello',
       role: 'ginto',
-      text: `Hi${name ? `, ${name}` : ''}. Tell me what you are deciding. I can check a price against repayments, find the next debt to protect, or help you step away from a scroll—right here on your phone.`,
+      text: `Hi${name ? `, ${name}` : ''}! Ask me about your budget, debts, purchases or scrolling. I answer from your own records${cloud ? '' : ', right here on your phone'}.`,
       source: 'local',
     },
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const [photo, setPhoto] = useState<ChatMessage['image'] | null>(null);
+  const [askConsent, setAskConsent] = useState(false);
   const [showModelSettings, setShowModelSettings] = useState(false);
 
   const pickPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.5,
-      base64: false,
+      base64: true,
     });
     const a = res.canceled ? null : res.assets[0];
-    if (!a?.uri) return;
-    setPhoto({ uri: a.uri });
+    if (!a?.base64) return;
+    setPhoto({ uri: a.uri, base64: a.base64, mediaType: a.mimeType ?? 'image/jpeg' });
   };
 
   const saveEvidence = async (uri: string) => {
-    await addEvidence(db, {
-      lender: 'From chat',
-      imageUri: uri,
-      imageMimeType: uri.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg',
-    });
-    setSavedImages((current) => [...current, uri]);
+    await addEvidence(db, { lender: 'From chat', imageUri: uri });
     showToast('Saved to your private Evidence Pack.');
   };
 
-  const send = async (raw: string) => {
+  const send = async (raw: string, route: 'auto' | 'cloud' | 'local' = 'auto') => {
     const text = raw.trim();
     if ((!text && !photo) || typing) return;
+    if (route === 'auto' && photo && !cloud && CLOUD_URL) {
+      setAskConsent(true);
+      return;
+    }
+    const useCloud = route === 'cloud' || (route === 'auto' && cloud);
     const userMsg: ChatMessage = { id: nextId(), role: 'user', text, image: photo ?? undefined };
+    setPhoto(null);
+    const history = [...messages, userMsg];
+    setMessages(history);
+    setInput('');
     setTyping(true);
+
+    const ctx = { name, budget, overview: await getOverview(db) };
+    let reply: ChatMessage;
     try {
-      const ctx = { name, budget, scrollLimitMinutes, overview: await getOverview(db) };
-      const reply: ChatMessage = {
+      if (!useCloud) throw new Error('local');
+      reply = {
         id: nextId(),
         role: 'ginto',
-        text: userMsg.image ? localImageReply() : localReply(text, ctx),
+        text: await cloudReply(history.slice(1), ctx),
+        source: 'cloud',
+      };
+    } catch (e) {
+      await new Promise((r) => setTimeout(r, 650)); // a beat, so it reads like a reply
+      const fellBack = useCloud && e instanceof Error && e.message !== 'local';
+      reply = {
+        id: nextId(),
+        role: 'ginto',
+        text:
+          (fellBack ? 'I could not reach the cloud, so here is my on-device answer. ' : '') +
+          (userMsg.image ? localImageReply() : localReply(text, ctx)),
         source: 'local',
       };
-      setMessages((current) => [...current, userMsg, reply]);
-      setInput('');
-      setPhoto(null);
-    } finally {
-      setTyping(false);
     }
+    setMessages((m) => [...m, reply]);
+    setTyping(false);
   };
 
   return (
@@ -115,226 +123,204 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: colors.bg }}
     >
-      <View style={styles.frame}>
-        <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-          <IconButton icon="back" label="Back" onPress={goBack} />
-          <Ginto mood="happy" size={46} />
-          <View style={{ flex: 1 }}>
-            <Text variant="heading">Ask Ginto</Text>
-            <StatusLine />
-          </View>
-          <IconButton
-            icon="settings"
-            label="Chat model settings"
-            onPress={() => setShowModelSettings(true)}
-          />
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <IconButton icon="back" label="Back" onPress={goBack} />
+        <Ginto mood={typing ? 'thinking' : 'happy'} size={58} />
+        <View style={{ flex: 1 }}>
+          <Text variant="heading">Ginto</Text>
+          <StatusLine cloud={cloud} />
         </View>
+        <IconButton
+          icon="settings"
+          label="Chat model settings"
+          onPress={() => setShowModelSettings(true)}
+        />
+      </View>
 
-        <ScrollView
-          ref={scroller}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
-          onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: !reduced })}
-          keyboardShouldPersistTaps="handled"
-        >
-          {messages.map((m) => (
-            <View
-              key={m.id}
-              style={[styles.bubble, m.role === 'user' ? styles.user : styles.ginto]}
-            >
-              {m.image ? (
-                <Image
-                  accessibilityLabel="Your attached evidence image"
-                  source={{ uri: m.image.uri }}
-                  style={styles.photo}
-                />
-              ) : null}
-              {m.text ? (
-                <Text
-                  variant="body"
-                  color={m.role === 'user' ? colors.bg : colors.text}
-                  style={{ fontSize: 15 }}
-                >
-                  {m.text}
-                </Text>
-              ) : null}
-              {m.role === 'ginto' && m.source ? (
-                <Text variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
-                  Private · answered on this device
-                </Text>
-              ) : null}
-              {m.image ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    disabled: savedImages.includes(m.image.uri) || attachment.pending,
-                  }}
-                  disabled={savedImages.includes(m.image.uri) || attachment.pending}
-                  style={{ minHeight: 44, justifyContent: 'center' }}
-                  onPress={() => void attachment.run(() => saveEvidence(m.image!.uri))}
-                >
-                  <Text
-                    variant="caption"
-                    color={colors.primarySoft}
-                    style={{ textDecorationLine: 'underline' }}
-                  >
-                    {savedImages.includes(m.image.uri) ? 'Saved as evidence' : 'Save as evidence'}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ))}
-          {typing && (
-            <View
-              style={[
-                styles.bubble,
-                styles.ginto,
-                { flexDirection: 'row', gap: 6, paddingVertical: 16 },
-              ]}
-            >
-              {[0, 1, 2].map((i) => (
-                <View key={i} style={[styles.dot, { opacity: 0.35 + i * 0.25 }]} />
-              ))}
-            </View>
-          )}
-          {messages.length === 1 && (
-            <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-              <Text variant="eyebrow" style={{ fontSize: 11 }}>
-                Try asking
+      <ScrollView
+        ref={scroller}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
+        onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}
+        keyboardShouldPersistTaps="handled"
+      >
+        {messages.map((m) => (
+          <View key={m.id} style={[styles.bubble, m.role === 'user' ? styles.user : styles.ginto]}>
+            {m.image ? <Image source={{ uri: m.image.uri }} style={styles.photo} /> : null}
+            {m.text ? (
+              <Text
+                variant="body"
+                color={m.role === 'user' ? colors.bg : colors.text}
+                style={{ fontSize: 15 }}
+              >
+                {m.text}
               </Text>
-              {SUGGESTIONS.map((s) => (
-                <Pressable
-                  key={s}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setInput(s);
-                    void action.run(() => send(s));
-                  }}
-                  style={({ pressed }) => [styles.suggestion, pressed && { opacity: 0.8 }]}
+            ) : null}
+            {m.image ? (
+              <Pressable accessibilityRole="button" onPress={() => void saveEvidence(m.image!.uri)}>
+                <Text
+                  variant="caption"
+                  color={colors.surfaceMuted}
+                  style={{ textDecorationLine: 'underline' }}
                 >
-                  <Text variant="small" color={colors.text}>
-                    {s}
-                  </Text>
-                  <Icon name="arrow-forward" size={16} color={colors.textFaint} />
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </ScrollView>
-
-        {messages.length > 1 && !typing && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ flexGrow: 0 }}
-            contentContainerStyle={{
-              gap: spacing.sm,
-              paddingHorizontal: spacing.lg,
-              paddingBottom: spacing.sm,
-            }}
-            keyboardShouldPersistTaps="handled"
+                  Save as evidence
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ))}
+        {typing && (
+          <View
+            style={[
+              styles.bubble,
+              styles.ginto,
+              { flexDirection: 'row', gap: 6, paddingVertical: 16 },
+            ]}
           >
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={[styles.dot, { opacity: 0.35 + i * 0.25 }]} />
+            ))}
+          </View>
+        )}
+        {messages.length === 1 && (
+          <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+            <Text variant="eyebrow" style={{ fontSize: 11 }}>
+              Try asking
+            </Text>
             {SUGGESTIONS.map((s) => (
               <Pressable
                 key={s}
                 accessibilityRole="button"
-                onPress={() => {
-                  setInput(s);
-                  void action.run(() => send(s));
-                }}
-                style={({ pressed }) => [styles.chip, pressed && { opacity: 0.8 }]}
+                onPress={() => void send(s)}
+                style={({ pressed }) => [styles.suggestion, pressed && { opacity: 0.8 }]}
               >
-                <Text variant="caption" color={colors.text}>
+                <Text variant="small" color={colors.text}>
                   {s}
                 </Text>
+                <Icon name="arrow-forward" size={16} color={colors.textFaint} />
               </Pressable>
             ))}
-          </ScrollView>
-        )}
-
-        {photo && (
-          <View style={styles.preview}>
-            <Image source={{ uri: photo.uri }} style={styles.previewImg} />
-            <Text variant="caption" style={{ flex: 1 }}>
-              Photo ready. Add a question or just send.
-            </Text>
-            <IconButton
-              icon="close"
-              label="Remove photo"
-              tone={colors.track}
-              onPress={() => setPhoto(null)}
-            />
           </View>
         )}
+      </ScrollView>
 
-        <View style={{ paddingHorizontal: spacing.lg }}>
-          <ActionError message={action.error ?? attachment.error} />
-        </View>
-        {messages.length === 1 && (
-          <Text
-            variant="caption"
-            align="center"
-            style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}
-          >
-            Answers use your saved records. This conversation is not saved after you leave.
+      {messages.length > 1 && !typing && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0 }}
+          contentContainerStyle={{
+            gap: spacing.sm,
+            paddingHorizontal: spacing.lg,
+            paddingBottom: spacing.sm,
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {SUGGESTIONS.map((s) => (
+            <Pressable
+              key={s}
+              accessibilityRole="button"
+              onPress={() => void send(s)}
+              style={({ pressed }) => [styles.chip, pressed && { opacity: 0.8 }]}
+            >
+              <Text variant="caption" color={colors.text}>
+                {s}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+
+      {photo && (
+        <View style={styles.preview}>
+          <Image source={{ uri: photo.uri }} style={styles.previewImg} />
+          <Text variant="caption" style={{ flex: 1 }}>
+            Photo ready. Add a question or just send.
           </Text>
-        )}
-
-        <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.md }]}>
           <IconButton
-            icon="image"
-            label="Attach a photo"
-            tone={colors.surface}
-            onPress={() => void attachment.run(pickPhoto)}
+            icon="close"
+            label="Remove photo"
+            tone={colors.track}
+            onPress={() => setPhoto(null)}
           />
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask Ginto…"
-            placeholderTextColor={colors.textFaint}
-            style={styles.input}
-            accessibilityLabel="Message to Ginto"
-            onSubmitEditing={() => void action.run(() => send(input))}
-            returnKeyType="send"
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send"
-            disabled={(!input.trim() && !photo) || typing}
-            onPress={() => void action.run(() => send(input))}
-            accessibilityState={{ disabled: (!input.trim() && !photo) || typing, busy: typing }}
-            style={({ pressed }) => [
-              styles.send,
-              ((!input.trim() && !photo) || typing) && { opacity: 0.35 },
-              pressed && { transform: [{ scale: 0.94 }] },
-            ]}
-          >
-            <Icon name="arrow-up" size={22} color={colors.primary} />
-          </Pressable>
         </View>
+      )}
+
+      <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.md }]}>
+        <IconButton
+          icon="image"
+          label="Attach a photo"
+          tone={colors.surface}
+          onPress={() => void pickPhoto()}
+        />
+        <TextInput
+          value={input}
+          onChangeText={setInput}
+          placeholder="Ask Ginto…"
+          placeholderTextColor={colors.textFaint}
+          style={styles.input}
+          accessibilityLabel="Message to Ginto"
+          onSubmitEditing={() => void send(input)}
+          returnKeyType="send"
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Send"
+          disabled={(!input.trim() && !photo) || typing}
+          onPress={() => void send(input)}
+          style={({ pressed }) => [
+            styles.send,
+            ((!input.trim() && !photo) || typing) && { opacity: 0.35 },
+            pressed && { transform: [{ scale: 0.94 }] },
+          ]}
+        >
+          <Icon name="arrow-up" size={22} color={colors.primary} />
+        </Pressable>
+      </View>
+      <Sheet open={askConsent} onClose={() => setAskConsent(false)} mascot="thinking">
+        <Text variant="heading" align="center">
+          Let me read this photo?
+        </Text>
+        <Text variant="small" align="center" color={colors.textMuted}>
+          To read photos, Ginto sends this one picture and your question to Claude, with a
+          numbers-only summary of your records. Nothing else leaves your phone.
+        </Text>
         <Button
-          label="Scan pasted message text"
+          label="Yes, read photos"
+          kind="ink"
+          onPress={() => {
+            setAskConsent(false);
+            setCloudAi(true);
+            void send(input, 'cloud');
+          }}
+        />
+        <Button
+          label="Keep it on my phone"
           kind="ghost"
           size="sm"
-          onPress={() => router.push('/message-check')}
+          onPress={() => {
+            setAskConsent(false);
+            void send(input, 'local');
+          }}
         />
-      </View>
+      </Sheet>
       <GemmaModelSheet visible={showModelSettings} onClose={() => setShowModelSettings(false)} />
     </KeyboardAvoidingView>
   );
 }
 
-function StatusLine() {
+function StatusLine({ cloud }: { cloud: boolean }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <View style={[styles.status, { backgroundColor: colors.success }]} />
-      <Text variant="caption">On-device · private</Text>
+      <View style={[styles.status, { backgroundColor: cloud ? colors.lagoon : colors.success }]} />
+      <Text variant="caption">
+        {cloud ? 'Claude · only your numbers are shared' : 'On-device · private'}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  frame: { width: '100%', maxWidth: 820, alignSelf: 'center', flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -365,7 +351,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   chip: {
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -403,13 +389,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   status: { width: 8, height: 8, borderRadius: 4 },
-  photo: {
-    width: 220,
-    maxWidth: '100%',
-    height: 220,
-    borderRadius: radius.md,
-    marginBottom: spacing.sm,
-  },
+  photo: { width: 220, height: 220, borderRadius: radius.md, marginBottom: spacing.sm },
   preview: {
     flexDirection: 'row',
     alignItems: 'center',

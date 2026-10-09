@@ -1,24 +1,11 @@
-import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
-// App-owned copies of evidence screenshots. Gallery originals are never touched.
 const evidenceDirectory = () => new Directory(Paths.document, 'evidence');
 const isInside = (uri: string, directoryUri: string) =>
   uri.startsWith(`${directoryUri.replace(/\/+$/, '')}/`);
 
 export const isAppCacheFile = (uri: string): boolean => isInside(uri, Paths.cache.uri);
-
-/** Copy picker cache files into app-owned storage before claiming they are saved. */
-export async function persistEvidenceImage(uri: string): Promise<string> {
-  const source = new File(uri);
-  const extension = /^\.[a-z0-9]+$/i.test(source.extension) ? source.extension : '.jpg';
-  const directory = evidenceDirectory();
-  directory.create({ idempotent: true, intermediates: true });
-  const destination = new File(directory, `${Crypto.randomUUID()}${extension}`);
-  source.copy(destination);
-  return destination.uri;
-}
 
 export async function saveEvidenceImage(
   sourceUri: string,
@@ -54,10 +41,6 @@ export function deleteAllEvidenceImages(): void {
   if (Platform.OS === 'web') return;
   const directory = evidenceDirectory();
   if (directory.exists) directory.delete();
-}
-
-export async function deleteEvidenceImages(): Promise<void> {
-  deleteAllEvidenceImages();
 }
 
 export async function evidenceImageDataUri(uri: string): Promise<string | null> {
