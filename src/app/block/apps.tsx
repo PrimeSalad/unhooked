@@ -2,7 +2,7 @@
 // Only real, installed apps are shown; Expo Go and web explain why the list needs the Android build.
 
 import { Icon } from '@/components/Icon';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -30,13 +30,15 @@ import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { addRules, listRules } from '@/db/blockRules';
 import { useDbQuery } from '@/db/useDbQuery';
 import { NEVER_BLOCK_PACKAGES, type GuardMode } from '@/domain/blocking';
+import { isShoppingApp } from '@/domain/paydayShield';
 import { isGuardAvailable } from '@/lib/guard';
 import { SCHEDULE_PRESETS, type PresetKey } from '@/lib/schedules';
 import { useSession } from '@/store/session';
 
-type Filter = 'all' | 'social' | 'video' | 'game' | 'other';
+type Filter = 'all' | 'shopping' | 'social' | 'video' | 'game' | 'other';
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
+  { value: 'shopping', label: 'Shopping' },
   { value: 'social', label: 'Social' },
   { value: 'video', label: 'Video' },
   { value: 'game', label: 'Games' },
@@ -53,7 +55,8 @@ export default function PickAppsScreen() {
   const [apps, setApps] = useState<LaunchableApp[]>([]);
   const [loading, setLoading] = useState(native);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  const params = useLocalSearchParams<{ filter?: string }>();
+  const [filter, setFilter] = useState<Filter>(params.filter === 'shopping' ? 'shopping' : 'all');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [preset, setPreset] = useState<PresetKey>('always');
@@ -77,6 +80,7 @@ export default function PickAppsScreen() {
   const shown = apps.filter((a) => {
     if (query && !a.label.toLowerCase().includes(query.toLowerCase())) return false;
     if (filter === 'all') return true;
+    if (filter === 'shopping') return isShoppingApp(a.packageName, a.label);
     if (filter === 'other') return !['social', 'video', 'game'].includes(a.category);
     return a.category === filter;
   });

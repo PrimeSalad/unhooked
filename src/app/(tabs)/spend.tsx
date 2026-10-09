@@ -7,6 +7,7 @@ import { buildSpendInsights } from '@/ai/insights';
 import { BudgetSetup } from '@/components/BudgetSetup';
 import {
   Avatar,
+  Chips,
   Button,
   Card,
   Group,
@@ -23,10 +24,12 @@ import {
 } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { emptyOverview, getOverview, listPurchases, setPurchaseStatus } from '@/db/repo';
+import { listRules } from '@/db/blockRules';
 import { useDbQuery } from '@/db/useDbQuery';
 import { checkAffordability } from '@/domain/affordability';
 import { dailyAllowance, daysUntil, nextPayday } from '@/domain/allowance';
 import { formatPHP } from '@/domain/money';
+import { isShoppingApp, SHOPPING_APPS } from '@/domain/paydayShield';
 import type { BudgetProfile, PlannedPurchase } from '@/domain/types';
 import { shortDate, timeLeft } from '@/lib/format';
 import { useSession } from '@/store/session';
@@ -159,6 +162,10 @@ export default function SpendScreen() {
   const budget = useSettings((s) => s.budget);
   const { data: o } = useDbQuery(getOverview, emptyOverview);
   const { data: purchases } = useDbQuery(listPurchases, []);
+  const { data: rules } = useDbQuery(listRules, []);
+  const shoppingRules = rules.filter((r) => r.kind === 'app' && isShoppingApp(r.target, r.label));
+  const previewShield = (pkg: string, label: string) =>
+    router.push({ pathname: '/shield', params: { pkg, label, preview: '1' } });
   const [deciding, setDeciding] = useState<PlannedPurchase | null>(null);
   const [now, setNow] = useState(Date.now);
 
@@ -222,19 +229,43 @@ export default function SpendScreen() {
         onPress={() => router.push('/spend-check')}
       />
 
-      <Group>
-        <GroupRow
-          icon="shield"
-          title="Payday shield"
-          subtitle="Your real numbers show up when Shopee or Lazada opens"
-          onPress={() => router.push('/shield?label=Shopee&pkg=com.shopee.ph&preview=1')}
-        />
-        <GroupRow
-          icon="bag"
-          title="Choose shopping apps to guard"
-          onPress={() => router.push('/block/apps')}
-        />
-      </Group>
+      <Section title="Payday shield">
+        <Text variant="small" color={colors.textMuted} style={{ paddingHorizontal: 4 }}>
+          When a guarded shopping app opens, you see your safe-to-spend, the next due date and what
+          is cooling off.
+        </Text>
+        <Group>
+          {shoppingRules.map((r) => (
+            <GroupRow
+              key={r.id}
+              leading={<Avatar label={r.label} />}
+              title={r.label}
+              subtitle={r.enabled ? 'Guarded · tap to preview' : 'Paused · tap to preview'}
+              onPress={() => previewShield(r.target, r.label)}
+            />
+          ))}
+          <GroupRow
+            icon="add"
+            title={shoppingRules.length ? 'Guard more shopping apps' : 'Guard your shopping apps'}
+            onPress={() => router.push('/block/apps?filter=shopping')}
+          />
+        </Group>
+        {shoppingRules.length === 0 ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text variant="caption" style={{ paddingHorizontal: 4 }}>
+              Preview the shield
+            </Text>
+            <Chips
+              value={null}
+              onChange={(pkg) => {
+                const app = SHOPPING_APPS.find((a) => a.pkg === pkg)!;
+                previewShield(app.pkg, app.label);
+              }}
+              options={SHOPPING_APPS.map((a) => ({ value: a.pkg as string, label: a.label }))}
+            />
+          </View>
+        ) : null}
+      </Section>
 
       <Section title="AI insights">
         {spendInsights.map((insight, index) => (

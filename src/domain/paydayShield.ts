@@ -36,3 +36,12 @@ export function shieldMoney(
   const days = daysUntil(payday, now);
   return { perDay: dailyAllowance(free, days), free, days, payday };
 }
+
+/** Common shopping apps in the Philippines, for previews when none is guarded yet. */
+export const SHOPPING_APPS = [
+  { pkg: 'com.shopee.ph', label: 'Shopee' },
+  { pkg: 'com.lazada.android', label: 'Lazada' },
+  { pkg: 'com.zhiliaoapp.musically', label: 'TikTok Shop' },
+  { pkg: 'com.einnovation.temu', label: 'Temu' },
+  { pkg: 'com.zzkko', label: 'SHEIN' },
+] as const;
