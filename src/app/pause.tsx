@@ -6,18 +6,11 @@ import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Animated, Easing, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getReflectionProvider, type PauseContext, type Reflection } from '@/ai';
+import { useFrameWidth } from '@/hooks/useFrame';
 import { phraseAndroidPause, supportsAndroidPausePhrasing } from '@/ai/androidLocalAi';
 import { LOCAL_MODEL_BY_ID } from '@/ai/localModels';
 import { applyPausePhrasing, buildPausePrompt } from '@/ai/pausePhrasing';
@@ -110,7 +103,7 @@ export default function PauseScreen() {
   const snoozeScrollPause = useSession((s) => s.snoozeScrollPause);
   const setScrollReminderId = useSession((s) => s.setScrollReminderId);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const width = useFrameWidth();
 
   const [left, setLeft] = useState(total);
   const [title, setTitle] = useState(
@@ -162,9 +155,11 @@ export default function PauseScreen() {
         // and applyPausePhrasing rejects anything with an unrecorded number or shame word.
         setPhrasing('thinking');
         const prompt = buildPausePrompt(ctx, template);
-        const generated = await phraseAndroidPause(localAiModel, prompt, total * 1000 + 10_000).catch(
-          () => null,
-        );
+        const generated = await phraseAndroidPause(
+          localAiModel,
+          prompt,
+          total * 1000 + 10_000,
+        ).catch(() => null);
         if (!alive) return;
         if (!generated) {
           setPhrasing('kept');
@@ -195,7 +190,17 @@ export default function PauseScreen() {
     return () => {
       alive = false;
     };
-  }, [budget, db, kind, localAiModel, total, params.amount, params.purchaseId, params.app, params.minutes]);
+  }, [
+    budget,
+    db,
+    kind,
+    localAiModel,
+    total,
+    params.amount,
+    params.purchaseId,
+    params.app,
+    params.minutes,
+  ]);
 
   useEffect(() => {
     if (locked) return;

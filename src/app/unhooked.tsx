@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Share, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DotPattern } from '@/components/DotPattern';
+import { useFrameWidth } from '@/hooks/useFrame';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
 import { Button, Rise, Text, TopBar } from '@/components/ui';
@@ -25,7 +26,7 @@ export default function UnhookedScreen() {
   const item = params.item || 'it';
   const { data: o } = useDbQuery(getOverview, emptyOverview);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const width = useFrameWidth();
   const [hooked, setHooked] = useState(true);
 
   // The hook arrives where the pause left it, then gets yanked away.

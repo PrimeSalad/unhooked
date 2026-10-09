@@ -93,14 +93,19 @@ export function Text({
 
 // ---------- Layout ----------
 
-/** Fades + rises children in on mount (450 ms, 14 px). */
+/**
+ * Fades children in on mount (450 ms). `from="bottom"` rises 14 px (default);
+ * `from="right"` slides in 24 px, for step changes. Give it a `key` to replay.
+ */
 export function Rise({
   children,
   delay = 0,
+  from = 'bottom',
   style,
 }: {
   children: ReactNode;
   delay?: number;
+  from?: 'bottom' | 'right';
   style?: StyleProp<ViewStyle>;
 }) {
   const reduced = useReducedMotion();
@@ -110,21 +115,27 @@ export function Rise({
       v.setValue(1);
       return;
     }
-    Animated.timing(v, {
+    const anim = Animated.timing(v, {
       toValue: 1,
       duration: motion.rise,
       delay,
       easing: Easing.bezier(0.2, 0.8, 0.2, 1),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
+    return () => anim.stop();
   }, [delay, reduced, v]);
+  const offset = v.interpolate({
+    inputRange: [0, 1],
+    outputRange: [from === 'right' ? 24 : 14, 0],
+  });
   return (
     <Animated.View
       style={[
         style,
         {
           opacity: v,
-          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+          transform: [from === 'right' ? { translateX: offset } : { translateY: offset }],
         },
       ]}
     >
