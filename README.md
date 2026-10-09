@@ -8,6 +8,10 @@
 - **Built for one person first:** Ana, 24, a BPO agent on a budget Android phone with three online loans and two SPayLater plans, paid on the 15th and 30th ([plan.md → Target users](./plan.md#target-users)).
 - **Tested:** `npm run check` runs TypeScript strict mode, ESLint and **119 Jest tests in 23 suites**.
 
+## Download
+
+**[Unhooked v1.0.0 APK](https://github.com/PrimeSalad/unhooked/releases/download/v1.0.0/Unhooked-1.0.0-release.apk)** (Android 7.0+, 324 MB). Install steps, checksum and build details: [releases/](./releases/README.md). All builds: [GitHub Releases](https://github.com/PrimeSalad/unhooked/releases).
+
 ---
 
 ## Why
