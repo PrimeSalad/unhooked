@@ -22,6 +22,7 @@ export default function WelcomeScreen() {
   const [step, setStep] = useState<'hello' | 'setup'>('hello');
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const displaySize = Math.min(54, width * 0.15);
 
   if (step === 'hello') {
     return (
@@ -37,7 +38,7 @@ export default function WelcomeScreen() {
           <Text variant="eyebrow" color="#FFE9D2">
             Hi, I am Ginto
           </Text>
-          <Text variant="display" style={{ fontSize: 54, lineHeight: 58 }}>
+          <Text variant="display" style={{ fontSize: displaySize, lineHeight: displaySize + 4 }}>
             unhooked
           </Text>
           <Text variant="heading" color="#3B1E08" style={{ fontSize: 17 }}>
