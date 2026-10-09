@@ -263,6 +263,7 @@ export interface WeekWrap {
   dodged: number;
   breaks: number;
   peakHour: number | null;
+  days: { date: Date; n: number }[];
 }
 
 export async function weekWrap(db: SQLiteDatabase): Promise<WeekWrap> {
@@ -292,6 +293,7 @@ export async function weekWrap(db: SQLiteDatabase): Promise<WeekWrap> {
     dodged: (await countEvents(db, 'pause_decision', since, DODGED)) + shieldClosed,
     breaks: await countEvents(db, 'break_taken', since),
     peakHour: scroll.peakHour,
+    days: await dodgedLast7Days(db),
   };
 }
 
@@ -305,4 +307,5 @@ export const emptyWeekWrap: WeekWrap = {
   dodged: 0,
   breaks: 0,
   peakHour: null,
+  days: [],
 };

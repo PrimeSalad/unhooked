@@ -232,6 +232,12 @@ export default function DebtScreen() {
       <Section title="Protect yourself">
         <Group>
           <GroupRow
+            icon="receipt"
+            title="Scan a loan screenshot"
+            subtitle="Fills in the debt and checks the lender's SEC numbers"
+            onPress={() => router.push('/scan')}
+          />
+          <GroupRow
             icon="images"
             title="Evidence Pack"
             subtitle={

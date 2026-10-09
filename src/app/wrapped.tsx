@@ -1,9 +1,8 @@
-// Unhooked Wrapped: one shareable card for the last 7 days, from the user's own records.
+// Unhooked Wrapped: the last 7 days from the user's own records, shareable as text.
 
 import { Share, StyleSheet, View } from 'react-native';
 
-import { DotPattern } from '@/components/DotPattern';
-import { Button, Screen, ScreenHeader, Tag, Text } from '@/components/ui';
+import { Button, Group, GroupRow, Screen, ScreenHeader, Section, Text } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { emptyWeekWrap, weekWrap, type WeekWrap } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
@@ -12,32 +11,26 @@ import { formatMinutes } from '@/domain/scroll';
 import { shortDate } from '@/lib/format';
 import { useSession } from '@/store/session';
 
-function hourLabel(h: number): string {
-  const suffix = h < 12 ? 'AM' : 'PM';
-  return `${h % 12 === 0 ? 12 : h % 12} ${suffix}`;
-}
+const DAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-function headline(w: WeekWrap): string {
-  if (w.kept > 0) return `You kept ${formatPHP(w.kept)} by waiting.`;
-  if (w.dodged > 0) return `You dodged ${w.dodged} ${w.dodged === 1 ? 'hook' : 'hooks'}.`;
-  if (w.paid > 0) return `You paid ${formatPHP(w.paid)} on your debts.`;
-  return 'A quiet week. One small step is enough.';
+function hourLabel(h: number): string {
+  return `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
 function shareText(w: WeekWrap): string {
   return [
-    `My week, unhooked (${shortDate(w.since)} to today)`,
-    headline(w),
+    `My week on Unhooked (${shortDate(w.since)} to today)`,
     `Kept by waiting: ${formatPHP(w.kept)}`,
-    `Repayments made: ${formatPHP(w.paid)}`,
+    `Repaid: ${formatPHP(w.paid)}`,
     `Hooks dodged: ${w.dodged}`,
-    `Scrolling tracked: ${formatMinutes(w.scrollMinutes)}`,
+    `Scrolling: ${formatMinutes(w.scrollMinutes)}`,
   ].join('\n');
 }
 
 export default function WrappedScreen() {
   const { data: w } = useDbQuery(weekWrap, emptyWeekWrap);
   const showToast = useSession((s) => s.showToast);
+  const max = Math.max(1, ...w.days.map((d) => d.n));
 
   const share = async () => {
     try {
@@ -49,64 +42,88 @@ export default function WrappedScreen() {
 
   return (
     <Screen tabs={false}>
-      <ScreenHeader back title="Your week, wrapped" subtitle={`${shortDate(w.since)} to today`} />
+      <ScreenHeader back title="This week" subtitle={`${shortDate(w.since)} to today`} />
 
-      <View style={styles.card}>
-        <DotPattern color="#FFF6EC" opacity={0.08} gap={24} />
-        <Text variant="eyebrow" color={colors.pauseMuted}>
-          Unhooked · 7 days
+      <View style={{ gap: 2 }}>
+        <Text variant="caption">Kept by waiting</Text>
+        <Text variant="display" style={{ fontSize: 44, lineHeight: 50, letterSpacing: -1.5 }}>
+          {formatPHP(w.kept)}
         </Text>
-        <Text variant="title" color={colors.pauseText}>
-          {headline(w)}
-        </Text>
-
-        <View style={styles.grid}>
-          <Stat value={formatPHP(w.kept)} label={`Kept by waiting · ${w.keptItems} items`} />
-          <Stat value={formatPHP(w.paid)} label={`Repaid · ${w.payments} payments`} />
-          <Stat value={String(w.dodged)} label="Hooks dodged" />
-          <Stat value={formatMinutes(w.scrollMinutes)} label="Scrolling tracked" />
-        </View>
-
-        <Text variant="small" color={colors.pauseMuted}>
-          {w.peakHour != null
-            ? `Most scrolling around ${hourLabel(w.peakHour)}. ${w.breaks} ${w.breaks === 1 ? 'break' : 'breaks'} taken.`
-            : `${w.breaks} ${w.breaks === 1 ? 'break' : 'breaks'} taken.`}
-        </Text>
-      </View>
-
-      <View style={{ alignItems: 'flex-start', gap: 6 }}>
-        <Tag certainty="fact" />
         <Text variant="small" color={colors.textMuted}>
-          Only numbers from this phone. Nothing about your lenders or messages is shared.
+          {w.keptItems
+            ? `${w.keptItems} ${w.keptItems === 1 ? 'thing' : 'things'} you decided not to buy`
+            : 'Save something to cool off and skip it to see this grow'}
         </Text>
       </View>
 
-      <Button label="Share my week" kind="ink" icon="share" onPress={() => void share()} />
+      <View style={styles.chart}>
+        <View style={styles.chartHead}>
+          <Text variant="strong">Hooks dodged</Text>
+          <Text variant="strong">{w.dodged}</Text>
+        </View>
+        <View style={styles.bars}>
+          {w.days.map((d, i) => {
+            const today = i === w.days.length - 1;
+            return (
+              <View key={d.date.toISOString()} style={styles.barCol}>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height: `${Math.max(4, (d.n / max) * 100)}%`,
+                        backgroundColor: d.n ? colors.text : colors.border,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text variant="caption" color={today ? colors.text : colors.textFaint}>
+                  {DAY[d.date.getDay()]}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      <Section title="The rest of your week">
+        <Group>
+          <GroupRow
+            title="Repaid"
+            subtitle={`${w.payments} ${w.payments === 1 ? 'payment' : 'payments'}`}
+            value={formatPHP(w.paid)}
+          />
+          <GroupRow
+            title="Scrolling"
+            subtitle={
+              w.peakHour != null ? `Most around ${hourLabel(w.peakHour)}` : 'Nothing tracked yet'
+            }
+            value={formatMinutes(w.scrollMinutes)}
+          />
+          <GroupRow title="Breaks taken" value={String(w.breaks)} />
+        </Group>
+      </Section>
+
+      <Button label="Share my week" kind="outline" icon="share" onPress={() => void share()} />
+      <Text variant="caption" align="center">
+        Only these totals are shared. Lenders and messages stay on this phone.
+      </Text>
     </Screen>
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text variant="number" color={colors.pauseText}>
-        {value}
-      </Text>
-      <Text variant="caption" color={colors.pauseMuted}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.pause,
+  chart: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.xl,
-    padding: spacing.xl,
-    gap: spacing.lg,
-    overflow: 'hidden',
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.lg },
-  stat: { width: '50%', gap: 2, paddingRight: spacing.md },
+  chartHead: { flexDirection: 'row', justifyContent: 'space-between' },
+  bars: { flexDirection: 'row', gap: spacing.sm, height: 120 },
+  barCol: { flex: 1, alignItems: 'center', gap: 6 },
+  barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end' },
+  bar: { width: '100%', borderRadius: 6 },
 });

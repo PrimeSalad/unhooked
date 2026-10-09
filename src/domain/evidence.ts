@@ -5,7 +5,7 @@ export interface EvidencePdfItem {
   imageDataUri: string | null;
 }
 
-const escapeHtml = (value: string): string =>
+export const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (character) => {
     const replacements: Record<string, string> = {
       '&': '&amp;',
