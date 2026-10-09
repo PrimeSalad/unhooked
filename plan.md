@@ -185,6 +185,7 @@ The pause uses real on-device records and deterministic local templates. Gemma a
 - [x] Money owed to you: "Draft a polite reminder" (template, shareable text).
 - [x] Repayment reminders: local notification the day before `dueDate`.
 - [x] **Debt Evidence Pack** (phone app): pick screenshots (`expo-image-picker`) → copy into app document dir → tag lender + incident date + note → list grouped by lender/date → **Export PDF** (`expo-print` → `expo-sharing`). Include a cover page with dates and a disclaimer. Web can list saved messages but cannot export the pack.
+- [x] Evidence Pack reads screenshot text on-device, saves reviewed OCR text and possible agent names, and suggests mobile numbers for explicit user reporting. The local reported-number log shows recent sightings, can match a number during message check, and imports/exports versioned JSON between phones without screenshots or message text.
 - [x] **Borrowing pause**: "I'm thinking of borrowing" → amount input → facts = upcoming repayments this month, remaining budget → `/pause?kind=borrow`.
 - [x] `deleteAllData` also deletes evidence image files.
 

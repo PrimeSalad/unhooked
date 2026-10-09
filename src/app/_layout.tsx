@@ -77,6 +77,7 @@ export default function RootLayout() {
           />
           <Stack.Screen name="repayment-plan" />
           <Stack.Screen name="evidence-pack" />
+          <Stack.Screen name="number-log" />
           <Stack.Screen
             name="borrow"
             options={{ presentation: 'modal', animation: 'slide_from_bottom' }}

@@ -12,6 +12,7 @@ interface EvidenceRow {
   id: string;
   debt_id: string | null;
   lender: string;
+  agent_name: string | null;
   incident_date: string;
   image_uri: string | null;
   message_text: string | null;
@@ -24,6 +25,7 @@ const fromRow = (row: EvidenceRow): Evidence => ({
   id: row.id,
   debtId: row.debt_id,
   lender: row.lender,
+  agentName: row.agent_name,
   incidentDate: row.incident_date,
   imageUri: row.image_uri,
   messageText: row.message_text,
@@ -48,6 +50,7 @@ export async function evidenceSummary(db: SQLiteDatabase) {
 
 export interface NewEvidence {
   lender: string;
+  agentName?: string | null;
   incidentDate?: string;
   note?: string | null;
   imageUri?: string | null;
@@ -63,10 +66,11 @@ export async function addEvidence(db: SQLiteDatabase, evidence: NewEvidence): Pr
     : null;
   try {
     await db.runAsync(
-      `INSERT INTO evidence (id, lender, incident_date, image_uri, message_text, risk_level, note, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO evidence (id, lender, agent_name, incident_date, image_uri, message_text, risk_level, note, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       evidence.lender.trim() || 'Unknown sender',
+      evidence.agentName?.trim().slice(0, 80) || null,
       evidence.incidentDate ?? new Date().toISOString(),
       imageUri,
       evidence.messageText ?? null,

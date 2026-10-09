@@ -9,7 +9,7 @@ import { cancelAllReminders } from '@/lib/notifications';
 import { migrateLegacyEvidenceImages } from './evidence';
 
 export const DATABASE_NAME = 'unhooked.db';
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 5;
 
 const steps: Record<number, string> = {
   1: `
@@ -106,6 +106,18 @@ const steps: Record<number, string> = {
     UPDATE purchases SET bought_at = created_at WHERE status = 'bought';
     CREATE INDEX idx_purchases_bought_at ON purchases(bought_at);
   `,
+  5: `
+    ALTER TABLE evidence ADD COLUMN agent_name TEXT;
+    CREATE TABLE number_reports (
+      id TEXT PRIMARY KEY NOT NULL,
+      number TEXT NOT NULL,
+      agent_name TEXT,
+      seen_on TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX idx_number_reports_recent ON number_reports(seen_on DESC, number);
+  `,
 };
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
@@ -137,6 +149,7 @@ export async function deleteAllData(db: SQLiteDatabase): Promise<void> {
     DELETE FROM payments; DELETE FROM evidence; DELETE FROM debts;
     DELETE FROM purchases; DELETE FROM scroll_sessions;
     DELETE FROM checkins; DELETE FROM events; DELETE FROM block_rules;
+    DELETE FROM number_reports;
   `);
   try {
     for (const row of imageRows) deleteEvidenceImage(row.image_uri);
