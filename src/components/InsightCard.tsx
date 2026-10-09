@@ -1,9 +1,10 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import type { Insight } from '@/ai/types';
-import { colors, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
 
-import { Card, IconButton, Row, Tag, Text } from './ui';
+import { Icon } from './Icon';
+import { Tag, Text } from './ui';
 
 const MODULE = {
   debt: 'Debt',
@@ -12,6 +13,7 @@ const MODULE = {
   overall: 'Today',
 } as const;
 
+/** One insight: where it is from, how sure it is, the line itself, and a quiet way to hide it. */
 export function InsightCard({
   insight,
   onDismiss,
@@ -21,22 +23,35 @@ export function InsightCard({
 }) {
   const label = MODULE[insight.module];
   return (
-    <Card>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Text variant="caption" color={colors.text} style={{ fontSize: 13 }}>
+    <View
+      style={{
+        backgroundColor: colors.surface,
+        borderRadius: radius.lg,
+        borderWidth: 1,
+        borderColor: colors.border,
+        paddingVertical: spacing.md,
+        paddingLeft: spacing.lg,
+        paddingRight: spacing.md,
+        gap: 6,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Text variant="caption" color={colors.textSoft} style={{ fontFamily: fonts.semibold }}>
           {label}
         </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Tag certainty={insight.certainty} />
-          <IconButton
-            icon="close"
-            label={`Hide ${label} insight for 7 days`}
-            onPress={() => onDismiss(insight.id)}
-            tone={colors.surfaceMuted}
-          />
-        </View>
-      </Row>
-      <Text>{insight.text}</Text>
-    </Card>
+        <Tag certainty={insight.certainty} />
+        <View style={{ flex: 1 }} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Hide ${label} insight for 7 days`}
+          onPress={() => onDismiss(insight.id)}
+          hitSlop={12}
+          style={({ pressed }) => ({ padding: 4, opacity: pressed ? 0.5 : 1 })}
+        >
+          <Icon name="close" size={16} color={colors.textFaint} />
+        </Pressable>
+      </View>
+      <Text style={{ paddingRight: spacing.sm }}>{insight.text}</Text>
+    </View>
   );
 }
