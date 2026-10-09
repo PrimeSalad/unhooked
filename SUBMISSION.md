@@ -105,7 +105,7 @@ Sources and how each one maps to a feature: [`plan.md` §4](./plan.md#4-research
 
 | Component | Model / engine | Used for | Code |
 |---|---|---|---|
-| Language model | Gemma 3 1B (int4, ≈ 555 MB), Qwen 2.5 1.5B, Gemma 4 E2B and E4B through **LiteRT-LM** | Pause reflections, Ask Ginto, message-risk explanations | [`GintoLocalAiModule.kt`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt), [`src/ai/localModels.ts`](./src/ai/localModels.ts) |
+| Language model | Qwen 3 0.6B (int4, ≈ 500 MB), Qwen 2.5 1.5B (≈ 1.6 GB), Gemma 4 E2B and E4B through **LiteRT-LM** | Pause reflections, Ask Ginto, message-risk explanations | [`GintoLocalAiModule.kt`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt), [`src/ai/localModels.ts`](./src/ai/localModels.ts) |
 | Vision | Gemma 4 E2B / E4B (text + vision) | Reading a photo the user sends Ginto | [`src/ai/androidLocalAi.ts`](./src/ai/androidLocalAi.ts) |
 | Speech | Whisper small (int8, ONNX) via sherpa-onnx | Voice input in Tagalog, Taglish or English | [`WhisperSpeech.kt`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/WhisperSpeech.kt), [`src/ai/speechModel.ts`](./src/ai/speechModel.ts) |
 | OCR | Google ML Kit (Android), Tesseract.js (web) | Utang Scanner, Evidence Pack screenshots | [`src/lib/ocr.ts`](./src/lib/ocr.ts), [`src/lib/ocr.web.ts`](./src/lib/ocr.web.ts) |

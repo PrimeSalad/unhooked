@@ -6,8 +6,8 @@
 
 Unhooked steps in at the moment of a risky decision (borrowing, checking out, opening a shopping or social app) with a **real 10-second pause**, a reflection **written on the phone by an on-device language model from the user's own records**, and practical options. The user always makes the final call. Nothing leaves the phone unless the user explicitly opts in.
 
-- **Local AI:** Gemma 3 1B / Qwen 2.5 1.5B / Gemma 4 E2B–E4B running through **LiteRT-LM** on the phone (NPU → GPU → CPU fallback), plus on-device ML Kit OCR and a transparent rules engine. See [Local AI implementation](#2-local-ai-implementation).
-- **Verified by tests:** `npm run check` runs typecheck, lint and **119 Jest tests** across 23 suites (money, affordability, BNPL, repayment, message risk, blocking, event insights, and the AI output guard).
+- **Local AI:** Qwen 3 0.6B / Qwen 2.5 1.5B / Gemma 4 E2B–E4B running through **LiteRT-LM** on the phone (NPU → GPU → CPU fallback, or a processor you pick), on-device Whisper for Tagalog voice input, on-device ML Kit OCR and a transparent rules engine. See [Local AI implementation](#2-local-ai-implementation).
+- **Verified by tests:** `npm run check` runs typecheck, lint and **119 Jest tests** across 23 suites (money, affordability, BNPL, repayment, message risk, evidence, reported-number log, blocking, event insights, and the AI output guard).
 - **Target user:** Ana, 24, a BPO agent on a budget Android phone with 3 online loans and 2 SPayLater plans, paid on the 15th and 30th. See [plan.md → Target users](./plan.md#target-users).
 
 ---
@@ -28,8 +28,8 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 | Question | Answer |
 |---|---|
 | Is local inference fundamental? | **Yes. The product's core loop is `Trigger → AI Pause → Reflection → Decision`, and the reflection is generated on the phone.** `src/domain/*` computes the numbers (tested, deterministic); the on-device LLM phrases them during the countdown; `src/ai/guard.ts` rejects any model output that contains a number the domain did not compute or a shame word. Ask Ginto (chat), the Scan-a-message risk analysis and the Utang Scanner (ML Kit OCR of loan-app screenshots) all run on-device too. |
-| What runs where? | **LiteRT-LM** (`com.google.ai.edge.litertlm`) in a local Expo module, [`modules/ginto-local-ai`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt): tries **NPU**, then **GPU**, then **CPU** per model and reports which one it is using. Models: Gemma 3 1B int4 (~555 MB), Qwen 2.5 1.5B q8, Gemma 4 E2B/E4B (`src/ai/localModels.ts`). **ML Kit text recognition** for screenshot OCR (`src/lib/ocr.ts`). **Rules engine** for message risk in English + Taglish (`src/domain/messageRisk.ts`). **SQLite** for all records (`src/db`). |
-| Device-aware? | `recommendLocalModel()` picks the model from total/available RAM, low-memory flag, battery level and free storage (`src/ai/localModels.ts`). The chat model sheet shows the device, RAM, recommended model and the active accelerator. The pause card shows **"Phrased on this phone · Gemma 3 1B on GPU · 1.8 s"**. |
+| What runs where? | **LiteRT-LM** (`com.google.ai.edge.litertlm`) in a local Expo module, [`modules/ginto-local-ai`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt): tries **NPU**, then **GPU**, then **CPU** per model and reports which one it is using. Models: Qwen 3 0.6B int4 (~500 MB), Qwen 2.5 1.5B q8 (~1.6 GB), Gemma 4 E2B/E4B with vision (`src/ai/localModels.ts`). **Whisper small** through sherpa-onnx for on-device Tagalog voice input (`WhisperSpeech.kt`). **ML Kit text recognition** for screenshot OCR (`src/lib/ocr.ts`). **Rules engine** for message risk in English + Taglish (`src/domain/messageRisk.ts`). **SQLite** for all records (`src/db`). |
+| Device-aware? | `recommendLocalModel()` picks the model from total/available RAM, low-memory flag, battery level and free storage (`src/ai/localModels.ts`). The chat model sheet shows the device, RAM, detected NPU, recommended model and the active accelerator, and lets the user pick Auto / NPU / GPU / CPU and a Balanced or Max performance mode. In Auto, the model already in memory is kept when it fits the request, to avoid a reload. The pause card shows e.g. **"Phrased on this phone · Qwen 2.5 1.5B on GPU · 1.8 s"**. |
 | What breaks without local AI? | The pause falls back to fixed templates and loses personalised phrasing; Ask Ginto becomes a keyword bot; message analysis loses the model's explanation; OCR disappears. **No cloud alternative exists by default**: optional Ask Ginto chat can use `src/ai/chat.ts → cloudReply`, but the pause never uses it. The cloud request includes a numbers-only record summary plus chat text, and can include a photo after consent. Disabling cloud chat changes nothing about the core loop. |
 | Privacy / latency / offline / cost | **Privacy:** records stay on-device by default; optional cloud chat sends a numbers-only record summary plus the conversation, and may send a photo after consent. **Latency:** the reflection must be ready inside a 10-second pause; the model is warmed at launch (`src/hooks/useWarmLocalModel.ts`) so it answers within the countdown. **Offline:** the demo runs in airplane mode. **Cost:** zero per-user inference cost for local inference. **Hardware:** NPU/GPU delegation when the chipset supports it. |
 
@@ -37,7 +37,7 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 
 | Question | Answer |
 |---|---|
-| Does it work? | `npm run check` is green: TypeScript strict + `noUncheckedIndexedAccess`, ESLint, **119 tests / 23 suites**. Android bundle exports cleanly. |
+| Does it work? | `npm run check` is green: TypeScript strict + `noUncheckedIndexedAccess`, ESLint, **119 tests / 23 suites**. |
 | How are the models integrated? | Through a typed native module with graceful degradation: `requireOptionalNativeModule('GintoLocalAi')` returns safe fallbacks in Expo Go / iOS / web. Inference calls are wrapped in a **20 s timeout** (`withTimeout`), the pause uses a **fresh conversation per reflection** (`generateOnce`) so chat history never leaks into a pause, and the chat uses a persistent conversation grounded in a records summary. Model selection falls back to **any installed model** rather than failing silently. |
 | Sophistication | **Rules compute, model phrases**: every number in model output is checked for provenance against the computed facts (`src/ai/guard.ts`, `src/ai/pausePhrasing.ts`, tested in `src/ai/__tests__/guard.test.ts`). Crisis wording (`isCrisis`) bypasses every model and returns the hotline. Money is integer centavos end-to-end. Payday Shield reads Android usage events in a foreground service and deep-links to the pause when a guarded app opens; a local DNS-only `VpnService` guards websites without routing traffic anywhere ([`modules/unhooked-guard`](./modules/unhooked-guard)). |
 | Live-demo reliability | Every AI path has an instant deterministic fallback, so the demo never blocks on inference: the template renders immediately and the model's phrasing swaps in when it lands. Events (`pause_shown`, `pause_phrased`, `pause_decision`) are logged to SQLite for the Insights tab. |
@@ -52,7 +52,7 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 
 ### 5. Product & demo quality
 
-- Mascot-led UX: **Ginto the goldfish** with 9 moods swims past the hook; the hook is the trigger and gets yanked away when the user waits.
+- Mascot-led UX: **Ginto the goldfish** with 11 moods swims past the hook; the hook is the trigger and gets yanked away when the user waits.
 - Plain language, no shame, no guarantees, the *Continue / Buy anyway / Open anyway* option is always there after the pause.
 - 3-minute script in [plan.md §5](./plan.md#5-demo-script-target-3-minutes): Today → Spend ₱4,500 check → checkout pause → BNPL true cost → borrowing pause → message scan → scroll check-in → Insights, all in airplane mode.
 
@@ -91,7 +91,7 @@ npx expo run:android # Development build: LiteRT-LM models, ML Kit OCR, Payday S
 ### Running a model on the phone
 
 1. Install the development build (`npx expo run:android`).
-2. Open **Ask Ginto → model settings**. The sheet shows your phone's RAM and the recommended model; tap **Download** (Gemma 3 1B is ~555 MB).
+2. Open **Ask Ginto → model settings**. The sheet shows your phone's RAM and the recommended model; tap **Download** (Qwen 3 0.6B is ~500 MB; Qwen 2.5 1.5B is ~1.6 GB). Downloads resume in the background.
 3. The model is warmed at the next launch. Open any pause: the card shows *Phrased on this phone · <model> on <NPU/GPU/CPU> · <seconds>*.
 4. Turn on airplane mode and repeat. Nothing changes.
 
@@ -114,14 +114,14 @@ Ask Ginto's photo consent can enable cloud chat when the proxy URL is configured
 
 ```
 src/
-  app/        Expo Router screens (thin)  — pause, shield, chat, scan, message-check, tabs
-  domain/     Pure TS + Jest: money, affordability, bnpl, repayment, messageRisk, utangScan, paydayShield, blocking
+  app/        Expo Router screens (thin)  — pause, shield, chat, scan, message-check, evidence-pack, number-log, check-in, help, tabs
+  domain/     Pure TS + Jest: money, affordability, bnpl, repayment, messageRisk, utangScan, paydayShield, blocking, evidence, numberLog
   ai/         localProvider (templates) · pausePhrasing + guard (LLM wording, provenance-checked)
-              androidLocalAi (LiteRT-LM bridge, timeouts, model resolution) · localModels (device-aware picker) · chat
+              androidLocalAi (LiteRT-LM bridge, timeouts, model resolution) · localModels (device-aware picker) · chat · speechModel
   db/         SQLite migrations, repositories, append-only event log
-  lib/        OCR (ML Kit on Android, Tesseract.js on web), notifications, evidence PDF export, guard sync
+  lib/        OCR (ML Kit on Android, Tesseract.js on web), notifications, evidence PDF export, SEC complaint PDF, number-log import/export, guard sync
 modules/
-  ginto-local-ai/   Kotlin: LiteRT-LM engine, NPU→GPU→CPU, generate / generateOnce / analyzeMessageRisk / inspectDevice
+  ginto-local-ai/   Kotlin: LiteRT-LM engine, NPU→GPU→CPU, generate / generateOnce / analyzeMessageRisk / inspectDevice, Whisper speech (sherpa-onnx)
   unhooked-guard/   Kotlin: usage-events foreground service, shield deep link, local DNS VpnService
 ```
 
@@ -141,6 +141,8 @@ Unhooked stores records on the device by default. Optional Claude chat can send 
 | Service | What it is used for | When it is contacted |
 |---|---|---|
 | [Hugging Face](https://huggingface.co/litert-community) (`litert-community` models) | Downloads the on-device chat model file | Only when you tap **Download** in Ask Ginto → model settings |
+| [Hugging Face](https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small) (`sherpa-onnx-whisper-small`) | Downloads the on-device Tagalog speech model (~375 MB) | Only when you set up voice input in Ask Ginto; audio is transcribed on the phone and never uploaded |
+| [GitHub releases](https://github.com/k2-fsa/sherpa-onnx/releases) (sherpa-onnx AAR) | Speech runtime library | At Android build time only (`fetchSherpaOnnx` Gradle task), never from the app |
 | [jsDelivr CDN](https://www.jsdelivr.com/package/npm/tesseract.js) (Tesseract.js reader files) | Text reader for the Utang scanner **on web** | Once, the first time you scan on web; the screenshot itself is read in the browser and never uploaded |
 | [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2) | Reads screenshots in the Utang scanner **on Android** | Runs fully on the device; no network |
 | [Anthropic Claude](https://www.anthropic.com/) via the optional Ginto proxy | Phrases Ask Ginto replies | Only when cloud chat is enabled; sends chat text, a numbers-only record summary and any consented photo |
@@ -176,15 +178,16 @@ We did not build these. Each is used under its own license.
 
 - [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/) (local database), [expo-notifications](https://docs.expo.dev/versions/latest/sdk/notifications/), [expo-image-picker](https://docs.expo.dev/versions/latest/sdk/imagepicker/)
 - [expo-print](https://docs.expo.dev/versions/latest/sdk/print/) and [expo-sharing](https://docs.expo.dev/versions/latest/sdk/sharing/) (Evidence Pack and SEC complaint PDFs)
-- [expo-file-system](https://docs.expo.dev/versions/latest/sdk/filesystem/), [expo-crypto](https://docs.expo.dev/versions/latest/sdk/crypto/), [expo-haptics](https://docs.expo.dev/versions/latest/sdk/haptics/), [expo-clipboard](https://docs.expo.dev/versions/latest/sdk/clipboard/)
+- [expo-file-system](https://docs.expo.dev/versions/latest/sdk/filesystem/), [expo-crypto](https://docs.expo.dev/versions/latest/sdk/crypto/), [expo-haptics](https://docs.expo.dev/versions/latest/sdk/haptics/), [expo-clipboard](https://docs.expo.dev/versions/latest/sdk/clipboard/), [expo-document-picker](https://docs.expo.dev/versions/latest/sdk/document-picker/) (number-log import)
 - [expo-device](https://docs.expo.dev/versions/latest/sdk/device/), [expo-constants](https://docs.expo.dev/versions/latest/sdk/constants/), [expo-linking](https://docs.expo.dev/versions/latest/sdk/linking/), [expo-font](https://docs.expo.dev/versions/latest/sdk/font/), [expo-status-bar](https://docs.expo.dev/versions/latest/sdk/status-bar/), [expo-build-properties](https://docs.expo.dev/versions/latest/sdk/build-properties/)
 - [@react-native-community/datetimepicker](https://github.com/react-native-datetimepicker/datetimepicker)
 
 **On-device AI and text reading**
 
 - [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM) (`com.google.ai.edge.litertlm:litertlm-android`), the Android runtime for the chat model
-- Models from [litert-community on Hugging Face](https://huggingface.co/litert-community): [Gemma 3 1B IT](https://huggingface.co/litert-community/Gemma3-1B-IT), [Qwen 2.5 1.5B Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Gemma 4 E2B IT](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma 4 E4B IT](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (Gemma models under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms))
+- Models from [litert-community on Hugging Face](https://huggingface.co/litert-community): [Qwen 3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5 1.5B Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Gemma 4 E2B IT](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma 4 E4B IT](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (Gemma models under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms))
 - [@react-native-ml-kit/text-recognition](https://github.com/a7med-mahmoud/react-native-ml-kit) wrapping [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
+- [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) running [Whisper small](https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small) for on-device voice input
 - [Tesseract.js](https://github.com/naptha/tesseract.js) for screenshot reading on web
 
 **Design**
@@ -207,6 +210,6 @@ We did not build these. Each is used under its own license.
 
 ## Stack
 
-Expo SDK 57 · React Native 0.86 · TypeScript strict · Expo Router · expo-sqlite · zustand · LiteRT-LM (Gemma 3 / Qwen 2.5 / Gemma 4) · ML Kit Text Recognition · Tesseract.js · Jest
+Expo SDK 57 · React Native 0.86 · TypeScript strict · Expo Router · expo-sqlite · zustand · LiteRT-LM (Qwen 3 / Qwen 2.5 / Gemma 4) · sherpa-onnx Whisper · ML Kit Text Recognition · Tesseract.js · Jest
 
 Unhooked is a self-help tool, not medical, legal or financial advice. In a crisis, call the NCMH Crisis Hotline **1553** or **911**.
