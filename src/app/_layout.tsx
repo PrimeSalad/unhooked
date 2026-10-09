@@ -69,6 +69,7 @@ export default function RootLayout() {
             name="check-in"
             options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
           />
+          <Stack.Screen name="check-in-history" />
           <Stack.Screen
             name="debt-new"
             options={{ presentation: 'modal', animation: 'slide_from_bottom' }}

@@ -17,7 +17,7 @@ import { CountdownRing } from '@/components/pause/CountdownRing';
 import { Button, Chips, Field, goBack, Rise, Row, Sheet, Tag, Text, TopBar } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { attemptsToday } from '@/db/blockRules';
-import { logEvent } from '@/db/events';
+import { logEvent, logEventAndRefresh } from '@/db/events';
 import { addPurchase, emptyOverview, getOverview, scrollStats, setPurchaseStatus } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 import { pauseSecondsFor } from '@/domain/blocking';
@@ -79,7 +79,7 @@ export default function ShieldScreen() {
   }, [db, preview, target]);
 
   const decide = (decision: 'close' | 'break' | 'open') =>
-    logEvent(db, 'block_decision', { target, decision, secondsViewed: seconds });
+    logEventAndRefresh(db, 'block_decision', { target, decision, secondsViewed: seconds });
 
   const close = async () => {
     await decide('close');
@@ -93,7 +93,7 @@ export default function ShieldScreen() {
     try {
       const id = await addPurchase(db, { item: item.trim(), price: priceC, isNeed: false });
       await setPurchaseStatus(db, id, 'cooling');
-      await logEvent(db, 'block_decision', {
+      await logEventAndRefresh(db, 'block_decision', {
         target,
         decision: 'wishlist',
         secondsViewed: seconds,
@@ -193,13 +193,13 @@ export default function ShieldScreen() {
                     </Text>
                     <Text variant="small" color="#FFE9D2">
                       {money.free > 0
-                        ? `Safe to spend until payday on ${shortDate(money.payday.toISOString())} (${money.days} ${money.days === 1 ? 'day' : 'days'}).`
-                        : 'Nothing left to spend until payday after bills and repayments.'}
+                        ? `Estimated daily amount until payday on ${shortDate(money.payday.toISOString())} (${money.days} ${money.days === 1 ? 'day' : 'days'}).`
+                        : 'The free-to-spend estimate is at or below zero until payday after bills and repayments.'}
                     </Text>
                   </View>
                 ) : (
                   <Text variant="small" color="#FFE9D2">
-                    Set your budget in Spend to see how much is safe per day.
+                    Set your budget in Spend to see a daily estimate.
                   </Text>
                 )}
                 {o.nextDue ? (

@@ -460,8 +460,8 @@ function ScrollSession({
         ) : (
           <>
             <Text variant="small" color={colors.textMuted}>
-              Unhooked cannot see other apps automatically yet — start a session when you
-              open one, and I will check in gently when time is up.
+              Unhooked cannot see other apps automatically yet — start a session when you open one,
+              and I will check in gently when time is up.
             </Text>
             <Chips
               value={app}
@@ -552,7 +552,7 @@ function LogPastSheet({ open, onClose }: { open: boolean; onClose: () => void })
     const name = app === 'Other' ? customApp.trim() || 'Other app' : app;
     await logPastSession(db, name, Number(minutes), end);
     onClose();
-    showToast('Logged. Every bit of honesty helps.');
+    showToast('Session logged. You can review it anytime.');
   };
 
   return (
