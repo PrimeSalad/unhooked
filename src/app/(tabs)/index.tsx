@@ -134,7 +134,7 @@ export default function TodayScreen() {
         right={
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <IconButton
-              icon="person"
+              icon="settings"
               label="You and settings"
               onPress={() => router.push('/settings')}
             />

@@ -19,7 +19,7 @@ export interface ChatMessage {
 
 /** What Ginto can say about a photo without the cloud. */
 export function localImageReply(): string {
-  return 'I can only read photos with Smarter Ask Ginto turned on. If this is a threatening message from a collector, tap "Save as evidence" so it stays safe on your phone, or paste its text in Scan message.';
+  return 'I cannot read photos on this phone yet. If this is a threatening message from a collector, tap "Save as evidence" so it stays safe on your phone, or paste its text in Scan message.';
 }
 
 export interface ChatContext {
