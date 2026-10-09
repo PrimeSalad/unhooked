@@ -50,7 +50,10 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.bg },
-            animation: 'slide_from_right',
+            // iOS-style push with parallax on both platforms; swipe back follows the finger.
+            animation: 'ios_from_right',
+            animationMatchesGesture: true,
+            fullScreenGestureEnabled: true,
           }}
         >
           <Stack.Screen name="(tabs)" />
@@ -61,11 +64,20 @@ export default function RootLayout() {
           />
           <Stack.Screen name="unhooked" options={{ animation: 'fade' }} />
           <Stack.Screen name="break" options={{ animation: 'fade' }} />
-          <Stack.Screen name="check-in" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="debt-new" options={{ presentation: 'modal' }} />
+          <Stack.Screen
+            name="check-in"
+            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen
+            name="debt-new"
+            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
           <Stack.Screen name="repayment-plan" />
           <Stack.Screen name="evidence-pack" />
-          <Stack.Screen name="borrow" options={{ presentation: 'modal' }} />
+          <Stack.Screen
+            name="borrow"
+            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
           <Stack.Screen name="chat" />
           <Stack.Screen name="spend-check" />
           <Stack.Screen name="fade-preview" options={{ animation: 'fade' }} />

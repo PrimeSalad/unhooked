@@ -3,7 +3,7 @@
 import { Icon } from '@/components/Icon';
 import type { IconName } from '@/components/Icon';
 import { router } from 'expo-router';
-import { useEffect, type ReactNode, useState } from 'react';
+import { Children, isValidElement, useEffect, type ReactNode, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -168,7 +168,16 @@ export function Screen({
       }}
       showsVerticalScrollIndicator={false}
     >
-      {children}
+      {/* Sections rise in one after another; sheets render in their own layer. */}
+      {Children.toArray(children).map((child, i) =>
+        isValidElement(child) && child.type !== Sheet ? (
+          <Rise key={child.key ?? i} delay={Math.min(i, 6) * 50}>
+            {child}
+          </Rise>
+        ) : (
+          child
+        ),
+      )}
     </ScrollView>
   );
 }
