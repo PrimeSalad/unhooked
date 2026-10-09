@@ -1,0 +1,23 @@
+<!--
+  Merged into the app manifest by Gradle. Add permissions only in the Phase 4B step that needs them.
+  Never add QUERY_ALL_PACKAGES or an AccessibilityService (Google Play policy, see plan.md Phase 4B).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Usage access: the user grants it in system Settings. Used to know which app is in front. -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- "Display over other apps": lets the shield appear over a guarded app. User-granted. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Package visibility limited to apps with a launcher icon (no QUERY_ALL_PACKAGES). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+</manifest>
