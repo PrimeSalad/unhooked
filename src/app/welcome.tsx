@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
-import { Button, Field, Rise, Text, TopBar } from '@/components/ui';
+import { Button, Field, Rise, Segmented, Text, TopBar } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { parsePesoInput } from '@/domain/money';
 import { useSettings } from '@/store/settings';
@@ -71,6 +71,7 @@ function Setup({ onBack }: { onBack: () => void }) {
   const [income, setIncome] = useState('');
   const [bills, setBills] = useState('');
   const [savings, setSavings] = useState('');
+  const [paySchedule, setPaySchedule] = useState<'monthly' | 'twice'>('monthly');
 
   const incomeC = parsePesoInput(income);
   const finish = (withBudget: boolean) => {
@@ -80,7 +81,7 @@ function Setup({ onBack }: { onBack: () => void }) {
         monthlyIncome: incomeC,
         monthlyFixedBills: parsePesoInput(bills) ?? 0,
         savingsGoalMonthly: parsePesoInput(savings) ?? 0,
-        payday: null,
+        payday: paySchedule === 'twice' ? '15_30' : null,
       });
     }
     setOnboarded(true);
@@ -141,6 +142,15 @@ function Setup({ onBack }: { onBack: () => void }) {
           keyboardType="decimal-pad"
           value={savings}
           onChangeText={setSavings}
+        />
+        <Text variant="small">When do you get paid?</Text>
+        <Segmented
+          value={paySchedule}
+          onChange={setPaySchedule}
+          options={[
+            { value: 'monthly', label: 'Monthly' },
+            { value: 'twice', label: '15th & 30th' },
+          ]}
         />
         <Button label={incomeC ? 'Save and start' : 'Start'} onPress={() => finish(true)} />
         <Button label="Skip for now" kind="ghost" size="sm" onPress={() => finish(false)} />

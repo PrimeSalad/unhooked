@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Button, Card, Field, Text } from '@/components/ui';
+import { Button, Card, Field, Segmented, Text } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { parsePesoInput } from '@/domain/money';
 import { useSettings } from '@/store/settings';
@@ -11,6 +11,7 @@ export function BudgetSetup() {
   const [income, setIncome] = useState('');
   const [bills, setBills] = useState('');
   const [savings, setSavings] = useState('');
+  const [paySchedule, setPaySchedule] = useState<'monthly' | 'twice'>('monthly');
   const incomeC = parsePesoInput(income);
   return (
     <Card style={{ gap: spacing.md }}>
@@ -27,6 +28,7 @@ export function BudgetSetup() {
       />
       <Field
         label="Fixed bills each month"
+        hint="Rent, utilities and other bills. Do not include debts already tracked in Debt."
         placeholder="₱ 0"
         keyboardType="decimal-pad"
         value={bills}
@@ -39,6 +41,15 @@ export function BudgetSetup() {
         value={savings}
         onChangeText={setSavings}
       />
+      <Text variant="small">When do you get paid?</Text>
+      <Segmented
+        value={paySchedule}
+        onChange={setPaySchedule}
+        options={[
+          { value: 'monthly', label: 'Monthly' },
+          { value: 'twice', label: '15th & 30th' },
+        ]}
+      />
       <Button
         label="Save budget"
         disabled={!incomeC}
@@ -48,7 +59,7 @@ export function BudgetSetup() {
             monthlyIncome: incomeC,
             monthlyFixedBills: parsePesoInput(bills) ?? 0,
             savingsGoalMonthly: parsePesoInput(savings) ?? 0,
-            payday: null,
+            payday: paySchedule === 'twice' ? '15_30' : null,
           })
         }
       />

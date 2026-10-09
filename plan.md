@@ -15,7 +15,7 @@
 | Safety | On-device message detector (English + Taglish) with highlights; Help |
 | Ask Ginto | On-device answers from the user's numbers; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
 | Phase 4B native | `AppGuardService` (usage events → shield deep link), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested |
-| Still open | Phase 2 device tap-through/PDF sharing, seed demo data, Taglish copy, device test of 4B, Play declarations |
+| Still open | Phase 2–3 phone tap-through (PDF sharing and cooling reminder), seed demo data, Taglish copy, device test of 4B, Play declarations |
 **Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone.
 
 ---
@@ -183,16 +183,17 @@ The pause uses real on-device records and deterministic local templates. Gemma a
 **Verification remaining:** tap through D1–D3 and PDF sharing in Expo Go on a phone; automated checks, Expo Doctor and Android bundling pass.
 
 ### Phase 3 — Spend
-- [ ] Budget onboarding (monthly income, fixed bills, savings goal, pay schedule: monthly **or 15th/30th**) → `settings.budget`. Change `BudgetProfile.payday` to support twice-monthly pay (persona Ana).
-- [ ] Implement `domain/affordability.ts` + `domain/bnpl.ts` + tests (including the ₱4,500 demo case).
-- [ ] `src/db/purchases.ts` repository.
-- [ ] Purchase planner form: item, price, need/want, planned date, optional cheaper alternative.
-- [ ] Affordability result card: verdict, remaining after purchase, conflicts with upcoming repayments (pull from Debt), all labeled *estimate*.
-- [ ] BNPL calculator screen: total repayment vs. upfront, extra cost ₱ and %, "adds ₱X/month to your obligations".
-- [ ] Checkout pause → options; **Save for 24h** sets `cooling_until`, schedules a local notification, logs `purchase_saved_for_later`.
-- [ ] Cooling list: countdown per item; when due, re-run affordability and ask "Still want it?" (bought / skipped).
+- [x] Budget onboarding (monthly income, fixed bills, savings goal, pay schedule: monthly **or 15th/30th**) → `settings.budget`. `BudgetProfile.payday` supports twice-monthly pay (persona Ana); affordability remains explicitly a monthly estimate.
+- [x] `domain/affordability.ts` + `domain/bnpl.ts` + tests (including the ₱4,500 demo case).
+- [x] `src/db/purchases.ts` repository, with actual bought date for monthly spend totals.
+- [x] Purchase planner form: item, price, need/want, planned date, optional cheaper alternative.
+- [x] Affordability result card: verdict, remaining after purchase, conflicts with upcoming repayments (pull from Debt), all labeled *estimate*.
+- [x] Inline BNPL calculator in Spend Check: total repayment vs. upfront, extra cost ₱ and %.
+- [x] Checkout pause → options; **Save for 24h** sets `cooling_until`, schedules a local notification, logs `purchase_saved_for_later`.
+- [x] Cooling list: live countdown per item; when due, re-run affordability and ask "Still want it?" (bought / skipped).
 
 **Done when:** the full §5 user journey (S1–S5) runs without touching code.
+**Verification remaining:** tap through S1–S5 and the 24-hour notification on a phone; typecheck, lint, tests, Android/web bundles pass.
 
 ### Phase 4 — Scroll
 - [ ] Implement `domain/scroll.ts` + tests.

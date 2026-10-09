@@ -3,16 +3,7 @@
 
 import { useEffect, type ReactNode, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, type ViewStyle } from 'react-native';
-import Svg, {
-  Circle,
-  Defs,
-  Ellipse,
-  G,
-  Image as SvgImage,
-  Path,
-  RadialGradient,
-  Stop,
-} from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Image as SvgImage, Path } from 'react-native-svg';
 
 import { fonts } from '@/constants/theme';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -23,7 +14,6 @@ export type GintoMood =
 type Extra = 'bubbles' | 'alert' | 'sweat' | 'splash' | 'zz' | 'think' | 'shield';
 
 interface Traits {
-  eyes: 'open' | 'happy' | 'calm' | 'sleepy';
   mouth: 'open' | 'o' | 'smile' | 'wavy' | 'big';
   body: 'bob' | 'breathe' | 'jump' | 'shiver' | 'sway';
   fin: 'pec' | 'wave';
@@ -33,19 +23,17 @@ interface Traits {
 }
 
 const MOODS: Record<GintoMood, Traits> = {
-  happy: { eyes: 'open', mouth: 'open', body: 'bob', fin: 'pec', extras: ['bubbles'] },
-  wave: { eyes: 'open', mouth: 'open', body: 'bob', fin: 'wave', extras: ['bubbles'] },
+  happy: { mouth: 'open', body: 'bob', fin: 'pec', extras: ['bubbles'] },
+  wave: { mouth: 'open', body: 'bob', fin: 'wave', extras: ['bubbles'] },
   curious: {
-    eyes: 'open',
     look: [3, -3],
     mouth: 'o',
     body: 'bob',
     fin: 'pec',
     extras: ['alert', 'bubbles'],
   },
-  calm: { eyes: 'calm', mouth: 'smile', body: 'breathe', fin: 'pec', extras: ['bubbles'] },
+  calm: { mouth: 'smile', body: 'breathe', fin: 'pec', extras: ['bubbles'] },
   worried: {
-    eyes: 'open',
     look: [-1, 1],
     brow: 'worried',
     mouth: 'wavy',
@@ -53,10 +41,9 @@ const MOODS: Record<GintoMood, Traits> = {
     fin: 'pec',
     extras: ['sweat'],
   },
-  proud: { eyes: 'happy', mouth: 'big', body: 'jump', fin: 'wave', extras: ['splash'] },
-  sleepy: { eyes: 'sleepy', mouth: 'o', body: 'sway', fin: 'pec', extras: ['zz'] },
+  proud: { mouth: 'big', body: 'jump', fin: 'wave', extras: ['splash'] },
+  sleepy: { mouth: 'o', body: 'sway', fin: 'pec', extras: ['zz'] },
   thinking: {
-    eyes: 'open',
     look: [3, -4],
     mouth: 'smile',
     body: 'bob',
@@ -64,7 +51,6 @@ const MOODS: Record<GintoMood, Traits> = {
     extras: ['think'],
   },
   brave: {
-    eyes: 'open',
     brow: 'brave',
     mouth: 'smile',
     body: 'bob',
@@ -123,24 +109,6 @@ function useCycle(ms: number, active: boolean, delay = 0, easing = Easing.linear
   return v;
 }
 
-function useBlink(active: boolean) {
-  const v = useState(() => new Animated.Value(0))[0];
-  useEffect(() => {
-    v.setValue(0);
-    if (!active) return;
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.delay(4200),
-        Animated.timing(v, { toValue: 1, duration: 90, useNativeDriver: true }),
-        Animated.timing(v, { toValue: 0, duration: 130, useNativeDriver: true }),
-      ]),
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [active, v]);
-  return v;
-}
-
 const pct = (x: number, y: number) =>
   `${((x / VB_W) * 100).toFixed(1)}% ${((y / VB_H) * 100).toFixed(1)}%`;
 
@@ -162,18 +130,6 @@ function Layer({
         {children}
       </Svg>
     </Animated.View>
-  );
-}
-
-function FaceDefs() {
-  return (
-    <Defs>
-      <RadialGradient id="gintoEye" cx="36%" cy="28%" r="72%">
-        <Stop offset="0" stopColor="#5B3A20" />
-        <Stop offset="0.34" stopColor="#241207" />
-        <Stop offset="1" stopColor="#0E0703" />
-      </RadialGradient>
-    </Defs>
   );
 }
 
@@ -211,7 +167,6 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
   const dorsal = usePingPong(2200, on);
   const side = usePingPong(1700, on);
   const fin = usePingPong(t.fin === 'wave' ? 900 : 1400, on);
-  const blink = useBlink(on && t.eyes === 'open');
 
   // Extras
   const b1 = useCycle(3600, on && has('bubbles'), 0, Easing.in(Easing.quad));
@@ -246,12 +201,6 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
             rotate: jump.interpolate({
               inputRange: [0, 0.4, 0.62, 0.86, 1],
               outputRange: ['0deg', '-12deg', '8deg', '0deg', '0deg'],
-            }),
-          },
-          {
-            scaleY: jump.interpolate({
-              inputRange: [0, 0.12, 0.4, 0.86, 0.93, 1],
-              outputRange: [1, 0.9, 1.06, 0.94, 1, 1],
             }),
           },
         ];
@@ -419,45 +368,17 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
             />
           </Layer>
 
-          {/* Eyes */}
-          {t.eyes === 'open' ? (
-            <Layer
-              origin={pct(147, 100)}
-              style={{
-                transform: [
-                  { scaleY: blink.interpolate({ inputRange: [0, 1], outputRange: [1, 0.08] }) },
-                ],
-              }}
-            >
-              <G transform={`translate(${lx} ${ly})`}>
-                <FaceDefs />
-                <Ellipse cx={137} cy={103} rx={13} ry={15} fill="url(#gintoEye)" />
-                <Circle cx={141} cy={97} r={4.8} fill="#FFFDF4" />
-                <Circle cx={132.5} cy={109} r={2} fill="#FFFDF4" opacity={0.7} />
-                <Ellipse cx={173} cy={95} rx={11.5} ry={14} fill="url(#gintoEye)" />
-                <Circle cx={176.5} cy={89.5} r={4.3} fill="#FFFDF4" />
-                <Circle cx={169} cy={101} r={1.8} fill="#FFFDF4" opacity={0.7} />
-              </G>
-            </Layer>
-          ) : (
-            <Layer>
-              {t.eyes === 'sleepy' && (
-                <G>
-                  <Ellipse cx={137} cy={105} rx={13} ry={11} fill="#1C0E05" />
-                  <Ellipse cx={173} cy={97} rx={11.5} ry={10} fill="#1C0E05" />
-                  <Path d="M123 105 A 14 13 0 0 1 151 105 Z" fill="#FFAA32" />
-                  <Path d="M160.5 97 A 12.5 12 0 0 1 185.5 97 Z" fill="#FFB23B" />
-                  <Path d="M123 105 H151 M160.5 97 H185.5" {...line} strokeWidth={2.6} />
-                </G>
-              )}
-              {t.eyes === 'happy' && (
-                <Path d="M123 107 Q137 90 151 107 M161 100 Q173 85 185 100" {...line} />
-              )}
-              {t.eyes === 'calm' && (
-                <Path d="M123 103 Q137 114 151 103 M161 96 Q173 106 185 96" {...line} />
-              )}
-            </Layer>
-          )}
+          {/* The same round, dark eyes are visible in every mood. */}
+          <Layer>
+            <G transform={`translate(${lx} ${ly})`}>
+              <Circle cx={137} cy={103} r={13} fill="#160A03" />
+              <Circle cx={173} cy={95} r={11.5} fill="#160A03" />
+              <Circle cx={141} cy={97} r={4.8} fill="#FFFDF4" />
+              <Circle cx={176.5} cy={89.5} r={4.3} fill="#FFFDF4" />
+              <Circle cx={132.5} cy={109} r={2} fill="#FFFDF4" opacity={0.7} />
+              <Circle cx={169} cy={101} r={1.8} fill="#FFFDF4" opacity={0.7} />
+            </G>
+          </Layer>
 
           {/* Brows + mouth */}
           <Layer>

@@ -30,4 +30,15 @@ describe('calculateBnpl', () => {
     expect(calculateBnpl({ ...base, numberOfPayments: -2 })).toBeNull();
     expect(calculateBnpl({ ...base, numberOfPayments: 1.5 })).toBeNull();
   });
+
+  it('rejects amounts that overflow integer centavos', () => {
+    expect(
+      calculateBnpl({
+        upfrontPrice: 100,
+        installmentAmount: Number.MAX_SAFE_INTEGER,
+        numberOfPayments: 2,
+        fees: 0,
+      }),
+    ).toBeNull();
+  });
 });

@@ -35,7 +35,7 @@ export default function UnhookedScreen() {
   }, []);
 
   const copy: Record<Outcome, string> = {
-    saved: `${item[0]?.toUpperCase()}${item.slice(1)} is saved for 24 hours. I will check in tomorrow and we will decide together.`,
+    saved: `${item[0]?.toUpperCase()}${item.slice(1)} is saved for 24 hours. You can review it in Spend tomorrow.`,
     cheaper: 'Take your time looking. A cheaper option keeps more of your month safe.',
     review: `Good call. ${params.amount ? `${formatPHP(Number(params.amount))} can wait. ` : ''}Let us look at what is due first.`,
     plan: 'Asking for a payment plan is a strong move. Here is a message you can send and edit.',

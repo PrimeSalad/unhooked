@@ -26,6 +26,9 @@ export default function SettingsScreen() {
   const [income, setIncome] = useState(pesoText(s.budget?.monthlyIncome));
   const [bills, setBills] = useState(pesoText(s.budget?.monthlyFixedBills));
   const [savings, setSavings] = useState(pesoText(s.budget?.savingsGoalMonthly));
+  const [paySchedule, setPaySchedule] = useState<'monthly' | 'twice'>(
+    s.budget?.payday === '15_30' ? 'twice' : 'monthly',
+  );
 
   const saveProfile = () => {
     s.setName(name);
@@ -36,7 +39,12 @@ export default function SettingsScreen() {
             monthlyIncome: incomeC,
             monthlyFixedBills: parsePesoInput(bills) ?? 0,
             savingsGoalMonthly: parsePesoInput(savings) ?? 0,
-            payday: null,
+            payday:
+              paySchedule === 'twice'
+                ? '15_30'
+                : typeof s.budget?.payday === 'number'
+                  ? s.budget.payday
+                  : null,
           }
         : null,
     );
@@ -106,6 +114,7 @@ export default function SettingsScreen() {
         />
         <Field
           label="Fixed bills each month"
+          hint="Do not include debts already tracked in Debt."
           placeholder="₱ 0"
           keyboardType="decimal-pad"
           value={bills}
@@ -117,6 +126,15 @@ export default function SettingsScreen() {
           keyboardType="decimal-pad"
           value={savings}
           onChangeText={setSavings}
+        />
+        <Text variant="small">When do you get paid?</Text>
+        <Segmented
+          value={paySchedule}
+          onChange={setPaySchedule}
+          options={[
+            { value: 'monthly', label: 'Monthly' },
+            { value: 'twice', label: '15th & 30th' },
+          ]}
         />
         <Button label="Save" size="sm" onPress={saveProfile} />
       </Card>

@@ -9,7 +9,7 @@ import { cancelAllReminders } from '@/lib/notifications';
 import { migrateLegacyEvidenceImages } from './evidence';
 
 export const DATABASE_NAME = 'unhooked.db';
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 
 const steps: Record<number, string> = {
   1: `
@@ -101,6 +101,11 @@ const steps: Record<number, string> = {
     );
   `,
   3: `ALTER TABLE evidence ADD COLUMN note TEXT;`,
+  4: `
+    ALTER TABLE purchases ADD COLUMN bought_at TEXT;
+    UPDATE purchases SET bought_at = created_at WHERE status = 'bought';
+    CREATE INDEX idx_purchases_bought_at ON purchases(bought_at);
+  `,
 };
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
@@ -119,6 +124,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
     current = next;
   }
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+  await db.execAsync('PRAGMA foreign_keys = ON;');
   await migrateLegacyEvidenceImages(db);
 }
 

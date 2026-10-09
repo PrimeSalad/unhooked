@@ -176,20 +176,23 @@ export default function PauseScreen() {
   };
 
   const checkoutA = async () => {
-    if (params.purchaseId) await setPurchaseStatus(db, params.purchaseId, 'cooling');
-    void remindIn(
-      24 * 3600,
-      'Ready to decide?',
-      'Something you saved yesterday is waiting for a decision.',
-    );
-    done('save_for_later', 'saved');
+    try {
+      if (params.purchaseId) await setPurchaseStatus(db, params.purchaseId, 'cooling');
+      done('save_for_later', 'saved');
+    } catch {
+      showToast('Could not save this choice. Please try again.');
+    }
   };
   const checkoutB = () => done('reconsider', 'cheaper');
   const checkoutC = async () => {
-    if (params.purchaseId) await setPurchaseStatus(db, params.purchaseId, 'bought');
-    void logEvent(db, 'pause_decision', { kind, decision: 'continue', secondsViewed: total });
-    goBack();
-    showToast('Your call. Logged without judgment.');
+    try {
+      if (params.purchaseId) await setPurchaseStatus(db, params.purchaseId, 'bought');
+      void logEvent(db, 'pause_decision', { kind, decision: 'continue', secondsViewed: total });
+      goBack();
+      showToast('Your call. Logged without judgment.');
+    } catch {
+      showToast('Could not save this choice. Please try again.');
+    }
   };
   const borrowC = () => {
     void logEvent(db, 'pause_decision', { kind, decision: 'continue', secondsViewed: total });
