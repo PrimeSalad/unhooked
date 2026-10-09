@@ -3,7 +3,7 @@
 
 import { router } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DotPattern } from '@/components/DotPattern';
@@ -15,6 +15,7 @@ import { colors, spacing } from '@/constants/theme';
 import type { Certainty } from '@/domain/types';
 import { formatPHP, parsePesoInput } from '@/domain/money';
 import { useFrameWidth } from '@/hooks/useFrame';
+import { keyboardBehavior } from '@/hooks/useKeyboard';
 import { useSettings } from '@/store/settings';
 
 const LEVELS = 4;
@@ -91,7 +92,7 @@ function Frame({
   const insets = useSafeAreaInsets();
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardBehavior}
       style={{ flex: 1, backgroundColor: colors.bg }}
     >
       <View

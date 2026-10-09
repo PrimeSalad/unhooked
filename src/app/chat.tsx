@@ -6,8 +6,8 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,8 +33,12 @@ import { GemmaModelSheet } from '@/components/chat/GemmaModelSheet';
 import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { addEvidence, getOverview } from '@/db/repo';
+import { keyboardBehavior, useKeyboardVisible } from '@/hooks/useKeyboard';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
+
+// The pill border is the focus cue; drop the browser's own focus outline on web.
+const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null;
 
 const SUGGESTIONS = [
   'Can I afford ₱1,500?',
@@ -50,6 +54,7 @@ const nextId = () => `m${Date.now()}-${seq++}`;
 export default function ChatScreen() {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
+  const keyboardUp = useKeyboardVisible();
   const name = useSettings((s) => s.name);
   const budget = useSettings((s) => s.budget);
   const cloudOn = useSettings((s) => s.cloudAiEnabled);
@@ -124,12 +129,7 @@ export default function ChatScreen() {
       const fellBack = useCloud && e instanceof Error && e.message !== 'local';
       if (!userMsg.image && !crisis) {
         try {
-          const generation = await generateAndroidLocalReply(
-            localAiModel,
-            text,
-            summary,
-            computed,
-          );
+          const generation = await generateAndroidLocalReply(localAiModel, text, summary, computed);
           if (generation) {
             setActiveBackend(generation.backend);
             // Every number the model repeats must already exist in the records summary,
@@ -171,7 +171,7 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardBehavior}
       style={{ flex: 1, backgroundColor: colors.bg }}
     >
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -297,7 +297,9 @@ export default function ChatScreen() {
         </View>
       )}
 
-      <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.md }]}>
+      <View
+        style={[styles.composer, { paddingBottom: (keyboardUp ? 0 : insets.bottom) + spacing.md }]}
+      >
         <IconButton
           icon="image"
           label="Attach a photo"
@@ -309,8 +311,11 @@ export default function ChatScreen() {
           onChangeText={setInput}
           placeholder="Ask Ginto…"
           placeholderTextColor={colors.textFaint}
-          style={styles.input}
+          style={[styles.input, webNoOutline]}
           accessibilityLabel="Message to Ginto"
+          multiline
+          maxLength={500}
+          submitBehavior="submit"
           onSubmitEditing={() => void send(input)}
           returnKeyType="send"
         />
@@ -421,7 +426,7 @@ const styles = StyleSheet.create({
   },
   composer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -432,7 +437,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 50,
-    borderRadius: radius.pill,
+    maxHeight: 120,
+    borderRadius: 25,
+    paddingTop: 14,
+    paddingBottom: 14,
+    textAlignVertical: 'center',
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,

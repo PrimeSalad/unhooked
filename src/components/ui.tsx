@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ginto, type GintoMood } from '@/components/mascot/Ginto';
 import { colors, fonts, layout, motion, radius, shadow, spacing } from '@/constants/theme';
 import type { Certainty } from '@/domain/types';
+import { keyboardBehavior } from '@/hooks/useKeyboard';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export type { IconName } from '@/components/Icon';
@@ -158,27 +159,31 @@ export function Screen({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: bg }}
-      contentContainerStyle={{
-        paddingTop: insets.top + spacing.lg,
-        paddingHorizontal: spacing.xl,
-        paddingBottom: (tabs ? layout.tabBarSpace : insets.bottom) + spacing.xxxl,
-        gap,
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Sections rise in one after another; sheets render in their own layer. */}
-      {Children.toArray(children).map((child, i) =>
-        isValidElement(child) && child.type !== Sheet ? (
-          <Rise key={child.key ?? i} delay={Math.min(i, 6) * 50}>
-            {child}
-          </Rise>
-        ) : (
-          child
-        ),
-      )}
-    </ScrollView>
+    <KeyboardAvoidingView behavior={keyboardBehavior} style={{ flex: 1, backgroundColor: bg }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: bg }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={{
+          paddingTop: insets.top + spacing.lg,
+          paddingHorizontal: spacing.xl,
+          paddingBottom: (tabs ? layout.tabBarSpace : insets.bottom) + spacing.xxxl,
+          gap,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Sections rise in one after another; sheets render in their own layer. */}
+        {Children.toArray(children).map((child, i) =>
+          isValidElement(child) && child.type !== Sheet ? (
+            <Rise key={child.key ?? i} delay={Math.min(i, 6) * 50}>
+              {child}
+            </Rise>
+          ) : (
+            child
+          ),
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -568,7 +573,7 @@ export function Field({
       </Text>
       <TextInput
         placeholderTextColor={colors.textFaint}
-        style={[formStyles.input, style]}
+        style={[formStyles.input, webNoOutline, style]}
         accessibilityLabel={label}
         {...input}
       />
@@ -677,10 +682,7 @@ export function Sheet({
       }}
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={keyboardBehavior} style={{ flex: 1 }}>
         <Pressable style={formStyles.scrim} onPress={onClose} accessibilityLabel="Close" />
         <Animated.View
           style={[
@@ -701,6 +703,9 @@ export function Sheet({
     </Modal>
   );
 }
+
+// Inputs show focus with their own border; drop the browser outline on web.
+const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null;
 
 const formStyles = StyleSheet.create({
   input: {
