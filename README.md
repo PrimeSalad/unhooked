@@ -145,6 +145,20 @@ Unhooked stores records on the device by default. Optional Claude chat can send 
 | [Cloudflare DNS 1.1.1.1](https://one.one.one.one/) and [Google Public DNS 8.8.8.8](https://developers.google.com/speed/public-dns) | Upstream DNS for the website guard's local VPN (Android) | Only while a website guard is on; DNS lookups only, no traffic content |
 | [SEC Philippines](https://www.sec.gov.ph) | "Check on the SEC website" link in the scanner | Only when you tap the link (opens your browser) |
 
+## Help and safety resources
+
+The in-app **Help & safety** screen (`/help`, one tap from Today, Debt and Settings) lists these services. The list lives in [`src/constants/resources.ts`](./src/constants/resources.ts); each entry must be checked against the official source before a demo or release.
+
+| Service | For | Contact |
+|---|---|---|
+| NCMH Crisis Hotline | Crisis and mental-health support | **1553** (landline, nationwide) · 0917-899-8727 |
+| Emergency | Police, fire, medical | **911** |
+| [Securities and Exchange Commission](https://www.sec.gov.ph) | Complaints about lending apps | sec.gov.ph |
+| [PNP Anti-Cybercrime Group](https://acg.pnp.gov.ph) | Debt-collection harassment, threats, contact-shaming | acg.pnp.gov.ph |
+| [National Privacy Commission](https://privacy.gov.ph) | Misuse of your contacts or personal data | privacy.gov.ph |
+
+Ask Ginto skips every model when it detects crisis wording and replies with the NCMH hotline and 911.
+
 ## Third-party libraries, models and assets
 
 We did not build these. Each is used under its own license.
