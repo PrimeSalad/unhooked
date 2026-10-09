@@ -250,3 +250,59 @@ export const emptyOverview: Overview = {
   evidence: { count: 0, lenders: 0 },
   checkIn: null,
 };
+
+// ---------- Weekly wrapped ----------
+
+export interface WeekWrap {
+  since: string;
+  kept: Centavos;
+  keptItems: number;
+  paid: Centavos;
+  payments: number;
+  scrollMinutes: number;
+  dodged: number;
+  breaks: number;
+  peakHour: number | null;
+}
+
+export async function weekWrap(db: SQLiteDatabase): Promise<WeekWrap> {
+  const since = daysAgo(6);
+  const kept = await db.getFirstAsync<{ s: number | null; n: number }>(
+    "SELECT SUM(price) AS s, COUNT(*) AS n FROM purchases WHERE status = 'skipped' AND created_at >= ?",
+    since,
+  );
+  const paid = await db.getFirstAsync<{ s: number | null; n: number }>(
+    'SELECT SUM(amount) AS s, COUNT(*) AS n FROM payments WHERE paid_at >= ?',
+    since,
+  );
+  const scroll = await scrollStats(db);
+  const shieldClosed = await countEvents(
+    db,
+    'block_decision',
+    since,
+    "AND json_extract(payload, '$.decision') != 'open'",
+  );
+  return {
+    since,
+    kept: kept?.s ?? 0,
+    keptItems: kept?.n ?? 0,
+    paid: paid?.s ?? 0,
+    payments: paid?.n ?? 0,
+    scrollMinutes: scroll.weekMinutes,
+    dodged: (await countEvents(db, 'pause_decision', since, DODGED)) + shieldClosed,
+    breaks: await countEvents(db, 'break_taken', since),
+    peakHour: scroll.peakHour,
+  };
+}
+
+export const emptyWeekWrap: WeekWrap = {
+  since: new Date().toISOString(),
+  kept: 0,
+  keptItems: 0,
+  paid: 0,
+  payments: 0,
+  scrollMinutes: 0,
+  dodged: 0,
+  breaks: 0,
+  peakHour: null,
+};

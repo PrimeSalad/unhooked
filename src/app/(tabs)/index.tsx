@@ -253,6 +253,12 @@ export default function TodayScreen() {
             subtitle="Patterns from your own activity"
             onPress={() => router.push('/insights')}
           />
+          <GroupRow
+            icon="share"
+            title="Unhooked Wrapped"
+            subtitle="Your 7 days on one card you can share"
+            onPress={() => router.push('/wrapped')}
+          />
         </Group>
       </Section>
     </Screen>

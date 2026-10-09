@@ -74,6 +74,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="message-check" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="wrapped" />
       </Stack>
       <ToastHost />
     </DatabaseGate>
