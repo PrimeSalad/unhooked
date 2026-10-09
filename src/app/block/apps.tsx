@@ -15,13 +15,14 @@ import {
   type LaunchableApp,
 } from '../../../modules/unhooked-guard';
 
+import { ActionError, FlowScreen } from '@/components/FlowLayout';
 import {
   Avatar,
   Button,
   Chips,
-  EmptyState,
   goBack,
   IconButton,
+  ScreenHeader,
   Segmented,
   Sheet,
   Text,
@@ -33,6 +34,7 @@ import { NEVER_BLOCK_PACKAGES, type GuardMode } from '@/domain/blocking';
 import { isGuardAvailable } from '@/lib/guard';
 import { SCHEDULE_PRESETS, type PresetKey } from '@/lib/schedules';
 import { useSession } from '@/store/session';
+import { useAsyncAction } from '@/hooks/useAsyncAction';
 
 type Filter = 'all' | 'social' | 'video' | 'game' | 'other';
 const FILTERS: { value: Filter; label: string }[] = [
@@ -48,7 +50,12 @@ export default function PickAppsScreen() {
   const insets = useSafeAreaInsets();
   const showToast = useSession((s) => s.showToast);
   const native = isGuardAvailable();
-  const { data: rules } = useDbQuery(listRules, []);
+  const { data: rules, error: rulesError, retry } = useDbQuery(listRules, []);
+  const action = useAsyncAction(
+    'Could not update your app guards. Your selections are still here.',
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const [apps, setApps] = useState<LaunchableApp[]>([]);
   const [loading, setLoading] = useState(native);
@@ -67,8 +74,9 @@ export default function PickAppsScreen() {
           list.filter((a) => !a.isEssential && !NEVER_BLOCK_PACKAGES.includes(a.packageName)),
         ),
       )
+      .catch(() => setLoadError('Your installed apps could not be loaded. Please try again.'))
       .finally(() => setLoading(false));
-  }, [native]);
+  }, [native, loadAttempt]);
 
   const guarded = useMemo(
     () => new Set(rules.filter((r) => r.kind === 'app').map((r) => r.target)),
@@ -110,31 +118,36 @@ export default function PickAppsScreen() {
 
   if (!native) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
-        <View style={styles.header}>
-          <IconButton icon="back" label="Back" onPress={goBack} />
-          <Text variant="heading">Guard apps</Text>
-        </View>
-        <View style={{ padding: spacing.xl, gap: spacing.lg }}>
-          <EmptyState
-            mood="thinking"
-            title="Your apps live in the Android app"
-            body="To list the apps installed on this phone and pause them, Unhooked needs its Android build. Expo Go and the web cannot see other apps."
-          />
-          <Text variant="small" color={colors.textMuted}>
-            Team setup: connect the phone with USB debugging on, then run{' '}
-            <Text variant="small" style={{ fontFamily: fonts.semibold }}>
-              npx expo run:android
+      <FlowScreen>
+        <ScreenHeader
+          back
+          title="A pause before the feed."
+          subtitle="Choose the apps that tend to pull you in."
+        />
+        <View style={{ gap: spacing.xl }}>
+          <View style={styles.platformCard}>
+            <View style={styles.platformIcon}>
+              <Icon name="device" size={28} color={colors.text} />
+            </View>
+            <Text variant="heading">App guards need the Android build</Text>
+            <Text variant="small" color={colors.textMuted}>
+              Browsers and Expo Go cannot see which apps are installed. On Android, you choose the
+              apps yourself before any guard turns on.
             </Text>
-            . Open Unhooked from the phone, then come back here.
-          </Text>
+          </View>
+          <View style={styles.platformNote}>
+            <Text variant="strong">Private by design</Text>
+            <Text variant="small" color={colors.textMuted}>
+              Usage access stays on the phone. Unhooked only watches apps you explicitly guard.
+            </Text>
+          </View>
           <Button
-            label="Guard a website instead"
+            label="Guard a website"
             kind="outline"
             onPress={() => router.replace('/block/sites')}
           />
           <Button
-            label="Preview the pause"
+            label="Preview app pause"
             kind="ghost"
             size="sm"
             onPress={() =>
@@ -142,7 +155,7 @@ export default function PickAppsScreen() {
             }
           />
         </View>
-      </View>
+      </FlowScreen>
     );
   }
 
@@ -157,6 +170,15 @@ export default function PickAppsScreen() {
       </View>
 
       <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md }}>
+        <ActionError
+          message={loadError ?? (rulesError ? 'Your guard rules could not be loaded.' : null)}
+          onRetry={() => {
+            setLoading(native);
+            setLoadError(null);
+            setLoadAttempt((n) => n + 1);
+            retry();
+          }}
+        />
         <View style={styles.search}>
           <Icon name="search" size={18} color={colors.textMuted} />
           <TextInput
@@ -231,7 +253,7 @@ export default function PickAppsScreen() {
         </View>
       )}
 
-      <Sheet open={confirming} onClose={() => setConfirming(false)} mascot="brave">
+      <Sheet open={confirming} onClose={() => setConfirming(false)}>
         <Text variant="heading" align="center">
           When should I step in?
         </Text>
@@ -256,10 +278,12 @@ export default function PickAppsScreen() {
             ? 'A 60-second pause and one more "Are you sure?". Never a hard lock.'
             : 'A short breathing pause, then you decide. You can always open it.'}
         </Text>
+        <ActionError message={action.error} />
         <Button
           label={`Guard ${picked.size} ${picked.size === 1 ? 'app' : 'apps'}`}
           style={{ marginTop: spacing.sm }}
-          onPress={() => void save()}
+          loading={action.pending}
+          onPress={() => void action.run(save)}
         />
       </Sheet>
     </View>
@@ -267,7 +291,7 @@ export default function PickAppsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, width: '100%', maxWidth: 820, alignSelf: 'center', backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -280,7 +304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.surface,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: spacing.lg,
@@ -307,6 +331,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkOn: { backgroundColor: colors.text, borderColor: colors.text },
+  platformCard: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+    padding: spacing.xxl,
+    gap: spacing.sm,
+  },
+  platformIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  platformNote: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: spacing.lg,
+    gap: spacing.xs,
+  },
   bottom: {
     position: 'absolute',
     left: 0,

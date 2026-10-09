@@ -3,6 +3,7 @@
 
 import { formatPHP } from '@/domain/money';
 
+import { inferPausePressure } from './localDecisionModel';
 import { templates } from './templates';
 import type { LabeledLine, PauseContext, Reflection, ReflectionProvider, Tone } from './types';
 
@@ -132,6 +133,25 @@ export const localProvider: ReflectionProvider = {
         : ctx.kind === 'scroll'
           ? scroll(ctx.facts, tone)
           : checkout(ctx.facts, tone);
-    return { ...body, tone, source: 'local' };
+    const inference = inferPausePressure(ctx);
+    const why = inference.factors[0];
+    const lines =
+      why && body.lines.length < 3
+        ? [
+            {
+              certainty: 'estimate' as const,
+              text: `Why this pause: ${why.label.toLowerCase()}.`,
+            },
+            ...body.lines,
+          ]
+        : body.lines;
+    const suggestions =
+      inference.band === 'high'
+        ? [
+            { certainty: 'suggestion' as const, text: inference.recommendedAction },
+            ...body.suggestions.filter((item) => item.text !== inference.recommendedAction),
+          ].slice(0, 3)
+        : body.suggestions;
+    return { ...body, lines, suggestions, tone, source: 'local', inference };
   },
 };

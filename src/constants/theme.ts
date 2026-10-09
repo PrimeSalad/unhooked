@@ -2,41 +2,42 @@
 // (prototype/ and plan.md → Brand & mascot). Never hard-code colors or fonts in screens.
 
 export const colors = {
-  bg: '#FFF6EC', // Cream
-  surface: '#FFFFFF',
-  surfaceMuted: '#F3ECE4', // Peach
-  border: '#F0E2D4',
-  track: '#F3E7DB',
-  text: '#2A1608', // Ink
-  textSoft: '#5C3A22',
-  textMuted: '#7A5B47',
-  textFaint: '#B39580',
-  primary: '#FF6B1A', // Goldfish — always paired with Ink text, never white
-  primaryText: '#2A1608',
-  primarySoft: '#FF8A3D',
-  link: '#C4450B', // Ember — orange text on light backgrounds
-  accent: '#FF6B1A', // Amber — countdown ring, progress
-  pause: '#2A1608', // Deep water — the pause screen
-  pauseText: '#FFF6EC',
-  pauseMuted: '#D9BFA8',
-  lagoon: '#2A1608',
-  lagoonDeep: '#2A1608',
-  shell: '#F3ECE4',
+  bg: '#F7F5EF',
+  surface: '#FFFDF8',
+  surfaceMuted: '#ECEFE7',
+  border: '#DCE1D6',
+  track: '#E3E8DD',
+  text: '#203D35',
+  textSoft: '#4D5E54',
+  textMuted: '#657167',
+  textFaint: '#728074',
+  primary: '#F07842',
+  primaryText: '#20352D',
+  primarySoft: '#F9C9AD',
+  link: '#A34320',
+  accent: '#F07842',
+  pause: '#203D35',
+  pauseText: '#F7F5EF',
+  pauseMuted: '#CBD7CA',
+  lagoon: '#3E6653',
+  lagoonDeep: '#203D35',
+  shell: '#EDF0E8',
   danger: '#B3261E', // high-risk messages only, never user setbacks
-  success: '#2F8F5B',
+  error: '#9A3A0B', // calm ember for form and loading errors (not alarm red)
+  success: '#326846',
   white: '#FFFFFF',
   // Module identity
-  debt: '#2A1608',
-  debtSoft: '#F3ECE4',
-  spend: '#2A1608',
-  spendSoft: '#F3ECE4',
-  scroll: '#2A1608',
-  scrollSoft: '#F3ECE4',
+  debt: '#526441',
+  debtSoft: '#E9EDDF',
+  spend: '#A34320',
+  spendSoft: '#FAEBDD',
+  scroll: '#386257',
+  scrollSoft: '#E5EDE5',
 } as const;
 
-export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28, xxxl: 40 } as const;
+export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const;
 
-export const radius = { sm: 10, md: 14, lg: 20, xl: 24, xxl: 30, pill: 999 } as const;
+export const radius = { sm: 6, md: 10, lg: 16, xl: 20, xxl: 24, pill: 999 } as const;
 
 /** Poppins families. On Android a custom font ignores fontWeight, so pick the family per weight. */
 export const fonts = {
@@ -49,11 +50,11 @@ export const fonts = {
 
 export const shadow = {
   card: {
-    shadowColor: '#2A1608',
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
+    shadowColor: '#203D35',
+    shadowOpacity: 0.025,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 0,
   },
 } as const;
 
@@ -61,7 +62,7 @@ export const motion = {
   swim: 800, // Ginto moving between positions
   hook: 900, // hook drop / yank
   breath: 4000, // pause breathing: 4s in, 4s out
-  rise: 450, // screen content entrance
+  rise: 180,
 } as const;
 
 export type ModuleKey = 'debt' | 'spend' | 'scroll';
@@ -69,4 +70,7 @@ export type ModuleKey = 'debt' | 'spend' | 'scroll';
 export const layout = {
   /** Room the floating tab bar takes at the bottom of tab screens. */
   tabBarSpace: 100,
+  sidebarWidth: 240,
+  desktop: 1000,
+  contentWidth: 1120,
 } as const;

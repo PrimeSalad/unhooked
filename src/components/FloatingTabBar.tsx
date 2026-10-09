@@ -4,12 +4,12 @@
 import { Icon } from '@/components/Icon';
 import { router, type Tabs } from 'expo-router';
 import { useState, type ComponentProps } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ginto } from '@/components/mascot/Ginto';
 import { Text, type IconName } from '@/components/ui';
-import { colors, fonts, radius, shadow, spacing } from '@/constants/theme';
+import { colors, fonts, layout, radius, shadow, spacing } from '@/constants/theme';
 import { useSession } from '@/store/session';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -59,8 +59,12 @@ function Tab({
 export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
   const insets = useSafeAreaInsets();
   const setQuickPause = useSession((s) => s.setQuickPause);
+  const { width } = useWindowDimensions();
   const visible = state.routes.filter((r) => ICONS[r.name]);
   const half = Math.ceil(visible.length / 2);
+
+  // Desktop web uses the AppShell sidebar instead.
+  if (width >= layout.desktop) return null;
 
   const renderTab = (route: (typeof state.routes)[number]) => {
     const index = state.routes.indexOf(route);

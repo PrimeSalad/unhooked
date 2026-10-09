@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-import { Button, Card, Field, Text } from '@/components/ui';
+import { View } from 'react-native';
+import { Button, Field, Text } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { parsePesoInput } from '@/domain/money';
 import { useSettings } from '@/store/settings';
@@ -12,9 +13,20 @@ export function BudgetSetup() {
   const [bills, setBills] = useState('');
   const [savings, setSavings] = useState('');
   const incomeC = parsePesoInput(income);
+  const billsC = parsePesoInput(bills);
+  const savingsC = parsePesoInput(savings);
+  const valid =
+    !!incomeC && (!bills.trim() || billsC !== null) && (!savings.trim() || savingsC !== null);
   return (
-    <Card style={{ gap: spacing.md }}>
-      <Text variant="strong">First, your month</Text>
+    <View
+      style={{
+        gap: spacing.lg,
+        padding: spacing.xl,
+        backgroundColor: colors.surfaceMuted,
+        borderRadius: 12,
+      }}
+    >
+      <Text variant="heading">Give your budget a starting point.</Text>
       <Text variant="small" color={colors.textMuted}>
         Three rough numbers so I can tell you what a purchase really costs you. Stays on this phone.
       </Text>
@@ -24,6 +36,7 @@ export function BudgetSetup() {
         keyboardType="decimal-pad"
         value={income}
         onChangeText={setIncome}
+        error={income && !incomeC ? 'Enter an amount greater than zero.' : undefined}
       />
       <Field
         label="Fixed bills each month"
@@ -31,6 +44,7 @@ export function BudgetSetup() {
         keyboardType="decimal-pad"
         value={bills}
         onChangeText={setBills}
+        error={bills && billsC === null ? 'Enter a valid amount or leave blank.' : undefined}
       />
       <Field
         label="Savings goal each month"
@@ -38,20 +52,21 @@ export function BudgetSetup() {
         keyboardType="decimal-pad"
         value={savings}
         onChangeText={setSavings}
+        error={savings && savingsC === null ? 'Enter a valid amount or leave blank.' : undefined}
       />
       <Button
         label="Save budget"
-        disabled={!incomeC}
+        disabled={!valid}
         onPress={() =>
           incomeC &&
           setBudget({
             monthlyIncome: incomeC,
-            monthlyFixedBills: parsePesoInput(bills) ?? 0,
-            savingsGoalMonthly: parsePesoInput(savings) ?? 0,
+            monthlyFixedBills: billsC ?? 0,
+            savingsGoalMonthly: savingsC ?? 0,
             payday: null,
           })
         }
       />
-    </Card>
+    </View>
   );
 }

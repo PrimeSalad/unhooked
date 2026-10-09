@@ -11,10 +11,14 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 
 import { ToastHost } from '@/components/Toast';
+import { AppShell } from '@/components/AppShell';
+import { WebStyles } from '@/components/WebStyles';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { colors } from '@/constants/theme';
 import { DatabaseGate } from '@/db/DatabaseGate';
 
 export default function RootLayout() {
+  const reduced = useReducedMotion();
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -41,41 +45,44 @@ export default function RootLayout() {
 
   return (
     <DatabaseGate>
+      <WebStyles />
       <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
-        <Stack.Screen
-          name="pause"
-          options={{ presentation: 'fullScreenModal', animation: 'fade' }}
-        />
-        <Stack.Screen name="unhooked" options={{ animation: 'fade' }} />
-        <Stack.Screen name="break" options={{ animation: 'fade' }} />
-        <Stack.Screen name="check-in" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="debt-new" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="repayment-plan" />
-        <Stack.Screen name="evidence-pack" />
-        <Stack.Screen name="borrow" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="chat" />
-        <Stack.Screen name="spend-check" />
-        <Stack.Screen name="fade-preview" options={{ animation: 'fade' }} />
-        <Stack.Screen name="block/apps" />
-        <Stack.Screen name="block/sites" />
-        <Stack.Screen name="block/permissions" />
-        <Stack.Screen
-          name="shield"
-          options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
-        />
-        <Stack.Screen name="message-check" />
-        <Stack.Screen name="help" />
-        <Stack.Screen name="settings" />
-      </Stack>
+      <AppShell>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.bg },
+            animation: reduced ? 'none' : 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+          <Stack.Screen
+            name="pause"
+            options={{ presentation: 'fullScreenModal', animation: 'fade' }}
+          />
+          <Stack.Screen name="unhooked" options={{ animation: 'fade' }} />
+          <Stack.Screen name="break" options={{ animation: 'fade' }} />
+          <Stack.Screen name="check-in" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="debt-new" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="repayment-plan" />
+          <Stack.Screen name="evidence-pack" />
+          <Stack.Screen name="borrow" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="chat" />
+          <Stack.Screen name="spend-check" />
+          <Stack.Screen name="fade-preview" options={{ animation: 'fade' }} />
+          <Stack.Screen name="block/apps" />
+          <Stack.Screen name="block/sites" />
+          <Stack.Screen name="block/permissions" />
+          <Stack.Screen
+            name="shield"
+            options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
+          />
+          <Stack.Screen name="message-check" />
+          <Stack.Screen name="local-ai" />
+          <Stack.Screen name="settings" />
+        </Stack>
+      </AppShell>
       <ToastHost />
     </DatabaseGate>
   );

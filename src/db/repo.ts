@@ -68,7 +68,7 @@ const toPurchase = (r: PurchaseRow): PlannedPurchase => ({
 
 export async function listPurchases(db: SQLiteDatabase): Promise<PlannedPurchase[]> {
   const rows = await db.getAllAsync<PurchaseRow>(
-    'SELECT * FROM purchases ORDER BY created_at DESC LIMIT 30',
+    'SELECT * FROM purchases ORDER BY created_at DESC',
   );
   return rows.map(toPurchase);
 }
