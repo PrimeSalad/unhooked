@@ -13,7 +13,7 @@
 | Spend | Budget, purchase check (affordability, cheaper option, BNPL true cost), 24h cooling with reminder, recent |
 | Scroll | Guards (apps + sites, schedules, Pause/Strict), Unhook timer, scroll timer with check-in, stats |
 | Safety | On-device message detector (English + Taglish) with highlights; Help |
-| Ask Ginto | On-device answers from the user's numbers; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
+| Ask Ginto | Qwen 2.5 1.5B on device, with Gemma 3 1B when memory is tight; optional microphone and reminder permissions after onboarding; opt-in Claude via `server/ginto-proxy.mjs` (numbers only) |
 | Phase 4B native | `AppGuardService` (usage events → shield deep link), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested |
 | Still open | Phase 2–3 phone tap-through (PDF sharing and cooling reminder), seed demo data, Taglish copy, device test of 4B, Play declarations |
 **Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone.

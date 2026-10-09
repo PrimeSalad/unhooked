@@ -25,8 +25,8 @@ import { colors, fonts, radius, spacing } from '@/constants/theme';
 const STORAGE_HEADROOM = 400_000_000;
 const PROFILE_GROUPS = [
   {
-    title: 'Text-only',
-    ids: ['gemma3-1b', 'qwen2.5-1.5b'] as LocalModelId[],
+    title: 'Chat',
+    ids: ['qwen2.5-1.5b', 'gemma3-1b'] as LocalModelId[],
   },
   {
     title: 'Text + vision',
@@ -215,6 +215,13 @@ export function GemmaModelSheet({
 
       const result = await activeTask.downloadAsync();
       if (!result || cancelRequested.current) return;
+      if (result.status === 401 || result.status === 403) {
+        throw new Error(
+          modelId === 'gemma3-1b'
+            ? 'Gemma 3 returned HTTP 401 because Google’s license locks that file. Hugging Face only sends it to a logged-in account that has accepted the license. Qwen is ready to use. Gemma 4 E2B and E4B download without that login.'
+            : `The model host returned HTTP ${result.status}.`,
+        );
+      }
       if (result.status < 200 || result.status >= 300) {
         throw new Error(`The model host returned HTTP ${result.status}.`);
       }
@@ -311,7 +318,8 @@ export function GemmaModelSheet({
         </View>
 
         <Text variant="caption" color={colors.textMuted}>
-          Auto picks a model and chip for your phone.
+          Auto uses Qwen 2.5 1.5B when memory allows, with Gemma 3 1B as the
+          low-memory fallback.
         </Text>
 
         <View style={styles.deviceCard}>

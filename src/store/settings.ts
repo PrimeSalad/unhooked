@@ -17,6 +17,7 @@ interface SettingsState {
   pauseSeconds: number; // the real delay is the active ingredient (PNAS one sec study)
   cloudAiEnabled: boolean; // opt-in only: Ask Ginto through Claude
   localAiModel: LocalModelChoice; // auto picks a model fit from the current Android device
+  permissionsReviewed: boolean; // microphone and reminder disclosure has been shown
   guardOn: boolean; // master switch for app & website guards
   timerUntil: string | null; // Unhook timer: guarded apps blocked until this time
   fadeAfterMin: number; // doomscroll fade: minutes in a guarded app before the screen washes out (0 = off)
@@ -27,6 +28,7 @@ interface SettingsState {
   setPauseSeconds: (s: number) => void;
   setCloudAi: (v: boolean) => void;
   setLocalAiModel: (v: LocalModelChoice) => void;
+  setPermissionsReviewed: (v: boolean) => void;
   setGuardOn: (v: boolean) => void;
   setTimerUntil: (iso: string | null) => void;
   setFadeAfterMin: (m: number) => void;
@@ -41,6 +43,7 @@ const defaults = {
   pauseSeconds: 10,
   cloudAiEnabled: false,
   localAiModel: 'auto' as LocalModelChoice,
+  permissionsReviewed: false,
   guardOn: true,
   timerUntil: null as string | null,
   fadeAfterMin: 15,
@@ -57,6 +60,7 @@ export const useSettings = create<SettingsState>()(
       setPauseSeconds: (pauseSeconds) => set({ pauseSeconds }),
       setCloudAi: (cloudAiEnabled) => set({ cloudAiEnabled }),
       setLocalAiModel: (localAiModel) => set({ localAiModel }),
+      setPermissionsReviewed: (permissionsReviewed) => set({ permissionsReviewed }),
       setGuardOn: (guardOn) => set({ guardOn }),
       setTimerUntil: (timerUntil) => set({ timerUntil }),
       setFadeAfterMin: (fadeAfterMin) => set({ fadeAfterMin }),

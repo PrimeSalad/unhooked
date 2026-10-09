@@ -66,7 +66,7 @@ export default function WelcomeScreen() {
 
 function Setup({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
-  const { setName, setBudget, setOnboarded } = useSettings();
+  const { setName, setBudget, setOnboarded, setPermissionsReviewed } = useSettings();
   const [name, setNameText] = useState('');
   const [income, setIncome] = useState('');
   const [bills, setBills] = useState('');
@@ -85,6 +85,11 @@ function Setup({ onBack }: { onBack: () => void }) {
       });
     }
     setOnboarded(true);
+    if (Platform.OS === 'android') {
+      router.replace('/permissions');
+      return;
+    }
+    setPermissionsReviewed(true);
     router.replace('/');
   };
 

@@ -104,6 +104,8 @@ export type AppEventType =
   | 'break_taken'
   | 'checkin_completed'
   | 'message_scanned'
+  | 'voice_input_used'
+  | 'permissions_reviewed'
   | 'insight_dismissed'
   | 'block_rule_added'
   | 'block_rule_removed'

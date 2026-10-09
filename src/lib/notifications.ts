@@ -17,7 +17,8 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function allowed(): Promise<boolean> {
+/** Ask only after the in-app disclosure. Returns whether reminders can be scheduled. */
+export async function requestReminderPermission(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   try {
     if (Platform.OS === 'android') {
@@ -41,7 +42,7 @@ export async function remindIn(
   title: string,
   body: string,
 ): Promise<string | null> {
-  if (!(await allowed())) return null;
+  if (!(await requestReminderPermission())) return null;
   try {
     return await Notifications.scheduleNotificationAsync({
       content: { title, body },
@@ -80,7 +81,7 @@ export async function cancelAllReminders(): Promise<void> {
 
 export async function scheduleDebtReminder(debtId: string, dueDate: string): Promise<boolean> {
   const date = repaymentReminderDate(dueDate);
-  if (!date || !(await allowed())) return false;
+  if (!date || !(await requestReminderPermission())) return false;
   try {
     await Notifications.scheduleNotificationAsync({
       identifier: debtReminderId(debtId),
@@ -105,7 +106,7 @@ export async function scheduleCoolingReminder(
   untilIso: string,
 ): Promise<boolean> {
   const date = new Date(untilIso);
-  if (!Number.isFinite(date.getTime()) || date.getTime() <= Date.now() || !(await allowed()))
+  if (!Number.isFinite(date.getTime()) || date.getTime() <= Date.now() || !(await requestReminderPermission()))
     return false;
   try {
     await Notifications.scheduleNotificationAsync({

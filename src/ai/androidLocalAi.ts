@@ -21,12 +21,23 @@ type LocalGeneration = {
   backendNote?: string;
 };
 
+export type OnDeviceSpeechResult = {
+  text: string;
+  confidence?: number | null;
+  languageTag: string;
+};
+
 type GintoLocalAiNativeModule = {
   inspectDevice(): Promise<NativeDeviceInfo>;
   getRuntimeStatus(): Promise<RuntimeStatus>;
   startModel(modelUri: string): Promise<RuntimeStatus>;
   generate(modelUri: string, prompt: string): Promise<LocalGeneration>;
   analyzeMessageRisk?(modelUri: string, message: string): Promise<LocalGeneration>;
+  isOnDeviceSpeechRecognitionAvailable?(): boolean;
+  recognizeSpeech?(languageTag: string): Promise<OnDeviceSpeechResult>;
+  recognizeMultilingualSpeech?(modelDirectory: string): Promise<OnDeviceSpeechResult>;
+  stopSpeechRecognition?(): Promise<void>;
+  cancelSpeechRecognition?(): Promise<void>;
   closeModel(): void;
 };
 
@@ -38,6 +49,58 @@ export function hasAndroidLocalAiRuntime(): boolean {
 
 export function supportsAndroidMessageRiskAnalysis(): boolean {
   return hasAndroidLocalAiRuntime() && NativeLocalAi?.analyzeMessageRisk != null;
+}
+
+export function hasAndroidOnDeviceSpeechRecognition(): boolean {
+  if (
+    !hasAndroidLocalAiRuntime() ||
+    NativeLocalAi?.isOnDeviceSpeechRecognitionAvailable == null
+  ) {
+    return false;
+  }
+  try {
+    return NativeLocalAi.isOnDeviceSpeechRecognitionAvailable();
+  } catch {
+    return false;
+  }
+}
+
+export function hasAndroidMultilingualSpeech(): boolean {
+  return hasAndroidLocalAiRuntime() && NativeLocalAi?.recognizeMultilingualSpeech != null;
+}
+
+export async function recognizeMultilingualSpeech(
+  modelDirectory: string,
+): Promise<OnDeviceSpeechResult> {
+  if (!NativeLocalAi?.recognizeMultilingualSpeech) {
+    throw new Error('Install the latest Android build to use Tagalog voice input.');
+  }
+  return NativeLocalAi.recognizeMultilingualSpeech(modelDirectory);
+}
+
+export async function recognizeAndroidSpeech(
+  languageTag = 'en-US',
+): Promise<OnDeviceSpeechResult> {
+  if (!hasAndroidOnDeviceSpeechRecognition() || !NativeLocalAi?.recognizeSpeech) {
+    throw new Error('Private on-device voice input is not available on this phone.');
+  }
+  return NativeLocalAi.recognizeSpeech(languageTag);
+}
+
+export async function stopAndroidSpeechRecognition(): Promise<void> {
+  await NativeLocalAi?.stopSpeechRecognition?.();
+}
+
+export async function cancelAndroidSpeechRecognition(): Promise<void> {
+  await NativeLocalAi?.cancelSpeechRecognition?.();
+}
+
+export function isSpeechRecognitionCancellation(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as Error & { code?: string }).code === 'ERR_SPEECH_CANCELLED'
+  );
 }
 
 export async function inspectAndroidDevice(): Promise<AndroidDeviceProfile | null> {

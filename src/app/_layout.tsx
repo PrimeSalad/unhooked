@@ -51,6 +51,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+        <Stack.Screen name="permissions" options={{ animation: 'fade' }} />
         <Stack.Screen
           name="pause"
           options={{ presentation: 'fullScreenModal', animation: 'fade' }}

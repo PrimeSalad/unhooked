@@ -18,6 +18,23 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
   compilerOptions.freeCompilerArgs.add("-Xskip-metadata-version-check")
 }
 
+def sherpaAar = file('libs/sherpa-onnx.aar')
+
+tasks.register('fetchSherpaOnnx') {
+  outputs.file(sherpaAar)
+  onlyIf { !sherpaAar.exists() || sherpaAar.length() < 1_000_000L }
+  doLast {
+    sherpaAar.parentFile.mkdirs()
+    def url = new URI('https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-1.13.8.aar').toURL()
+    url.withInputStream { input ->
+      sherpaAar.withOutputStream { output -> output << input }
+    }
+  }
+}
+
+preBuild.dependsOn('fetchSherpaOnnx')
+
 dependencies {
   implementation 'com.google.ai.edge.litertlm:litertlm-android:0.16.1'
+  implementation files(sherpaAar)
 }
