@@ -162,15 +162,6 @@ export default function DebtScreen() {
       <LargeTitle
         eyebrow="What you owe, and what you are owed"
         title="Debt"
-        right={
-          <Button
-            label={owedTab ? 'Add debt' : 'Add loan'}
-            kind="ink"
-            size="sm"
-            style={{ minHeight: 40, paddingHorizontal: spacing.lg }}
-            onPress={() => router.push({ pathname: '/debt-new', params: { direction: tab } })}
-          />
-        }
       />
 
       <Segmented
