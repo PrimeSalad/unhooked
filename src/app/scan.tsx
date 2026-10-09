@@ -71,6 +71,7 @@ export default function ScanScreen() {
   const [amount, setAmount] = useState('');
   const [due, setDue] = useState('');
   const [saved, setSaved] = useState({ debt: false, evidence: false });
+  const [typed, setTyped] = useState(false);
   const reading = !!progress && progress.value !== 1;
 
   const run = (raw: string) => {
@@ -82,6 +83,20 @@ export default function ScanScreen() {
     setSaved({ debt: false, evidence: false });
   };
 
+  // Typed or pasted text is read a moment after the person stops typing; no button needed.
+  const onType = (value: string) => {
+    setText(value);
+    setTyped(true);
+  };
+  useEffect(() => {
+    if (!typed) return;
+    const t = setTimeout(() => {
+      if (text.trim()) run(text);
+      else setScan(null);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [text, typed]);
+
   const readImage = async (picked: Picked) => {
     setFailed(false);
     setScan(null);
@@ -89,6 +104,8 @@ export default function ScanScreen() {
     const found = await readImageText(picked.uri, setProgress);
     setProgress(null);
     if (found) {
+      setTyped(false);
+      setPasting(false);
       setText(found);
       run(found);
     } else {
@@ -118,6 +135,7 @@ export default function ScanScreen() {
     setFailed(false);
     setPasting(false);
     setShowText(false);
+    setTyped(false);
   };
 
   const amountC = parsePesoInput(amount);
@@ -266,24 +284,18 @@ export default function ScanScreen() {
         </Card>
       )}
 
-      {!scan && !reading && (
+      {(pasting || !scan) && !reading && (
         <>
           {pasting ? (
             <Card>
               <Field
                 label="Paste or type the text"
                 value={text}
-                onChangeText={setText}
+                onChangeText={onType}
                 multiline
                 placeholder="Total amount due ₱3,000 · Due Oct 15 · SEC Reg. No. …"
+                hint="Details show up below as you paste or type."
                 style={{ minHeight: 110, textAlignVertical: 'top', paddingTop: 14 }}
-              />
-              <Button
-                label="Read it"
-                kind="ink"
-                icon="scan"
-                disabled={!text.trim()}
-                onPress={() => run(text)}
               />
             </Card>
           ) : (
@@ -304,11 +316,13 @@ export default function ScanScreen() {
               <Text variant="strong">
                 {found.length ? `Found ${found.length} of 3 details` : 'No loan details found'}
               </Text>
-              <Pressable accessibilityRole="button" onPress={() => setShowText((v) => !v)}>
-                <Text variant="caption" style={{ fontFamily: fonts.semibold }}>
-                  {showText ? 'Hide text' : 'See text'}
-                </Text>
-              </Pressable>
+              {pasting ? null : (
+                <Pressable accessibilityRole="button" onPress={() => setShowText((v) => !v)}>
+                  <Text variant="caption" style={{ fontFamily: fonts.semibold }}>
+                    {showText ? 'Hide text' : 'See text'}
+                  </Text>
+                </Pressable>
+              )}
             </Row>
             {found.length ? (
               <View style={styles.chips}>
@@ -324,22 +338,15 @@ export default function ScanScreen() {
                 Fill in the details below, or check that the text was read right.
               </Text>
             )}
-            {showText ? (
+            {showText && !pasting ? (
               <>
                 <Field
                   label="Text I read"
                   value={text}
-                  onChangeText={setText}
+                  onChangeText={onType}
                   multiline
+                  hint="Fix anything I misread; the details update as you type."
                   style={{ minHeight: 110, textAlignVertical: 'top', paddingTop: 14 }}
-                />
-                <Button
-                  label="Read this text again"
-                  kind="outline"
-                  size="sm"
-                  icon="refresh"
-                  disabled={!text.trim()}
-                  onPress={() => run(text)}
                 />
               </>
             ) : null}
