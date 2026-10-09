@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -28,6 +29,7 @@ export default function MessageCheckScreen() {
   const { data: numberReports } = useDbQuery(listNumberReports, []);
   const numberSummaries = useMemo(() => summarizeNumbers(numberReports), [numberReports]);
   const showToast = useSession((s) => s.showToast);
+  const { text: sharedText } = useLocalSearchParams<{ text?: string }>();
   const [text, setText] = useState('');
   const [lender, setLender] = useState('');
   const [result, setResult] = useState<{ text: string; risk: MessageRisk } | null>(null);
@@ -109,6 +111,18 @@ export default function MessageCheckScreen() {
       pasteTimer.current = setTimeout(() => void check(next), 500);
     }
   };
+
+  // Text shared from Messages ("Share to Unhooked") is checked right away.
+  const handledShare = useRef<string | null>(null);
+  useEffect(() => {
+    const shared = sharedText?.trim();
+    if (!shared || handledShare.current === shared) return;
+    handledShare.current = shared;
+    setText(shared);
+    void check(shared);
+    // check reads only its argument and stable refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedText]);
 
   const pasteAndAnalyze = async () => {
     try {

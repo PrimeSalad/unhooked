@@ -47,6 +47,8 @@ Sources and how each one maps to a feature: [plan.md §4](./plan.md#4-research--
 - **Scan a message:** paste a collector's text; threats, shaming and exposure are highlighted and explained (English and Taglish).
 - **Evidence Pack:** screenshots and messages kept on the phone, exported as a dated PDF when the user is ready to report.
 - **Reported numbers:** a local log of collector numbers that can be moved between phones as a file.
+- **Collector calls (Android 10+):** with Unhooked as the caller ID & spam app, an incoming number is checked against the user's own number log and block list (no server, no call audio, no `READ_CALL_LOG`). Numbers in the log can be notified, silenced or declined; blocked numbers are always declined; an unknown number calling 3+ times in an hour only gets a notice. Every flagged call is saved to the Evidence Pack, with a note when it came before 6 AM or after 10 PM (SEC MC No. 18, s. 2019, with its exceptions).
+- **Share to Unhooked:** share a collector SMS from Messages and it opens in Scan a message (no `READ_SMS`).
 
 ### Spend
 
@@ -66,6 +68,7 @@ Sources and how each one maps to a feature: [plan.md §4](./plan.md#4-research--
 
 - A chat about the user's own budget, debts, purchases and scrolling, by **text, voice (Tagalog, Taglish or English) or photo**.
 - Rules compute the answer; the on-device model phrases it. Crisis wording skips every model and returns the NCMH hotline and 911.
+- **Log by chat:** "gumastos ako ng 250 sa pagkain", "nagbayad ako ng 500 sa Tala", "umutang ako ng 2k sa GCash due Oct 30", "nag-scroll ako ng 45 minutes sa TikTok", or a receipt / e-wallet / loan-app photo. Rules read it (never the model) and a Save / Cancel card confirms it.
 
 ### Help and safety
 
@@ -75,14 +78,14 @@ Sources and how each one maps to a feature: [plan.md §4](./plan.md#4-research--
 
 ## How the local AI works
 
-| Part           | What runs on the phone                                                                                                                                                                        | Code                                                                                                                                                                |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Language model | Gemma 4 E2B (default, ~2.6 GB, 6 GB+ RAM, reads photos), Gemma 4 E4B (~3.7 GB, 8 GB+ RAM, reads photos), through **LiteRT-LM** | [`modules/ginto-local-ai`](./modules/ginto-local-ai), [`src/ai/localModels.ts`](./src/ai/localModels.ts), [`src/ai/androidLocalAi.ts`](./src/ai/androidLocalAi.ts)  |
-| Hardware       | Tries the **NPU**, then the **GPU**, then the **CPU**; the user can pin a processor and choose a Balanced or Max mode in Ask Ginto → model settings                                           | [`GintoLocalAiModule.kt`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt)                                           |
-| Model choice   | `recommendLocalModel` reads total and free RAM, low-memory state, battery and free storage, and suggests the model that fits                                                                  | [`src/ai/localModels.ts`](./src/ai/localModels.ts)                                                                                                                  |
-| Speech         | Whisper small (int8, ~375 MB) through sherpa-onnx                                                                                                                                             | [`WhisperSpeech.kt`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/WhisperSpeech.kt), [`src/ai/speechModel.ts`](./src/ai/speechModel.ts) |
-| OCR            | Google ML Kit on Android; Tesseract.js in the browser                                                                                                                                         | [`src/lib/ocr.ts`](./src/lib/ocr.ts), [`src/lib/ocr.web.ts`](./src/lib/ocr.web.ts)                                                                                  |
-| Rules          | Explainable patterns for collector threats and SEC numbers; all money math                                                                                                                    | [`src/domain`](./src/domain)                                                                                                                                        |
+| Part           | What runs on the phone                                                                                                                              | Code                                                                                                                                                                |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language model | Gemma 4 E2B (default, ~2.6 GB, 6 GB+ RAM, reads photos), Gemma 4 E4B (~3.7 GB, 8 GB+ RAM, reads photos), through **LiteRT-LM**                      | [`modules/ginto-local-ai`](./modules/ginto-local-ai), [`src/ai/localModels.ts`](./src/ai/localModels.ts), [`src/ai/androidLocalAi.ts`](./src/ai/androidLocalAi.ts)  |
+| Hardware       | Tries the **NPU**, then the **GPU**, then the **CPU**; the user can pin a processor and choose a Balanced or Max mode in Ask Ginto → model settings | [`GintoLocalAiModule.kt`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt)                                           |
+| Model choice   | `recommendLocalModel` reads total and free RAM, low-memory state, battery and free storage, and suggests the model that fits                        | [`src/ai/localModels.ts`](./src/ai/localModels.ts)                                                                                                                  |
+| Speech         | Whisper small (int8, ~375 MB) through sherpa-onnx                                                                                                   | [`WhisperSpeech.kt`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/WhisperSpeech.kt), [`src/ai/speechModel.ts`](./src/ai/speechModel.ts) |
+| OCR            | Google ML Kit on Android; Tesseract.js in the browser                                                                                               | [`src/lib/ocr.ts`](./src/lib/ocr.ts), [`src/lib/ocr.web.ts`](./src/lib/ocr.web.ts)                                                                                  |
+| Rules          | Explainable patterns for collector threats and SEC numbers; all money math                                                                          | [`src/domain`](./src/domain)                                                                                                                                        |
 
 **Rules compute, the model phrases.** Every amount comes from tested code in `src/domain` (money is integer centavos). The model only rewords those facts, and [`src/ai/guard.ts`](./src/ai/guard.ts) rejects any output that contains a number the app did not compute or a shaming word, keeping the plain template instead. The pause uses a fresh one-shot conversation every time, so chat history never leaks into it.
 
@@ -173,7 +176,7 @@ modules/
 
 ## Privacy and network
 
-Records, chats, voice and photos stay on the device. These are the only times the app or its build reaches the network:
+Records, chats, voice and photos stay on the device, and Android cloud backup is off for the app. People agree to the [Privacy Policy and Terms of Use](./src/constants/legal.ts) before first use (and again when they change); both are in Settings. These are the only times the app or its build reaches the network:
 
 | Service                                                                                                                | Used for                               | When                                                                      |
 | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------- |
@@ -183,6 +186,7 @@ Records, chats, voice and photos stay on the device. These are the only times th
 | [jsDelivr](https://www.jsdelivr.com/package/npm/tesseract.js) (Tesseract.js files)                                     | Screenshot reader on web               | The first scan on web; the screenshot is read in the browser              |
 | [Cloudflare 1.1.1.1](https://one.one.one.one/) and [Google Public DNS](https://developers.google.com/speed/public-dns) | Upstream DNS for the website guard     | Only while a website guard is on; DNS lookups only                        |
 | [SEC Philippines](https://www.sec.gov.ph) and the help links                                                           | Opening an official website            | Only when the user taps a link                                            |
+| [Google ML Kit](https://developers.google.com/ml-kit/android-data-disclosure)                                          | Usage and diagnostic metrics           | When a photo is read; the image itself stays on the phone                 |
 
 ## Help and safety resources
 

@@ -2,7 +2,11 @@ import { NativeModule, requireOptionalNativeModule } from 'expo';
 
 import type { LaunchableApp } from './UnhookedGuard.types';
 
-declare class UnhookedGuardModule extends NativeModule {
+type UnhookedGuardEvents = {
+  onSharedText(event: { text: string }): void;
+};
+
+declare class UnhookedGuardModule extends NativeModule<UnhookedGuardEvents> {
   getLaunchableApps(includeIcons: boolean): Promise<LaunchableApp[]>;
   hasUsageAccess(): boolean;
   canDrawOverlays(): boolean;
@@ -16,6 +20,12 @@ declare class UnhookedGuardModule extends NativeModule {
   prepareWebGuard(): Promise<boolean>;
   startWebGuard(domainsJson: string): void;
   stopWebGuard(): void;
+  isCallScreeningAvailable(): boolean;
+  hasCallScreeningRole(): boolean;
+  requestCallScreeningRole(): Promise<boolean>;
+  configureCallScreening(numbersJson: string, mode: string): void;
+  takeScreenedCalls(): string;
+  takeSharedText(): string | null;
 }
 
 /** Null in Expo Go, on iOS and on web: the guard needs an Android development build. */

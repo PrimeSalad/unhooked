@@ -119,6 +119,8 @@ export type AppEventType =
   | 'break_taken'
   | 'checkin_completed'
   | 'message_scanned'
+  | 'message_shared' // text shared into Unhooked from another app
+  | 'collector_call_flagged' // a ScreenedCall from src/domain/callScreen
   | 'voice_input_used'
   | 'permissions_reviewed'
   | 'insight_dismissed'

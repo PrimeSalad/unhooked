@@ -96,3 +96,46 @@ export async function startWebGuard(domains: string[]) {
 export function stopWebGuard() {
   native()?.stopWebGuard();
 }
+
+// ---------- Collector call screening (Android 10+, user picks Unhooked as screening app) ----------
+
+/** False on Android 9 and older, in Expo Go, on iOS and on web. */
+export function isCallScreeningAvailable(): boolean {
+  return native()?.isCallScreeningAvailable() ?? false;
+}
+
+export function hasCallScreeningRole(): boolean {
+  return native()?.hasCallScreeningRole() ?? false;
+}
+
+/** Opens Android's own dialog. Call only after the in-app disclosure and the user tapping Turn on. */
+export async function requestCallScreeningRole(): Promise<boolean> {
+  return (await native()?.requestCallScreeningRole()) ?? false;
+}
+
+/** Hands the number log and the chosen action to the screening service. */
+export function configureCallScreening(
+  numbers: { number: string; label: string; reports: number; block: boolean }[],
+  mode: 'off' | 'notify' | 'silence' | 'reject',
+): void {
+  native()?.configureCallScreening(JSON.stringify(numbers), mode);
+}
+
+/** JSON of calls flagged since the last call; the app parses it with src/domain/callScreen. */
+export function takeScreenedCalls(): string | null {
+  return native()?.takeScreenedCalls() ?? null;
+}
+
+// ---------- Share to Unhooked (text from Messages; no READ_SMS) ----------
+
+/** Text the app was opened with from the share sheet, once. */
+export function takeSharedText(): string | null {
+  return native()?.takeSharedText() ?? null;
+}
+
+/** Text shared while the app was already open. */
+export function addSharedTextListener(listener: (text: string) => void): { remove(): void } {
+  const guard = native();
+  if (!guard) return { remove() {} };
+  return guard.addListener('onSharedText', (event) => listener(event.text));
+}

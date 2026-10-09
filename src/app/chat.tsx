@@ -43,7 +43,6 @@ import {
   warmAndroidLocalModel,
 } from '@/ai/androidLocalAi';
 import { allowedNumbers, keepsNumbers, soundsTagalog, vetModelText } from '@/ai/guard';
-import { LOCAL_MODEL_BY_ID, type LocalModelId } from '@/ai/localModels';
 import { ensureSpeechModel, isSpeechModelReady, SPEECH_MODEL_BYTES } from '@/ai/speechModel';
 import { Ginto } from '@/components/mascot/Ginto';
 import { GemmaModelSheet } from '@/components/chat/GemmaModelSheet';
@@ -113,10 +112,7 @@ export default function ChatScreen() {
   const [photo, setPhoto] = useState<ChatMessage['image'] | null>(null);
   const [askMicConsent, setAskMicConsent] = useState(false);
   const [showModelSettings, setShowModelSettings] = useState(false);
-  const [activeBackend, setActiveBackend] = useState<string | null>(null);
-  const [answeredWith, setAnsweredWith] = useState<LocalModelId | null>(null);
   const [phase, setPhase] = useState<ThinkingPhase>('thinking');
-  const [phaseModel, setPhaseModel] = useState<string | null>(null);
   const [phaseImage, setPhaseImage] = useState(false);
   const [listening, setListening] = useState(false);
   const [writingSpeech, setWritingSpeech] = useState(false);
@@ -141,13 +137,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    let mounted = true;
-    void warmAndroidLocalModel(localAiModel).then((backend) => {
-      if (mounted && backend) setActiveBackend(backend);
-    });
-    return () => {
-      mounted = false;
-    };
+    void warmAndroidLocalModel(localAiModel);
   }, [localAiModel]);
 
   const pickPhoto = async () => {
@@ -286,7 +276,6 @@ export default function ChatScreen() {
     setInput('');
     setTyping(true);
     setPhase('thinking');
-    setPhaseModel(null);
     setPhaseImage(!!userMsg.image);
 
     const ctx = { name, budget, overview: await getOverview(db) };
@@ -328,10 +317,7 @@ export default function ChatScreen() {
         // the computed answer, or the user's own question. Otherwise keep the rules' reply.
         // Photo amounts come from the user's own document, so they can't be provenance-checked.
         const allowed = userMsg.image ? 'any' : allowedNumbers([summary, computed ?? '', text]);
-        const onPhase = (next: ThinkingPhase, modelId: LocalModelId) => {
-          setPhase(next);
-          setPhaseModel(LOCAL_MODEL_BY_ID[modelId].name);
-        };
+        const onPhase = (next: ThinkingPhase) => setPhase(next);
         let generation = await generateAndroidLocalReply(
           localAiModel,
           text,
@@ -359,9 +345,7 @@ export default function ChatScreen() {
           );
         }
         if (generation) {
-          setActiveBackend(generation.backend);
           if (passes(generation.text)) {
-            setAnsweredWith(generation.modelId);
             reply = {
               id: nextId(),
               role: 'ginto',
@@ -401,16 +385,7 @@ export default function ChatScreen() {
         <Ginto mood={typing ? 'thinking' : 'happy'} size={58} />
         <View style={{ flex: 1 }}>
           <Text variant="heading">Ginto</Text>
-          <StatusLine
-            activeBackend={activeBackend}
-            modelName={
-              answeredWith
-                ? LOCAL_MODEL_BY_ID[answeredWith].name
-                : localAiModel === 'auto'
-                  ? 'Auto'
-                  : LOCAL_MODEL_BY_ID[localAiModel].name
-            }
-          />
+          <RotatingTip />
         </View>
         <IconButton
           icon="settings"
@@ -475,7 +450,7 @@ export default function ChatScreen() {
         {typing && (
           <ThinkingBubble
             phase={phase}
-            modelName={phaseModel}
+            modelName={null}
             image={phaseImage}
             style={[styles.bubble, styles.ginto]}
           />
@@ -644,24 +619,32 @@ export default function ChatScreen() {
         onClose={() => setShowModelSettings(false)}
         modelChoice={localAiModel}
         onModelChoiceChange={setLocalAiModel}
-        onBackendChange={setActiveBackend}
+        onBackendChange={() => undefined}
       />
     </KeyboardAvoidingView>
   );
 }
 
-function StatusLine({
-  activeBackend,
-  modelName,
-}: {
-  activeBackend: string | null;
-  modelName: string;
-}) {
+const TIPS = [
+  'You can log anything here',
+  'Try: “gumastos ako ng 250 sa pagkain”',
+  'Send a receipt photo to log it',
+  'Ask: “ano ang babayaran ko this month?”',
+  'Tap the mic and talk in Taglish',
+  'Everything stays on your phone',
+];
+
+/** A quiet hint under Ginto's name that changes every few seconds. */
+function RotatingTip() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setI((n) => (n + 1) % TIPS.length), 4000);
+    return () => clearInterval(timer);
+  }, []);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <View style={[styles.status, { backgroundColor: colors.success }]} />
-      <Text variant="caption">{activeBackend ? `${modelName} · ${activeBackend}` : modelName}</Text>
-    </View>
+    <Text variant="caption" numberOfLines={1}>
+      {TIPS[i]}
+    </Text>
   );
 }
 
@@ -738,7 +721,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  status: { width: 8, height: 8, borderRadius: 4 },
   photo: { width: 220, height: 220, borderRadius: radius.md, marginBottom: spacing.sm },
   preview: {
     flexDirection: 'row',

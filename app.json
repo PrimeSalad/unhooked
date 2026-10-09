@@ -19,8 +19,16 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "ph.appbuilders.unhooked",
+      "allowBackup": false,
       "permissions": [
         "android.permission.RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "SEND",
+          "category": ["DEFAULT"],
+          "data": [{ "mimeType": "text/plain" }]
+        }
       ]
     },
     "web": {

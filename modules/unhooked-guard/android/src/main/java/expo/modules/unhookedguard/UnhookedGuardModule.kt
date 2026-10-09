@@ -2,6 +2,7 @@ package expo.modules.unhookedguard
 
 import android.app.Activity
 import android.app.AppOpsManager
+import android.app.role.RoleManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -96,6 +97,61 @@ class UnhookedGuardModule : Module() {
         pendingVpnConsent?.resolve(payload.resultCode == Activity.RESULT_OK)
         pendingVpnConsent = null
       }
+      if (payload.requestCode == CALL_SCREEN_REQUEST) {
+        pendingCallScreenRole?.resolve(holdsCallScreeningRole())
+        pendingCallScreenRole = null
+      }
+    }
+
+    // ---------- collector call screening ----------
+
+    Function("isCallScreeningAvailable") {
+      Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+        roleManager()?.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) == true
+    }
+
+    Function("hasCallScreeningRole") { holdsCallScreeningRole() }
+
+    /** Shows Android's own "set as call screening app" dialog. Call after the in-app disclosure. */
+    AsyncFunction("requestCallScreeningRole") { promise: Promise ->
+      val roles = roleManager()
+      val activity = appContext.currentActivity
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || roles == null || activity == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      if (roles.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
+        promise.resolve(true)
+        return@AsyncFunction
+      }
+      pendingCallScreenRole = promise
+      activity.startActivityForResult(
+        roles.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING),
+        CALL_SCREEN_REQUEST,
+      )
+    }
+
+    Function("configureCallScreening") { numbersJson: String, mode: String ->
+      require(mode in listOf("off", "notify", "silence", "reject")) { "Unknown call screening mode." }
+      CallStore.configure(context, numbersJson, mode)
+    }
+
+    Function("takeScreenedCalls") { CallStore.takeFlagged(context) }
+
+    // ---------- "Share to Unhooked" from Messages (no READ_SMS) ----------
+
+    Events("onSharedText")
+
+    /** Text shared into the app when it was opened from the share sheet; consumed once. */
+    Function("takeSharedText") {
+      val activity = appContext.currentActivity ?: return@Function null
+      val text = sharedText(activity.intent)
+      if (text != null) activity.intent = Intent()
+      text
+    }
+
+    OnNewIntent { intent ->
+      sharedText(intent)?.let { sendEvent("onSharedText", mapOf("text" to it)) }
     }
 
     Function("startWebGuard") { domainsJson: String ->
@@ -113,6 +169,19 @@ class UnhookedGuardModule : Module() {
   }
 
   private var pendingVpnConsent: Promise? = null
+  private var pendingCallScreenRole: Promise? = null
+
+  private fun roleManager(): RoleManager? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) context.getSystemService(RoleManager::class.java) else null
+
+  private fun holdsCallScreeningRole(): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+      roleManager()?.isRoleHeld(RoleManager.ROLE_CALL_SCREENING) == true
+
+  private fun sharedText(intent: Intent?): String? {
+    if (intent?.action != Intent.ACTION_SEND || intent.type?.startsWith("text/") != true) return null
+    return intent.getStringExtra(Intent.EXTRA_TEXT)?.trim()?.takeIf { it.isNotEmpty() }?.take(5_000)
+  }
 
   private fun openApp(packageName: String) {
     val launch = context.packageManager.getLaunchIntentForPackage(packageName) ?: return
@@ -148,6 +217,7 @@ class UnhookedGuardModule : Module() {
 
   private companion object {
     const val VPN_REQUEST = 4211
+    const val CALL_SCREEN_REQUEST = 4212
   }
 
   /** Apps that must never be guarded: calling, texting and system Settings. */

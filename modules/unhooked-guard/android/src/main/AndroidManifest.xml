@@ -36,6 +36,17 @@
                 android:value="User-configured pause before opening apps the user chose to guard" />
         </service>
 
+        <!-- Collector call screening: active only after the user picks Unhooked as the call
+             screening app. Sees the caller's number only; no READ_CALL_LOG, no call audio. -->
+        <service
+            android:name="expo.modules.unhookedguard.CollectorScreeningService"
+            android:exported="true"
+            android:permission="android.permission.BIND_SCREENING_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService" />
+            </intent-filter>
+        </service>
+
         <!-- Local DNS-only VPN for website guards. No traffic leaves the device through us. -->
         <service
             android:name="expo.modules.unhookedguard.WebGuardVpnService"

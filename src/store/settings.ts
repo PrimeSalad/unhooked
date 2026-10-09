@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import type { CallScreenMode } from '@/domain/callScreen';
 import type { BudgetProfile } from '@/domain/types';
 import {
   LOCAL_MODEL_BY_ID,
@@ -28,6 +29,9 @@ interface SettingsState {
   timerUntil: string | null; // Unhook timer: guarded apps blocked until this time
   fadeAfterMin: number; // doomscroll fade: minutes in a guarded app before the screen washes out (0 = off)
   lastBreakIdea: string | null; // last break suggestion shown, so we never repeat it
+  callScreenMode: CallScreenMode; // what happens to calls from numbers in the number log
+  blockedNumbers: string[]; // +639… numbers always declined while call screening is on
+  acceptedTermsVersion: string | null; // LEGAL_VERSION the user agreed to, if any
   setOnboarded: (v: boolean) => void;
   setName: (v: string) => void;
   setBudget: (b: BudgetProfile | null) => void;
@@ -41,6 +45,9 @@ interface SettingsState {
   setTimerUntil: (iso: string | null) => void;
   setFadeAfterMin: (m: number) => void;
   setLastBreakIdea: (id: string | null) => void;
+  setCallScreenMode: (m: CallScreenMode) => void;
+  setBlockedNumbers: (numbers: string[]) => void;
+  setAcceptedTermsVersion: (v: string) => void;
   reset: () => void;
 }
 
@@ -58,6 +65,9 @@ const defaults = {
   timerUntil: null as string | null,
   fadeAfterMin: 15,
   lastBreakIdea: null as string | null,
+  callScreenMode: 'notify' as CallScreenMode,
+  blockedNumbers: [] as string[],
+  acceptedTermsVersion: null as string | null,
 };
 
 export const useSettings = create<SettingsState>()(
@@ -77,6 +87,9 @@ export const useSettings = create<SettingsState>()(
       setTimerUntil: (timerUntil) => set({ timerUntil }),
       setFadeAfterMin: (fadeAfterMin) => set({ fadeAfterMin }),
       setLastBreakIdea: (lastBreakIdea) => set({ lastBreakIdea }),
+      setCallScreenMode: (callScreenMode) => set({ callScreenMode }),
+      setBlockedNumbers: (blockedNumbers) => set({ blockedNumbers }),
+      setAcceptedTermsVersion: (acceptedTermsVersion) => set({ acceptedTermsVersion }),
       reset: () => set(defaults),
     }),
     {

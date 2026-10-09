@@ -192,6 +192,17 @@ export default function SettingsScreen() {
           subtitle="Hotlines and where to report"
           onPress={() => router.push('/help')}
         />
+        <GroupRow
+          icon="lock"
+          title="Privacy Policy"
+          subtitle="What stays on your phone"
+          onPress={() => router.push('/legal?doc=privacy')}
+        />
+        <GroupRow
+          icon="file"
+          title="Terms of Use"
+          onPress={() => router.push('/legal?doc=terms')}
+        />
       </Group>
 
       <Button label="Delete all my data" kind="ghost" icon="trash" onPress={confirmDelete} />

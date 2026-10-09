@@ -10,6 +10,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 
+import { CollectorCallBridge } from '@/components/CollectorCallBridge';
 import { ModelDownloadHost } from '@/components/ModelDownloadPill';
 import { PhoneFrame } from '@/components/PhoneFrame';
 import { ToastHost } from '@/components/Toast';
@@ -46,6 +47,7 @@ export default function RootLayout() {
   return (
     <PhoneFrame>
       <DatabaseGate>
+        <CollectorCallBridge />
         <StatusBar style="dark" />
         <Stack
           screenOptions={{
@@ -58,6 +60,8 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="agree" options={{ animation: 'fade' }} />
+          <Stack.Screen name="legal" />
           <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
           <Stack.Screen name="permissions" options={{ animation: 'fade' }} />
           <Stack.Screen
@@ -78,6 +82,7 @@ export default function RootLayout() {
           <Stack.Screen name="repayment-plan" />
           <Stack.Screen name="evidence-pack" />
           <Stack.Screen name="number-log" />
+          <Stack.Screen name="calls" />
           <Stack.Screen
             name="borrow"
             options={{ presentation: 'modal', animation: 'slide_from_bottom' }}

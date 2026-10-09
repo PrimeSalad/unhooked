@@ -20,6 +20,7 @@ import {
   Text,
   type IconName,
 } from '@/components/ui';
+import { LEGAL_VERSION } from '@/constants/legal';
 import { colors, radius, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
 import { recentEvents } from '@/db/events';
@@ -70,6 +71,7 @@ export default function TodayScreen() {
   const showToast = useSession((s) => s.showToast);
   const hydrated = useSettingsHydrated();
   const onboarded = useSettings((s) => s.onboarded);
+  const acceptedTerms = useSettings((s) => s.acceptedTermsVersion);
   const permissionsReviewed = useSettings((s) => s.permissionsReviewed);
   const name = useSettings((s) => s.name);
   const timerUntil = useSettings((s) => s.timerUntil);
@@ -87,6 +89,8 @@ export default function TodayScreen() {
   }, [todayKey]);
 
   if (!hydrated) return null;
+  // Terms and privacy come first, and again whenever they change.
+  if (acceptedTerms !== LEGAL_VERSION) return <Redirect href="/agree" />;
   if (!onboarded) return <Redirect href="/welcome" />;
   if (Platform.OS === 'android' && !permissionsReviewed) return <Redirect href="/permissions" />;
 
