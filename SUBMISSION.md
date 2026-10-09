@@ -180,7 +180,7 @@ Records stay on the device. The app only reaches the network in these cases, and
 | A website guard is on (Android) | DNS lookups only, through a local VPN |
 | Tapping a help or SEC link | Opens the browser |
 
-The optional cloud chat described in the README is off by default and never used by the pause.
+There is no cloud AI. Chats, voice, photos and records are never sent to an AI service.
 
 ## Verify it yourself
 

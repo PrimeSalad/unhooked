@@ -1,6 +1,5 @@
 // The AI layer generates short, labeled text for pause cards, insights and check-ins.
-// Default provider is fully local (templates + rules). A cloud provider is opt-in only,
-// must be disclosed to the user, and must go through a server proxy (never ship API keys).
+// Everything is generated on the phone: templates and rules, phrased by the on-device model.
 
 import type { Certainty, PauseKind, WellnessCheckIn } from '@/domain/types';
 
@@ -24,7 +23,7 @@ export interface Reflection {
   lines: LabeledLine[]; // 1–3 context lines
   suggestions: LabeledLine[]; // 1–3 practical options
   tone: Tone;
-  source: 'local' | 'cloud';
+  source: 'local';
   /** Present when the on-device language model rephrased the headline and suggestion. */
   phrasing?: { model: string; backend: string; ms: number };
 }
@@ -37,6 +36,6 @@ export interface Insight {
 }
 
 export interface ReflectionProvider {
-  readonly id: 'local' | 'cloud';
+  readonly id: 'local';
   reflect(ctx: PauseContext): Promise<Reflection>;
 }

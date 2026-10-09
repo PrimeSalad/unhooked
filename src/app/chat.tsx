@@ -1,4 +1,4 @@
-// Ask Ginto: chat grounded in the user's own records. Local by default, Claude when opted in.
+// Ask Ginto: chat grounded in the user's own records, answered on this phone.
 
 import { Icon } from '@/components/Icon';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,8 +20,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  CLOUD_URL,
-  cloudReply,
   contextSummary,
   isCrisis,
   localImageReply,
@@ -90,26 +88,22 @@ export default function ChatScreen() {
   const keyboardUp = useKeyboardVisible();
   const name = useSettings((s) => s.name);
   const budget = useSettings((s) => s.budget);
-  const cloudOn = useSettings((s) => s.cloudAiEnabled);
-  const setCloudAi = useSettings((s) => s.setCloudAi);
   const localAiModel = useSettings((s) => s.localAiModel);
   const setLocalAiModel = useSettings((s) => s.setLocalAiModel);
   const showToast = useSession((s) => s.showToast);
-  const cloud = cloudOn && !!CLOUD_URL;
   const scroller = useRef<ScrollView>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'hello',
       role: 'ginto',
-      text: `Hi${name ? `, ${name}` : ''}! Tanungin mo ako tungkol sa budget, utang, gastos, o scrolling mo. Sasagot ako gamit ang sarili mong records${cloud ? '' : '—dito lang sa phone mo'}.`,
+      text: `Hi${name ? `, ${name}` : ''}! Tanungin mo ako tungkol sa budget, utang, gastos, o scrolling mo. Sasagot ako gamit ang sarili mong records—dito lang sa phone mo.`,
       source: 'local',
     },
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const [photo, setPhoto] = useState<ChatMessage['image'] | null>(null);
-  const [askConsent, setAskConsent] = useState(false);
   const [askMicConsent, setAskMicConsent] = useState(false);
   const [showModelSettings, setShowModelSettings] = useState(false);
   const [activeBackend, setActiveBackend] = useState<string | null>(null);
@@ -244,9 +238,7 @@ export default function ChatScreen() {
       await stopAndroidSpeechRecognition();
       return;
     }
-    const granted = await PermissionsAndroid.check(
-      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-    );
+    const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
     if (!granted) {
       setAskMicConsent(true);
       return;
@@ -254,16 +246,9 @@ export default function ChatScreen() {
     await beginVoiceInput();
   };
 
-  const send = async (raw: string, route: 'auto' | 'cloud' | 'local' = 'auto') => {
+  const send = async (raw: string) => {
     const text = raw.trim();
     if ((!text && !photo) || typing) return;
-    if (route === 'auto' && photo && !cloud && CLOUD_URL) {
-      if (!(await canAnswerImageLocally(localAiModel))) {
-        setAskConsent(true);
-        return;
-      }
-    }
-    const useCloud = route === 'cloud' || (route === 'auto' && cloud);
     const userMsg: ChatMessage = { id: nextId(), role: 'user', text, image: photo ?? undefined };
     setPhoto(null);
     const history = [...messages, userMsg];
@@ -280,84 +265,69 @@ export default function ChatScreen() {
     const computed = localReplyOrNull(text, ctx);
     const crisis = isCrisis(text);
     let reply: ChatMessage | undefined;
-    try {
-      if (!useCloud || crisis) throw new Error('local');
-      reply = {
-        id: nextId(),
-        role: 'ginto',
-        text: await cloudReply(history.slice(1), ctx),
-        source: 'cloud',
-      };
-    } catch (e) {
-      const fellBack = useCloud && e instanceof Error && e.message !== 'local';
-      if (!crisis) {
-        try {
-          // Prior turns only: the new message is already passed as the question.
-          const priorTurns = messages.filter((m) => m.id !== 'hello');
-          // Every number the model repeats must already exist in the records summary,
-          // the computed answer, or the user's own question. Otherwise keep the rules' reply.
-          // Photo amounts come from the user's own document, so they can't be provenance-checked.
-          const allowed = userMsg.image
-            ? 'any'
-            : allowedNumbers([summary, computed ?? '', text]);
-          const onPhase = (next: ThinkingPhase, modelId: LocalModelId) => {
-            setPhase(next);
-            setPhaseModel(LOCAL_MODEL_BY_ID[modelId].name);
-          };
-          let generation = await generateAndroidLocalReply(
+    if (!crisis) {
+      try {
+        // Prior turns only: the new message is already passed as the question.
+        const priorTurns = messages.filter((m) => m.id !== 'hello');
+        // Every number the model repeats must already exist in the records summary,
+        // the computed answer, or the user's own question. Otherwise keep the rules' reply.
+        // Photo amounts come from the user's own document, so they can't be provenance-checked.
+        const allowed = userMsg.image ? 'any' : allowedNumbers([summary, computed ?? '', text]);
+        const onPhase = (next: ThinkingPhase, modelId: LocalModelId) => {
+          setPhase(next);
+          setPhaseModel(LOCAL_MODEL_BY_ID[modelId].name);
+        };
+        let generation = await generateAndroidLocalReply(
+          localAiModel,
+          text,
+          summary,
+          priorTurns,
+          computed,
+          userMsg.image?.uri,
+          false,
+          onPhase,
+        );
+        if (generation && !vetModelText(generation.text, allowed, 700).ok) {
+          // One retry with a stricter instruction when the guard rejects the draft.
+          generation = await generateAndroidLocalReply(
             localAiModel,
             text,
             summary,
             priorTurns,
             computed,
             userMsg.image?.uri,
-            false,
+            true,
             onPhase,
           );
-          if (generation && !vetModelText(generation.text, allowed, 700).ok) {
-            // One retry with a stricter instruction when the guard rejects the draft.
-            generation = await generateAndroidLocalReply(
-              localAiModel,
-              text,
-              summary,
-              priorTurns,
-              computed,
-              userMsg.image?.uri,
-              true,
-              onPhase,
-            );
-          }
-          if (generation) {
-            setActiveBackend(generation.backend);
-            if (vetModelText(generation.text, allowed, 700).ok) {
-              setAnsweredWith(generation.modelId);
-              reply = {
-                id: nextId(),
-                role: 'ginto',
-                text: `${fellBack ? 'I could not reach the cloud, so I answered privately on this phone. ' : ''}${generation.text}`,
-                source: 'local',
-              };
-            }
-          }
-        } catch (err) {
-          // Model startup, inference failure or timeout: keep the deterministic offline answer.
-          if (__DEV__) console.warn('Local chat model failed', err);
         }
+        if (generation) {
+          setActiveBackend(generation.backend);
+          if (vetModelText(generation.text, allowed, 700).ok) {
+            setAnsweredWith(generation.modelId);
+            reply = {
+              id: nextId(),
+              role: 'ginto',
+              text: generation.text,
+              source: 'local',
+            };
+          }
+        }
+      } catch (err) {
+        // Model startup, inference failure or timeout: keep the deterministic offline answer.
+        if (__DEV__) console.warn('Local chat model failed', err);
       }
+    }
 
-      if (!reply) {
-        await new Promise((r) => setTimeout(r, 250));
-        reply = {
-          id: nextId(),
-          role: 'ginto',
-          text:
-            (fellBack ? 'I could not reach the cloud, so here is my on-device answer. ' : '') +
-            (userMsg.image
-              ? localImageReply(await canAnswerImageLocally(localAiModel))
-              : localReply(text, ctx)),
-          source: 'local',
-        };
-      }
+    if (!reply) {
+      await new Promise((r) => setTimeout(r, 250));
+      reply = {
+        id: nextId(),
+        role: 'ginto',
+        text: userMsg.image
+          ? localImageReply(await canAnswerImageLocally(localAiModel))
+          : localReply(text, ctx),
+        source: 'local',
+      };
     }
     if (reply) setMessages((m) => [...m, reply]);
     setTyping(false);
@@ -374,7 +344,6 @@ export default function ChatScreen() {
         <View style={{ flex: 1 }}>
           <Text variant="heading">Ginto</Text>
           <StatusLine
-            cloud={cloud}
             activeBackend={activeBackend}
             modelName={
               answeredWith
@@ -552,33 +521,6 @@ export default function ChatScreen() {
           <Icon name="arrow-up" size={22} color={colors.primary} />
         </Pressable>
       </View>
-      <Sheet open={askConsent} onClose={() => setAskConsent(false)} mascot="thinking">
-        <Text variant="heading" align="center">
-          Let me read this photo?
-        </Text>
-        <Text variant="small" align="center" color={colors.textMuted}>
-          To read photos, Ginto sends this one picture and your question to Claude, with a
-          numbers-only summary of your records. Nothing else leaves your phone.
-        </Text>
-        <Button
-          label="Yes, read photos"
-          kind="ink"
-          onPress={() => {
-            setAskConsent(false);
-            setCloudAi(true);
-            void send(input, 'cloud');
-          }}
-        />
-        <Button
-          label="Keep it on my phone"
-          kind="ghost"
-          size="sm"
-          onPress={() => {
-            setAskConsent(false);
-            void send(input, 'local');
-          }}
-        />
-      </Sheet>
       {speechProgress != null ? (
         <View style={styles.listening}>
           <View style={styles.listeningDot} />
@@ -612,20 +554,11 @@ export default function ChatScreen() {
           Use your microphone?
         </Text>
         <Text variant="small" align="center" color={colors.textMuted}>
-          Android turns your voice into text on this phone. Unhooked does not save the
-          recording or upload it. You can review the text before sending.
+          Android turns your voice into text on this phone. Unhooked does not save the recording or
+          upload it. You can review the text before sending.
         </Text>
-        <Button
-          label="Allow microphone"
-          kind="ink"
-          onPress={() => void requestMicAndListen()}
-        />
-        <Button
-          label="Not now"
-          kind="ghost"
-          size="sm"
-          onPress={() => setAskMicConsent(false)}
-        />
+        <Button label="Allow microphone" kind="ink" onPress={() => void requestMicAndListen()} />
+        <Button label="Not now" kind="ghost" size="sm" onPress={() => setAskMicConsent(false)} />
       </Sheet>
       <GemmaModelSheet
         visible={showModelSettings}
@@ -639,24 +572,16 @@ export default function ChatScreen() {
 }
 
 function StatusLine({
-  cloud,
   activeBackend,
   modelName,
 }: {
-  cloud: boolean;
   activeBackend: string | null;
   modelName: string;
 }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <View style={[styles.status, { backgroundColor: cloud ? colors.lagoon : colors.success }]} />
-      <Text variant="caption">
-        {cloud
-          ? 'Claude · only your numbers are shared'
-          : activeBackend
-            ? `${modelName} · ${activeBackend}`
-            : modelName}
-      </Text>
+      <View style={[styles.status, { backgroundColor: colors.success }]} />
+      <Text variant="caption">{activeBackend ? `${modelName} · ${activeBackend}` : modelName}</Text>
     </View>
   );
 }

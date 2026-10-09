@@ -1,6 +1,5 @@
 // Ask Ginto: a chat that answers from the user's own records.
-// Default: on-device rules (offline, private). Optional: Claude through the project's proxy
-// (server/ginto-proxy.mjs), only when the user turns on cloud AI in Settings.
+// Everything runs on the phone: rules compute the answer, the on-device model phrases it.
 
 import { checkAffordability } from '@/domain/affordability';
 import { formatPHP, parsePesoInput } from '@/domain/money';
@@ -12,12 +11,12 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'ginto';
   text: string;
-  source?: 'local' | 'cloud';
-  /** Photo the user attached. Kept in memory only; sent to Claude only with cloud AI on. */
+  source?: 'local';
+  /** Photo the user attached. Kept in memory only and read on the phone. */
   image?: { uri: string; base64: string; mediaType: string };
 }
 
-/** What Ginto can say about a photo without the cloud. */
+/** What Ginto says when a photo cannot be read on this phone. */
 export function localImageReply(hasVisionModel = false): string {
   if (hasVisionModel) {
     return 'I couldn’t finish reading this photo on your phone. The model may still be starting, so try again in a moment. If this is a threatening message from a collector, tap "Save as evidence" so it stays safe on your phone, or paste its text in Scan message.';
@@ -183,31 +182,4 @@ export function localReplyOrNull(input: string, c: ChatContext): string | null {
   }
 
   return null;
-}
-
-export const CLOUD_URL = process.env.EXPO_PUBLIC_GINTO_API_URL ?? '';
-
-export async function cloudReply(history: ChatMessage[], c: ChatContext): Promise<string> {
-  const res = await fetch(`${CLOUD_URL.replace(/\/$/, '')}/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      context: contextSummary(c),
-      // Only the newest photo travels; older turns go as text to keep requests small.
-      messages: history.map((m, i) => {
-        const latestImage = m.image && history.slice(i + 1).every((n) => !n.image);
-        return {
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.text,
-          ...(latestImage && m.image
-            ? { image: { mediaType: m.image.mediaType, data: m.image.base64 } }
-            : {}),
-        };
-      }),
-    }),
-  });
-  if (!res.ok) throw new Error(`Ginto server error ${res.status}`);
-  const data = (await res.json()) as { reply?: string };
-  if (!data.reply) throw new Error('Empty reply');
-  return data.reply;
 }

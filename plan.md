@@ -3,7 +3,7 @@
 > **Pause. Understand. Decide.** An AI-in-Health wellness assistant for debt, spending, and doomscrolling.
 > Source spec: [`initalplan.md`](./initalplan.md) · Agent rules: [`CLAUDE.md`](./CLAUDE.md)
 
-**Status (Oct 10):** Phases 0–5 built on real user data · Phase 4B built, **not yet run on a device** · Phase 6 partly built · Phase 7 has an optional Claude chat proxy, but no cloud pause reflections.
+**Status (Oct 10):** Phases 0–5 built on real user data · Phase 4B built, **not yet run on a device** · Phase 6 partly built · No cloud AI: every model runs on the phone.
 
 **Scope update:** The Help & Safety UI was removed from the product design. `initalplan.md` is the original research brief; its Help & Safety references do not override this current plan. Ask Ginto's existing fixed crisis response remains in the code.
 
@@ -17,7 +17,7 @@
 | Spend                                                                                                                                                                                           | Budget, purchase check (affordability, cheaper option, BNPL true cost), 24h cooling with reminder, recent                                                                                                                                                                                                                                                                                                |
 | Scroll                                                                                                                                                                                          | Guards (apps + sites, schedules, Pause/Strict), Unhook timer, scroll timer with check-in, stats                                                                                                                                                                                                                                                                                                          |
 | Message check                                                                                                                                                                                   | On-device message detector (English + Taglish) with highlights and Evidence Pack save                                                                                                                                                                                                                                                                                                                    |
-| Ask Ginto                                                                                                                                                                                       | Rules compute (`localReplyOrNull`), on-device model phrases; whole-word intent matching; crisis wording never reaches a model; 20 s inference timeout; number-provenance guard falls back to the rules' reply; optional Claude chat via `server/ginto-proxy.mjs`                                                                                                                                         |
+| Ask Ginto                                                                                                                                                                                       | Rules compute (`localReplyOrNull`), on-device model phrases; whole-word intent matching; crisis wording never reaches a model; 20 s inference timeout; number-provenance guard falls back to the rules' reply                                                                                                                                         |
 | Phase 4B native                                                                                                                                                                                 | `AppGuardService` (usage events → shield deep link), `WebGuardVpnService` (local DNS-only), allowances, VPN consent. Needs `npx expo run:android`; untested                                                                                                                                                                                                                                              |
 | Still open                                                                                                                                                                                      | Phase 2–3 phone tap-through (PDF sharing and cooling reminder), seed demo data, Taglish copy, device test of 4B, Play declarations                                                                                                                                                                                                                                                                       |
 | **Goal:** a hackathon-ready MVP that reliably demos the **Trigger → AI Pause → Reflection → Recommendation → Decision** loop across Debt, Spend and Scroll, running fully offline on the phone. |
@@ -75,10 +75,10 @@ These come straight from the research brief. Every phase must respect them. A fe
 | #   | Rule                                                                | Why (evidence)                                                                                   | How it shows up in code                                                                                   |
 | --- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
 | R1  | **The pause is a real delay**, not just a message.                  | PNAS _one sec_ study: the delay drove the 57% reduction; a message alone did not.                | `src/app/pause.tsx` blocks the decision buttons for `settings.pauseSeconds` (default 10s).                |
-| R2  | **Local-first.** Sensitive data never leaves the device by default. | Data Privacy Act 2012 treats health info as sensitive personal info; stigma blocks help-seeking. | SQLite on device (`src/db`). Optional Claude chat exists; its disclosure copy needs a Phase 7 correction. |
+| R2  | **Local-first.** Sensitive data never leaves the device by default. | Data Privacy Act 2012 treats health info as sensitive personal info; stigma blocks help-seeking. | SQLite on device (`src/db`). No cloud AI. |
 | R3  | **Label everything**: fact vs. estimate vs. suggestion.             | Responsible AI section; estimates must not look like facts.                                      | Every AI/derived line is a `LabeledLine` and renders a `<CertaintyTag>`.                                  |
 | R4  | **No shame, no guarantees, user decides.**                          | Responsible AI section.                                                                          | Copy review checklist (§7). The "Continue" option is always available.                                    |
-| R5  | **Crisis wording bypasses models.**                                 | A model must not improvise crisis advice.                                                        | `src/ai/chat.ts` returns a fixed response before local or cloud generation.                               |
+| R5  | **Crisis wording bypasses models.**                                 | A model must not improvise crisis advice.                                                        | `src/ai/chat.ts` returns a fixed response before any model runs.                               |
 | R6  | **Pure logic is tested.** The AI never does math.                   | Trustworthy numbers in a money app.                                                              | All calculations live in `src/domain/*` with Jest tests; AI only phrases pre-computed facts.              |
 
 ---
@@ -91,7 +91,7 @@ These come straight from the research brief. Every phase must respect them. A fe
 | Navigation | **Expo Router** (file-based, typed routes) in `src/app`                                                                                      | JS `Tabs` (native tabs are still `unstable-` in SDK 57). |
 | Storage    | **expo-sqlite** (records) + `expo-sqlite/kv-store` (settings via zustand `persist`)                                                          | Versioned migrations via `PRAGMA user_version`.          |
 | State      | **zustand** for UI/preferences only                                                                                                          | Records are read from SQLite, not mirrored in a store.   |
-| AI         | `ReflectionProvider` interface → **local template provider** (default)                                                                       | Optional cloud provider via a server proxy in Phase 7.   |
+| AI         | `ReflectionProvider` interface → **local template provider** (default)                                                                       | On-device language model phrases it; no cloud provider. |
 | Device     | expo-notifications (local), expo-image-picker, expo-file-system, expo-print + expo-sharing (Evidence PDF), expo-haptics, expo-crypto (UUIDs) | All available in Expo Go.                                |
 | Quality    | Jest (`jest-expo`) + Testing Library, ESLint (`eslint-config-expo`), Prettier, `expo-doctor`                                                 | `npm run check` = typecheck + lint + tests.              |
 
@@ -113,7 +113,7 @@ src/
   domain/                 ← PURE TS: types, money, bnpl, affordability, repayment, scroll, messageRisk (+ __tests__)
   db/                     ← migrations, event log, repositories (one file per table)
   ai/                     ← ReflectionProvider interface, local provider, templates, insights
-  store/                  ← zustand: settings (budget, limits, pause length, cloud opt-in)
+  store/                  ← zustand: settings (budget, limits, pause length, local AI choice)
   lib/                    ← notifications, evidence export, haptics wrappers  (create as needed)
 modules/
   unhooked-guard/         ← Phase 4B local Expo module (Kotlin): installed apps, usage access, shield, local DNS VPN. Android only.
@@ -274,15 +274,13 @@ The user picks which apps and websites get a "hook guard". Opening one shows Gin
 - [x] `domain/messageRisk.ts` uses tested English + Filipino/Taglish keyword/regex rules for threats, pressure, contact-shaming, exposure and payment links/e-wallet numbers. It flags indications, not confirmed fraud.
 - [x] Message check supports paste → risk level + highlighted signals + explanation ("an indication, not proof") → **Save to Evidence Pack**; it includes basic reporting advice.
 - [x] Settings explains local storage and offers delete-all-data.
-- [x] Add a cloud AI control and accurate disclosure in Settings. The existing photo consent is in Ask Ginto.
 - [x] First-run onboarding explains the pause and on-device AI, and offers an optional budget.
-- [x] Add an explicit self-help disclaimer to onboarding and align its privacy promise with optional cloud chat.
+- [x] Add an explicit self-help disclaimer to onboarding and say that everything stays on the phone.
 
-**Removed from scope:** Help & Safety screen, `/help` links and the support-resource directory verification checklist.
+**Help & Safety stays:** `/help` lists NCMH 1553, 911, SEC, PNP-ACG and NPC, one tap from Today, Debt and Settings. Verify each entry before the demo.
 
 ### Phase 7 — Stretch (only after Phases 1–6 demo cleanly)
 
-- [x] Optional Claude chat path and server proxy keep the API key off-device; Ask Ginto prompts for consent when a first photo would enable cloud chat. This is chat, not pause reflection.
 - [x] English + Taglish message-risk patterns and Taglish-aware Ask Ginto prompt.
 
 ### Explicitly deferred (from spec §18)

@@ -30,8 +30,8 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 | Is local inference fundamental? | **Yes. The product's core loop is `Trigger → AI Pause → Reflection → Decision`, and the reflection is generated on the phone.** `src/domain/*` computes the numbers (tested, deterministic); the on-device LLM phrases them during the countdown; `src/ai/guard.ts` rejects any model output that contains a number the domain did not compute or a shame word. Ask Ginto (chat), the Scan-a-message risk analysis and the Utang Scanner (ML Kit OCR of loan-app screenshots) all run on-device too. |
 | What runs where? | **LiteRT-LM** (`com.google.ai.edge.litertlm`) in a local Expo module, [`modules/ginto-local-ai`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt): tries **NPU**, then **GPU**, then **CPU** per model and reports which one it is using. Models: Qwen 3 0.6B int4 (~500 MB), Qwen 2.5 1.5B q8 (~1.6 GB), Gemma 4 E2B/E4B with vision (`src/ai/localModels.ts`). **Whisper small** through sherpa-onnx for on-device Tagalog voice input (`WhisperSpeech.kt`). **ML Kit text recognition** for screenshot OCR (`src/lib/ocr.ts`). **Rules engine** for message risk in English + Taglish (`src/domain/messageRisk.ts`). **SQLite** for all records (`src/db`). |
 | Device-aware? | `recommendLocalModel()` picks the model from total/available RAM, low-memory flag, battery level and free storage (`src/ai/localModels.ts`). The chat model sheet shows the device, RAM, detected NPU, recommended model and the active accelerator, and lets the user pick Auto / NPU / GPU / CPU and a Balanced or Max performance mode. In Auto, the model already in memory is kept when it fits the request, to avoid a reload. The pause card shows e.g. **"Phrased on this phone · Qwen 2.5 1.5B on GPU · 1.8 s"**. |
-| What breaks without local AI? | The pause falls back to fixed templates and loses personalised phrasing; Ask Ginto becomes a keyword bot; message analysis loses the model's explanation; OCR disappears. **No cloud alternative exists by default**: optional Ask Ginto chat can use `src/ai/chat.ts → cloudReply`, but the pause never uses it. The cloud request includes a numbers-only record summary plus chat text, and can include a photo after consent. Disabling cloud chat changes nothing about the core loop. |
-| Privacy / latency / offline / cost | **Privacy:** records stay on-device by default; optional cloud chat sends a numbers-only record summary plus the conversation, and may send a photo after consent. **Latency:** the reflection must be ready inside a 10-second pause; the model is warmed at launch (`src/hooks/useWarmLocalModel.ts`) so it answers within the countdown. **Offline:** the demo runs in airplane mode. **Cost:** zero per-user inference cost for local inference. **Hardware:** NPU/GPU delegation when the chipset supports it. |
+| What breaks without local AI? | The pause falls back to fixed templates and loses personalised phrasing; Ask Ginto becomes a keyword bot; message analysis loses the model's explanation; OCR disappears. **There is no cloud AI**: every answer, reflection, transcription and message check runs on the phone. |
+| Privacy / latency / offline / cost | **Privacy:** records, chats, voice and photos stay on the device; nothing is sent to an AI service. **Latency:** the reflection must be ready inside a 10-second pause; the model is warmed at launch (`src/hooks/useWarmLocalModel.ts`) so it answers within the countdown. **Offline:** the demo runs in airplane mode. **Cost:** zero per-user inference cost for local inference. **Hardware:** NPU/GPU delegation when the chipset supports it. |
 
 ### 3. Technical execution
 
@@ -63,10 +63,10 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 | # | Rule | In code |
 |---|---|---|
 | R1 | The pause is a real delay | `src/app/pause.tsx` disables decisions for `settings.pauseSeconds` |
-| R2 | Local-first; no network without opt-in + disclosure | SQLite by default; `cloudReply` is gated by `cloudAiEnabled`, while disclosure copy still needs correction |
+| R2 | Local-first; no network without opt-in + disclosure | SQLite on the device; no cloud AI; the only downloads (model files, web text reader) happen when the user starts them |
 | R3 | Every generated line is labeled fact / estimate / suggestion | `CertaintyTag`, `LabeledLine` |
 | R4 | No shame, no guarantees, user decides | `guard.ts` shame/guarantee filters, template tests, *Continue* always present |
-| R5 | Crisis wording bypasses models | Ask Ginto returns a fixed response before local or cloud generation |
+| R5 | Crisis wording bypasses models | Ask Ginto returns a fixed response before any model runs |
 | R6 | The AI never does math | `src/domain/*` (pure TS, Jest) computes; `src/ai/*` phrases |
 
 ---
@@ -99,15 +99,6 @@ npx expo run:android # Development build: LiteRT-LM models, ML Kit OCR, Payday S
 
 Open **Scroll → Guards**, pick apps or add websites, and allow *Usage access* and *Display over other apps* when asked. These use only user-granted Usage access, an overlay, and a local DNS-only VPN; no Accessibility service, no `QUERY_ALL_PACKAGES`. Details in [plan.md → Phase 4B](./plan.md#phase-4b--app--website-blocking-android-only-dev-build).
 
-### Ask Ginto with Claude (optional, off by default)
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-... npm run ginto-server
-cp .env.example .env.local   # EXPO_PUBLIC_GINTO_API_URL=http://<your-computer-ip>:8787
-```
-
-Ask Ginto's photo consent can enable cloud chat when the proxy URL is configured. Cloud requests include chat text and a numbers-only summary of records, plus a photo if consented to; the pause never uses the proxy. The in-app cloud disclosure still needs the Phase 7 correction listed in [plan.md](./plan.md).
-
 ---
 
 ## Architecture
@@ -136,7 +127,7 @@ Trigger → domain/* computes facts → localProvider template (instant)
 
 ## APIs and outside services
 
-Unhooked stores records on the device by default. Optional Claude chat can send chat text, a numbers-only record summary, and a photo after consent. These are the places the app talks to something outside the device, and when.
+Unhooked stores records on the device and has no cloud AI. These are the only places the app talks to something outside the device, and when.
 
 | Service | What it is used for | When it is contacted |
 |---|---|---|
@@ -145,7 +136,6 @@ Unhooked stores records on the device by default. Optional Claude chat can send 
 | [GitHub releases](https://github.com/k2-fsa/sherpa-onnx/releases) (sherpa-onnx AAR) | Speech runtime library | At Android build time only (`fetchSherpaOnnx` Gradle task), never from the app |
 | [jsDelivr CDN](https://www.jsdelivr.com/package/npm/tesseract.js) (Tesseract.js reader files) | Text reader for the Utang scanner **on web** | Once, the first time you scan on web; the screenshot itself is read in the browser and never uploaded |
 | [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2) | Reads screenshots in the Utang scanner **on Android** | Runs fully on the device; no network |
-| [Anthropic Claude](https://www.anthropic.com/) via the optional Ginto proxy | Phrases Ask Ginto replies | Only when cloud chat is enabled; sends chat text, a numbers-only record summary and any consented photo |
 | [Cloudflare DNS 1.1.1.1](https://one.one.one.one/) and [Google Public DNS 8.8.8.8](https://developers.google.com/speed/public-dns) | Upstream DNS for the website guard's local VPN (Android) | Only while a website guard is on; DNS lookups only, no traffic content |
 | [SEC Philippines](https://www.sec.gov.ph) | "Check on the SEC website" link in the scanner | Only when you tap the link (opens your browser) |
 

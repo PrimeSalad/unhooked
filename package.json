@@ -37,7 +37,6 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.132.1",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
@@ -59,8 +58,7 @@
     "test:watch": "jest --watch",
     "format": "prettier --write .",
     "check": "npm run typecheck && npm run lint && npm test",
-    "doctor": "npx expo-doctor",
-    "ginto-server": "node server/ginto-proxy.mjs"
+    "doctor": "npx expo-doctor"
   },
   "private": true,
   "jest": {

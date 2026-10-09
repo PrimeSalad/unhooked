@@ -54,7 +54,9 @@ export function AgentModelCard() {
     setError(null);
     setChoice(next);
     if (next === 'auto') {
-      setNote('Auto uses the downloaded model that fits this phone. Qwen 2.5 1.5B is the usual pick.');
+      setNote(
+        'Auto uses the downloaded model that fits this phone. Qwen 2.5 1.5B is the usual pick.',
+      );
       return;
     }
     if (Platform.OS !== 'android') {
@@ -73,15 +75,13 @@ export function AgentModelCard() {
     }
   };
 
-  const activeLabel =
-    choice === 'auto' ? 'Auto' : LOCAL_MODEL_BY_ID[choice].name;
+  const activeLabel = choice === 'auto' ? 'Auto' : LOCAL_MODEL_BY_ID[choice].name;
 
   return (
     <Card style={{ gap: spacing.sm }}>
       <Text variant="strong">On-device agent</Text>
       <Text variant="small" color={colors.textMuted}>
-        Choose a downloaded model to test. In use now: {activeLabel}. Claude stays off unless you
-        turn it on below.
+        Choose a downloaded model to test. In use now: {activeLabel}. Everything runs on this phone.
       </Text>
       <ModelOption
         label="Auto"
@@ -109,8 +109,16 @@ export function AgentModelCard() {
           />
         );
       })}
-      {note ? <Text variant="caption" color={colors.success}>{note}</Text> : null}
-      {error ? <Text variant="caption" color={colors.danger}>{error}</Text> : null}
+      {note ? (
+        <Text variant="caption" color={colors.success}>
+          {note}
+        </Text>
+      ) : null}
+      {error ? (
+        <Text variant="caption" color={colors.danger}>
+          {error}
+        </Text>
+      ) : null}
     </Card>
   );
 }

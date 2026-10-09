@@ -15,7 +15,6 @@ interface SettingsState {
   budget: BudgetProfile | null;
   scrollLimitMinutes: number;
   pauseSeconds: number; // the real delay is the active ingredient (PNAS one sec study)
-  cloudAiEnabled: boolean; // opt-in only: Ask Ginto through Claude
   localAiModel: LocalModelChoice; // auto picks a model fit from the current Android device
   localAiPerformance: PerformanceMode; // balanced favors battery; max tries the NPU first
   localAiProcessor: ProcessorChoice; // auto picks the fastest chip that works
@@ -29,7 +28,6 @@ interface SettingsState {
   setBudget: (b: BudgetProfile | null) => void;
   setScrollLimit: (m: number) => void;
   setPauseSeconds: (s: number) => void;
-  setCloudAi: (v: boolean) => void;
   setLocalAiModel: (v: LocalModelChoice) => void;
   setLocalAiPerformance: (v: PerformanceMode) => void;
   setLocalAiProcessor: (v: ProcessorChoice) => void;
@@ -47,7 +45,6 @@ const defaults = {
   budget: null,
   scrollLimitMinutes: 20,
   pauseSeconds: 10,
-  cloudAiEnabled: false,
   localAiModel: 'auto' as LocalModelChoice,
   localAiPerformance: 'balanced' as PerformanceMode,
   localAiProcessor: 'auto' as ProcessorChoice,
@@ -67,7 +64,6 @@ export const useSettings = create<SettingsState>()(
       setBudget: (budget) => set({ budget }),
       setScrollLimit: (scrollLimitMinutes) => set({ scrollLimitMinutes }),
       setPauseSeconds: (pauseSeconds) => set({ pauseSeconds }),
-      setCloudAi: (cloudAiEnabled) => set({ cloudAiEnabled }),
       setLocalAiModel: (localAiModel) => set({ localAiModel }),
       setLocalAiPerformance: (localAiPerformance) => set({ localAiPerformance }),
       setLocalAiProcessor: (localAiProcessor) => set({ localAiProcessor }),
