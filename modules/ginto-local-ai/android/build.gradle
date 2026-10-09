@@ -1,0 +1,23 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'ph.appbuilders.unhooked'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.gintolocalai"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  compilerOptions.freeCompilerArgs.add("-Xskip-metadata-version-check")
+}
+
+dependencies {
+  implementation 'com.google.ai.edge.litertlm:litertlm-android:0.16.1'
+}
