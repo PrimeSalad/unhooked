@@ -77,7 +77,7 @@ const VB_W = 220;
 const VB_H = 200;
 const ink = '#2A1608';
 const mouthInk = '#8A1F12';
-const GINTO_CORE = require('../../../assets/ginto-core.png');
+const GINTO_BASE = require('../../../assets/ginto-base.png');
 const GINTO_TAIL = require('../../../assets/ginto-tail.png');
 const GINTO_DORSAL = require('../../../assets/ginto-dorsal.png');
 const GINTO_FRONT_FIN = require('../../../assets/ginto-front-fin.png');
@@ -361,7 +361,18 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
             </Layer>
           )}
 
-          <Layer origin={pct(62, 102)} style={rot(tail, '-3deg', '4deg')}>
+          <Layer>
+            <SvgImage
+              href={GINTO_BASE}
+              x={0}
+              y={18}
+              width={VB_W}
+              height={164}
+              preserveAspectRatio="xMidYMid meet"
+            />
+          </Layer>
+
+          <Layer origin={pct(62, 102)} style={rot(tail, '0deg', '2.5deg')}>
             <SvgImage
               href={GINTO_TAIL}
               x={0}
@@ -372,7 +383,7 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
             />
           </Layer>
 
-          <Layer origin={pct(109, 66)} style={rot(dorsal, '-1deg', '3deg')}>
+          <Layer origin={pct(109, 66)} style={rot(dorsal, '0deg', '2deg')}>
             <SvgImage
               href={GINTO_DORSAL}
               x={0}
@@ -383,7 +394,7 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
             />
           </Layer>
 
-          <Layer origin={pct(193, 115)} style={rot(side, '-2deg', '5deg')}>
+          <Layer origin={pct(193, 115)} style={rot(side, '0deg', '3deg')}>
             <SvgImage
               href={GINTO_SIDE_FIN}
               x={0}
@@ -394,20 +405,9 @@ export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
             />
           </Layer>
 
-          <Layer>
-            <SvgImage
-              href={GINTO_CORE}
-              x={0}
-              y={18}
-              width={VB_W}
-              height={164}
-              preserveAspectRatio="xMidYMid meet"
-            />
-          </Layer>
-
           <Layer
             origin={pct(109, 132)}
-            style={t.fin === 'wave' ? rot(fin, '-3deg', '-14deg') : rot(fin, '-2deg', '5deg')}
+            style={t.fin === 'wave' ? rot(fin, '0deg', '-10deg') : rot(fin, '0deg', '3deg')}
           >
             <SvgImage
               href={GINTO_FRONT_FIN}
