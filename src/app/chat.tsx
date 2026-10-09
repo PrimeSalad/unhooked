@@ -25,6 +25,9 @@ import {
   localImageReply,
   localReply,
   localReplyOrNull,
+  logGapReply,
+  logPreview,
+  logSavedReply,
   type ChatMessage,
 } from '@/ai/chat';
 import {
@@ -39,7 +42,7 @@ import {
   stopAndroidSpeechRecognition,
   warmAndroidLocalModel,
 } from '@/ai/androidLocalAi';
-import { allowedNumbers, keepsNumbers, vetModelText } from '@/ai/guard';
+import { allowedNumbers, keepsNumbers, soundsTagalog, vetModelText } from '@/ai/guard';
 import { LOCAL_MODEL_BY_ID, type LocalModelId } from '@/ai/localModels';
 import { ensureSpeechModel, isSpeechModelReady, SPEECH_MODEL_BYTES } from '@/ai/speechModel';
 import { Ginto } from '@/components/mascot/Ginto';
@@ -48,7 +51,9 @@ import { ThinkingBubble, type ThinkingPhase } from '@/components/chat/ThinkingBu
 import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { logEvent } from '@/db/events';
+import { openLenders, saveChatLog } from '@/db/chatLog';
 import { addEvidence, getOverview } from '@/db/repo';
+import { parseChatLog } from '@/domain/chatLog';
 import { keyboardBehavior, useKeyboardVisible } from '@/hooks/useKeyboard';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
@@ -61,6 +66,7 @@ const SUGGESTIONS = [
   'Ano ang babayaran ko this month?',
   'Gaano katagal akong nag-scroll today?',
   'Okay bang umutang ng ₱2,000?',
+  'Gumastos ako ng ₱150 sa pagkain',
   'Stressed ako sa pera',
 ];
 
@@ -246,6 +252,29 @@ export default function ChatScreen() {
     await beginVoiceInput();
   };
 
+  const confirmLog = async (id: string, save: boolean) => {
+    const card = messages.find((m) => m.id === id);
+    if (!card?.log || card.log.state !== 'pending') return;
+    const { entry, taglish } = card.log;
+    const mark = (state: 'saved' | 'cancelled') =>
+      setMessages((all) =>
+        all.map((m) => (m.id === id && m.log ? { ...m, log: { ...m.log, state } } : m)),
+      );
+    if (!save) {
+      mark('cancelled');
+      return;
+    }
+    let text: string;
+    try {
+      await saveChatLog(db, entry);
+      mark('saved');
+      text = logSavedReply(entry, taglish);
+    } catch (e) {
+      text = e instanceof Error ? e.message : 'That could not be saved.';
+    }
+    setMessages((all) => [...all, { id: nextId(), role: 'ginto', text, source: 'local' }]);
+  };
+
   const send = async (raw: string) => {
     const text = raw.trim();
     if ((!text && !photo) || typing) return;
@@ -264,6 +293,24 @@ export default function ChatScreen() {
     const summary = contextSummary(ctx);
     const computed = localReplyOrNull(text, ctx);
     const crisis = isCrisis(text);
+    // "Gumastos ako ng 250 sa pagkain": a log, read by rules and saved only after the user confirms.
+    const logged = crisis || userMsg.image ? null : parseChatLog(text, await openLenders(db));
+    if (logged) {
+      const taglish = soundsTagalog(text);
+      const card: ChatMessage =
+        logged.kind === 'gap'
+          ? { id: nextId(), role: 'ginto', text: logGapReply(logged, taglish), source: 'local' }
+          : {
+              id: nextId(),
+              role: 'ginto',
+              text: logPreview(logged, taglish),
+              source: 'local',
+              log: { entry: logged, taglish, state: 'pending' },
+            };
+      setMessages((m) => [...m, card]);
+      setTyping(false);
+      return;
+    }
     let reply: ChatMessage | undefined;
     if (!crisis) {
       try {
@@ -381,6 +428,27 @@ export default function ChatScreen() {
                 style={{ fontSize: 15 }}
               >
                 {m.text}
+              </Text>
+            ) : null}
+            {m.log?.state === 'pending' ? (
+              <View style={styles.logActions}>
+                <Button
+                  label={m.log.taglish ? 'I-save' : 'Save'}
+                  size="sm"
+                  onPress={() => void confirmLog(m.id, true)}
+                />
+                <Button
+                  label={m.log.taglish ? 'Huwag' : 'Cancel'}
+                  kind="ghost"
+                  size="sm"
+                  onPress={() => void confirmLog(m.id, false)}
+                />
+              </View>
+            ) : m.log ? (
+              <Text variant="caption" color={colors.textMuted}>
+                {m.log.state === 'saved'
+                  ? m.log.taglish ? 'Na-save' : 'Saved'
+                  : m.log.taglish ? 'Hindi na-save' : 'Not saved'}
               </Text>
             ) : null}
             {m.image ? (
@@ -599,6 +667,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  logActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
   bubble: {
     maxWidth: '86%',
     borderRadius: radius.lg,

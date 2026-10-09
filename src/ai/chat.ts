@@ -4,6 +4,7 @@
 import { checkAffordability } from '@/domain/affordability';
 import { formatPHP, parsePesoInput } from '@/domain/money';
 import { formatMinutes } from '@/domain/scroll';
+import type { ChatLogEntry, ChatLogGap } from '@/domain/chatLog';
 import type { BudgetProfile } from '@/domain/types';
 import type { Overview } from '@/db/repo';
 
@@ -14,6 +15,8 @@ export interface ChatMessage {
   source?: 'local';
   /** Photo the user attached. Kept in memory only and read on the phone. */
   image?: { uri: string; base64: string; mediaType: string };
+  /** A log read from this message, waiting for the user to save or cancel it. */
+  log?: { entry: ChatLogEntry; taglish: boolean; state: 'pending' | 'saved' | 'cancelled' };
 }
 
 /** What Ginto says when a photo cannot be read on this phone. */
@@ -61,6 +64,7 @@ export const APP_GUIDE = [
   '- Scroll tab: guard apps and websites, Unhook timer, scroll fade, log scroll sessions.',
   '- Pause button (middle of the bar): a real countdown before buying, borrowing or scrolling.',
   '- Scan a message: check a lender text for warning signs.',
+  '- This chat (typed or by voice) can log spending, debt payments, new debts, money lent, scroll time and breaks, e.g. "gumastos ako ng 250 sa pagkain".',
 ].join('\n');
 
 /** The user's own records for the on-device model: amounts, dates and lender names, never message text or notes. */
@@ -224,4 +228,59 @@ export function localReplyOrNull(input: string, c: ChatContext): string | null {
   }
 
   return null;
+}
+
+/** The confirm card for a log read from chat: plain facts, the user taps Save or Cancel. */
+export function logPreview(entry: ChatLogEntry, taglish: boolean): string {
+  const ask = taglish ? 'I-log ko ba ito?' : 'Log this?';
+  switch (entry.kind) {
+    case 'spent':
+      return `${ask}\n${taglish ? 'Gastos' : 'Spent'}: ${formatPHP(entry.amount)} · ${entry.item} (${entry.isNeed ? 'need' : 'want'})`;
+    case 'payment':
+      return `${ask}\n${taglish ? 'Bayad' : 'Payment'}: ${formatPHP(entry.amount)} ${taglish ? 'sa' : 'to'} ${entry.lender}`;
+    case 'debt':
+      return `${ask}\n${
+        entry.direction === 'owed'
+          ? `${taglish ? 'Utang' : 'Borrowed'}: ${formatPHP(entry.amount)} ${taglish ? 'sa' : 'from'} ${entry.lender}`
+          : `${taglish ? 'Pinautang' : 'Lent'}: ${formatPHP(entry.amount)} ${taglish ? 'kay' : 'to'} ${entry.lender}`
+      }${entry.dueDate ? ` · due ${entry.dueDate}` : ''}`;
+    case 'scroll':
+      return `${ask}\nScroll: ${formatMinutes(entry.minutes)} ${taglish ? 'sa' : 'on'} ${entry.app}`;
+    case 'break':
+      return `${ask}\nBreak: 1`;
+  }
+}
+
+export function logSavedReply(entry: ChatLogEntry, taglish: boolean): string {
+  const where: Record<ChatLogEntry['kind'], string> = {
+    spent: 'Spend',
+    payment: 'Debt',
+    debt: 'Debt',
+    scroll: 'Scroll',
+    break: 'Today',
+  };
+  return taglish
+    ? `Na-log na. Makikita mo ito sa ${where[entry.kind]} tab.`
+    : `Logged. You can see it in the ${where[entry.kind]} tab.`;
+}
+
+export function logGapReply(gap: ChatLogGap, taglish: boolean): string {
+  if (gap.need === 'amount') {
+    return taglish
+      ? 'Magkano? Sabihin mo ulit kasama ang halaga, hal. "gumastos ako ng ₱250 sa pagkain".'
+      : 'How much? Say it again with the amount, like "spent ₱250 on food".';
+  }
+  if (gap.need === 'minutes') {
+    return taglish
+      ? 'Ilang minuto? Hal. "nag-scroll ako ng 30 minutes sa TikTok".'
+      : 'How long? Like "scrolled 30 minutes on TikTok".';
+  }
+  if (gap.lenders?.length) {
+    return taglish
+      ? `Saang utang ito napunta: ${gap.lenders.join(', ')}? Sabihin mo ulit kasama ang pangalan.`
+      : `Which debt was it for: ${gap.lenders.join(', ')}? Say it again with the name.`;
+  }
+  return taglish
+    ? 'Kanino? Sabihin mo ulit kasama ang pangalan, hal. "umutang ako ng ₱2,000 sa GCash".'
+    : 'Who with? Say it again with the name, like "borrowed ₱2,000 from GCash".';
 }
