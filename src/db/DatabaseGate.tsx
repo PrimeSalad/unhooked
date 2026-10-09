@@ -9,7 +9,7 @@ import { colors } from '@/constants/theme';
 
 import { DATABASE_NAME, migrateDbIfNeeded } from './migrations';
 
-const MAX_RETRIES = 8;
+const MAX_RETRIES = 25; // about 10 s: a slow reload can hold the lock for several seconds
 const RETRY_MS = 400;
 
 const isLockError = (e: Error) =>

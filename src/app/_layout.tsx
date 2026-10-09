@@ -59,6 +59,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+          <Stack.Screen name="permissions" options={{ animation: 'fade' }} />
           <Stack.Screen
             name="pause"
             options={{ presentation: 'fullScreenModal', animation: 'fade' }}
@@ -91,6 +92,7 @@ export default function RootLayout() {
           />
           <Stack.Screen name="message-check" />
           <Stack.Screen name="settings" />
+          <Stack.Screen name="help" />
           <Stack.Screen name="wrapped" />
           <Stack.Screen name="scan" />
         </Stack>

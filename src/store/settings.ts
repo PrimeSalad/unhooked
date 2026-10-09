@@ -18,6 +18,7 @@ interface SettingsState {
   cloudAiEnabled: boolean; // opt-in only: Ask Ginto through Claude
   localAiModel: LocalModelChoice; // auto picks a model fit from the current Android device
   localAiPerformance: PerformanceMode; // balanced favors battery; max tries the NPU first
+  permissionsReviewed: boolean; // microphone and reminder disclosure has been shown
   guardOn: boolean; // master switch for app & website guards
   timerUntil: string | null; // Unhook timer: guarded apps blocked until this time
   fadeAfterMin: number; // doomscroll fade: minutes in a guarded app before the screen washes out (0 = off)
@@ -30,6 +31,7 @@ interface SettingsState {
   setCloudAi: (v: boolean) => void;
   setLocalAiModel: (v: LocalModelChoice) => void;
   setLocalAiPerformance: (v: PerformanceMode) => void;
+  setPermissionsReviewed: (v: boolean) => void;
   setGuardOn: (v: boolean) => void;
   setTimerUntil: (iso: string | null) => void;
   setFadeAfterMin: (m: number) => void;
@@ -46,6 +48,7 @@ const defaults = {
   cloudAiEnabled: false,
   localAiModel: 'auto' as LocalModelChoice,
   localAiPerformance: 'balanced' as PerformanceMode,
+  permissionsReviewed: false,
   guardOn: true,
   timerUntil: null as string | null,
   fadeAfterMin: 15,
@@ -64,6 +67,7 @@ export const useSettings = create<SettingsState>()(
       setCloudAi: (cloudAiEnabled) => set({ cloudAiEnabled }),
       setLocalAiModel: (localAiModel) => set({ localAiModel }),
       setLocalAiPerformance: (localAiPerformance) => set({ localAiPerformance }),
+      setPermissionsReviewed: (permissionsReviewed) => set({ permissionsReviewed }),
       setGuardOn: (guardOn) => set({ guardOn }),
       setTimerUntil: (timerUntil) => set({ timerUntil }),
       setFadeAfterMin: (fadeAfterMin) => set({ fadeAfterMin }),

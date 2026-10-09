@@ -3,7 +3,19 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Alert, Platform, Switch, View } from 'react-native';
 
-import { Button, Card, Field, Row, Screen, ScreenHeader, Segmented, Text } from '@/components/ui';
+import { AgentModelCard } from '@/components/chat/AgentModelCard';
+import {
+  Button,
+  Card,
+  Field,
+  Group,
+  GroupRow,
+  Row,
+  Screen,
+  ScreenHeader,
+  Segmented,
+  Text,
+} from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
 import { deleteAllData } from '@/db/migrations';
@@ -124,6 +136,23 @@ export default function SettingsScreen() {
         <Button label="Save" size="sm" onPress={saveProfile} />
       </Card>
 
+      {Platform.OS === 'android' ? (
+        <Card style={{ gap: spacing.sm }}>
+          <Text variant="strong">Microphone and reminders</Text>
+          <Text variant="small">
+            Voice stays on this phone. Reminders use discreet wording, and both can stay off.
+          </Text>
+          <Button
+            label="Review permissions"
+            kind="ghost"
+            size="sm"
+            onPress={() => router.push('/permissions')}
+          />
+        </Card>
+      ) : null}
+
+      <AgentModelCard />
+
       <Card style={{ gap: spacing.md }}>
         <Text variant="strong">Pause length</Text>
         <Text variant="small" color={colors.textMuted}>
@@ -158,6 +187,15 @@ export default function SettingsScreen() {
           />
         </Row>
       </Card>
+
+      <Group>
+        <GroupRow
+          icon="help"
+          title="Help and safety"
+          subtitle="Hotlines and where to report"
+          onPress={() => router.push('/help')}
+        />
+      </Group>
 
       <Button label="Delete all my data" kind="ghost" icon="trash" onPress={confirmDelete} />
     </Screen>

@@ -1,6 +1,6 @@
 import { Icon } from '@/components/Icon';
 import { Redirect, router, type Href } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Ginto } from '@/components/mascot/Ginto';
 import {
@@ -57,6 +57,7 @@ const ACTIONS: { icon: IconName; label: string; bg: string; fg: string; to: Href
 export default function TodayScreen() {
   const hydrated = useSettingsHydrated();
   const onboarded = useSettings((s) => s.onboarded);
+  const permissionsReviewed = useSettings((s) => s.permissionsReviewed);
   const name = useSettings((s) => s.name);
   const timerUntil = useSettings((s) => s.timerUntil);
   const { data: o } = useDbQuery(getOverview, emptyOverview);
@@ -65,6 +66,7 @@ export default function TodayScreen() {
 
   if (!hydrated) return null;
   if (!onboarded) return <Redirect href="/welcome" />;
+  if (Platform.OS === 'android' && !permissionsReviewed) return <Redirect href="/permissions" />;
 
   const max = Math.max(1, ...week.map((d) => d.n));
   const cooling = o.cooling[0];
@@ -133,6 +135,7 @@ export default function TodayScreen() {
         title={name ? `Hi, ${name}` : 'Hi there'}
         right={
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <IconButton icon="help" label="Help and safety" onPress={() => router.push('/help')} />
             <IconButton
               icon="settings"
               label="You and settings"

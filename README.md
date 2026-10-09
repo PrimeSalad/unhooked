@@ -28,7 +28,7 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 | Is local inference fundamental? | **Yes. The product's core loop is `Trigger → AI Pause → Reflection → Decision`, and the reflection is generated on the phone.** `src/domain/*` computes the numbers (tested, deterministic); the on-device LLM phrases them during the countdown; `src/ai/guard.ts` rejects any model output that contains a number the domain did not compute or a shame word. Ask Ginto (chat), the Scan-a-message risk analysis and the Utang Scanner (ML Kit OCR of loan-app screenshots) all run on-device too. |
 | What runs where? | **LiteRT-LM** (`com.google.ai.edge.litertlm`) in a local Expo module, [`modules/ginto-local-ai`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt): tries **NPU**, then **GPU**, then **CPU** per model and reports which one it is using. Models: Gemma 3 1B int4 (~555 MB), Qwen 2.5 1.5B q8, Gemma 4 E2B/E4B (`src/ai/localModels.ts`). **ML Kit text recognition** for screenshot OCR (`src/lib/ocr.ts`). **Rules engine** for message risk in English + Taglish (`src/domain/messageRisk.ts`). **SQLite** for all records (`src/db`). |
 | Device-aware? | `recommendLocalModel()` picks the model from total/available RAM, low-memory flag, battery level and free storage (`src/ai/localModels.ts`). The chat model sheet shows the device, RAM, recommended model and the active accelerator. The pause card shows **"Phrased on this phone · Gemma 3 1B on GPU · 1.8 s"**. |
-| What breaks without local AI? | The pause falls back to fixed templates and loses personalised phrasing; Ask Ginto becomes a keyword bot; message analysis loses the model's explanation; OCR disappears. **No cloud alternative exists by default**: the only network call in the app (`src/ai/chat.ts → cloudReply`) is opt-in, disclosed in-app, sends a numbers-only summary (no lender names, no message text), and is never used for the pause. Disabling it changes nothing about the core loop. |
+| What breaks without local AI? | The pause falls back to fixed templates and loses personalised phrasing; Ask Ginto becomes a keyword bot; message analysis loses the model's explanation; OCR disappears. **There is no cloud AI**: every answer, phrasing and message check runs on the phone. |
 | Privacy / latency / offline / cost | **Privacy:** debt, collector messages and screenshots are sensitive personal information under the Data Privacy Act 2012; they never leave the device. **Latency:** the reflection must be ready inside a 10-second pause; the model is warmed at launch (`src/hooks/useWarmLocalModel.ts`) so it answers within the countdown. **Offline:** the demo runs in airplane mode. **Cost:** zero per-user inference cost, which is what makes a free app for a prepaid-data audience viable. **Hardware:** NPU/GPU delegation when the chipset supports it. |
 
 ### 3. Technical execution
@@ -61,7 +61,7 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 | # | Rule | In code |
 |---|---|---|
 | R1 | The pause is a real delay | `src/app/pause.tsx` disables decisions for `settings.pauseSeconds` |
-| R2 | Local-first; no network without opt-in + disclosure | SQLite only; `cloudReply` gated by `cloudAiEnabled` with in-app disclosure |
+| R2 | Local-first; no network without opt-in + disclosure | SQLite only; no cloud AI; the only downloads (model file, web text reader) happen when the user starts them |
 | R3 | Every generated line is labeled fact / estimate / suggestion | `CertaintyTag`, `LabeledLine` |
 | R4 | No shame, no guarantees, user decides | `guard.ts` shame/guarantee filters, template tests, *Continue* always present |
 | R5 | Help one tap away | Help & Safety linked from pause, Today, chat crisis path |
@@ -97,15 +97,6 @@ npx expo run:android # Development build: LiteRT-LM models, ML Kit OCR, Payday S
 
 Open **Scroll → Guards**, pick apps or add websites, and allow *Usage access* and *Display over other apps* when asked. These use only user-granted Usage access, an overlay, and a local DNS-only VPN; no Accessibility service, no `QUERY_ALL_PACKAGES`. Details in [plan.md → Phase 4B](./plan.md#phase-4b--app--website-blocking-android-only-dev-build).
 
-### Ask Ginto with Claude (optional, off by default)
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-... npm run ginto-server
-cp .env.example .env.local   # EXPO_PUBLIC_GINTO_API_URL=http://<your-computer-ip>:8787
-```
-
-Then turn on *Smarter Ask Ginto* in Settings. Only a numbers-only summary travels; the pause never uses it.
-
 ---
 
 ## Architecture
@@ -117,7 +108,7 @@ src/
   ai/         localProvider (templates) · pausePhrasing + guard (LLM wording, provenance-checked)
               androidLocalAi (LiteRT-LM bridge, timeouts, model resolution) · localModels (device-aware picker) · chat
   db/         SQLite migrations, repositories, append-only event log
-  lib/        OCR (ML Kit), notifications, evidence PDF export, guard sync
+  lib/        OCR (ML Kit on Android, Tesseract.js on web), notifications, evidence PDF export, guard sync
 modules/
   ginto-local-ai/   Kotlin: LiteRT-LM engine, NPU→GPU→CPU, generate / generateOnce / analyzeMessageRisk / inspectDevice
   unhooked-guard/   Kotlin: usage-events foreground service, shield deep link, local DNS VpnService
@@ -132,6 +123,56 @@ Trigger → domain/* computes facts → localProvider template (instant)
         → user decides → events table → Insights
 ```
 
+## APIs and outside services
+
+Unhooked is local-first: debts, purchases, screenshots and check-ins never leave the phone. These are the only places the app talks to something outside the device, and when.
+
+| Service | What it is used for | When it is contacted |
+|---|---|---|
+| [Hugging Face](https://huggingface.co/litert-community) (`litert-community` models) | Downloads the on-device chat model file | Only when you tap **Download** in Ask Ginto → model settings |
+| [jsDelivr CDN](https://www.jsdelivr.com/package/npm/tesseract.js) (Tesseract.js reader files) | Text reader for the Utang scanner **on web** | Once, the first time you scan on web; the screenshot itself is read in the browser and never uploaded |
+| [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2) | Reads screenshots in the Utang scanner **on Android** | Runs fully on the device; no network |
+| [Cloudflare DNS 1.1.1.1](https://one.one.one.one/) and [Google Public DNS 8.8.8.8](https://developers.google.com/speed/public-dns) | Upstream DNS for the website guard's local VPN (Android) | Only while a website guard is on; DNS lookups only, no traffic content |
+| [SEC Philippines](https://www.sec.gov.ph) | "Check on the SEC website" link in the scanner and help resources | Only when you tap the link (opens your browser) |
+| [PNP Anti-Cybercrime Group](https://acg.pnp.gov.ph) and [National Privacy Commission](https://privacy.gov.ph) | Where-to-report links | Only when you tap the link |
+
+## Third-party libraries, models and assets
+
+We did not build these. Each is used under its own license.
+
+**App framework**
+
+- [Expo SDK 57](https://docs.expo.dev/) and [Expo Router](https://docs.expo.dev/router/introduction/)
+- [React](https://react.dev/) and [React Native](https://reactnative.dev/), [React Native Web](https://necolas.github.io/react-native-web/)
+- [react-native-screens](https://github.com/software-mansion/react-native-screens), [react-native-safe-area-context](https://github.com/AppAndFlow/react-native-safe-area-context), [react-native-svg](https://github.com/software-mansion/react-native-svg)
+- [zustand](https://github.com/pmndrs/zustand) for saved settings
+
+**Expo modules**
+
+- [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/) (local database), [expo-notifications](https://docs.expo.dev/versions/latest/sdk/notifications/), [expo-image-picker](https://docs.expo.dev/versions/latest/sdk/imagepicker/)
+- [expo-print](https://docs.expo.dev/versions/latest/sdk/print/) and [expo-sharing](https://docs.expo.dev/versions/latest/sdk/sharing/) (Evidence Pack and SEC complaint PDFs)
+- [expo-file-system](https://docs.expo.dev/versions/latest/sdk/filesystem/), [expo-crypto](https://docs.expo.dev/versions/latest/sdk/crypto/), [expo-haptics](https://docs.expo.dev/versions/latest/sdk/haptics/), [expo-clipboard](https://docs.expo.dev/versions/latest/sdk/clipboard/)
+- [expo-device](https://docs.expo.dev/versions/latest/sdk/device/), [expo-constants](https://docs.expo.dev/versions/latest/sdk/constants/), [expo-linking](https://docs.expo.dev/versions/latest/sdk/linking/), [expo-font](https://docs.expo.dev/versions/latest/sdk/font/), [expo-status-bar](https://docs.expo.dev/versions/latest/sdk/status-bar/), [expo-build-properties](https://docs.expo.dev/versions/latest/sdk/build-properties/)
+- [@react-native-community/datetimepicker](https://github.com/react-native-datetimepicker/datetimepicker)
+
+**On-device AI and text reading**
+
+- [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM) (`com.google.ai.edge.litertlm:litertlm-android`), the Android runtime for the chat model
+- Models from [litert-community on Hugging Face](https://huggingface.co/litert-community): [Gemma 3 1B IT](https://huggingface.co/litert-community/Gemma3-1B-IT), [Qwen 2.5 1.5B Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Gemma 4 E2B IT](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma 4 E4B IT](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (Gemma models under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms))
+- [@react-native-ml-kit/text-recognition](https://github.com/a7med-mahmoud/react-native-ml-kit) wrapping [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
+- [Tesseract.js](https://github.com/naptha/tesseract.js) for screenshot reading on web
+
+**Design**
+
+- [Poppins](https://fonts.google.com/specimen/Poppins) via [@expo-google-fonts/poppins](https://github.com/expo/google-fonts) (SIL Open Font License)
+- [Lucide](https://lucide.dev/) icons via [lucide-react-native](https://github.com/lucide-icons/lucide/tree/main/packages/lucide-react-native)
+- [@expo/vector-icons](https://docs.expo.dev/guides/icons/)
+
+**Developer tools**
+
+- [TypeScript](https://www.typescriptlang.org/), [ESLint](https://eslint.org/) with [eslint-config-expo](https://github.com/expo/expo/tree/main/packages/eslint-config-expo), [Prettier](https://prettier.io/)
+- [Jest](https://jestjs.io/) with [jest-expo](https://github.com/expo/expo/tree/main/packages/jest-expo) and [React Native Testing Library](https://callstack.github.io/react-native-testing-library/)
+
 ## Project docs
 
 - [`plan.md`](./plan.md): target users, research traceability, phased plan, demo script, definition of done
@@ -141,6 +182,6 @@ Trigger → domain/* computes facts → localProvider template (instant)
 
 ## Stack
 
-Expo SDK 57 · React Native 0.86 · TypeScript strict · Expo Router · expo-sqlite · zustand · LiteRT-LM (Gemma 3 / Qwen 2.5 / Gemma 4) · ML Kit Text Recognition · Jest
+Expo SDK 57 · React Native 0.86 · TypeScript strict · Expo Router · expo-sqlite · zustand · LiteRT-LM (Gemma 3 / Qwen 2.5 / Gemma 4) · ML Kit Text Recognition · Tesseract.js · Jest
 
 Unhooked is a self-help tool, not medical, legal or financial advice. In a crisis, call the NCMH Crisis Hotline **1553** or **911**.

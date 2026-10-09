@@ -1,5 +1,10 @@
-import { pickLocalModel, planModelDownload } from '../localModels';
-import type { LocalModelId } from '../localModels';
+import {
+  pickLocalModel,
+  planModelDownload,
+  recommendLocalModel,
+  type AndroidDeviceProfile,
+  type LocalModelId,
+} from '../localModels';
 
 const set = (...ids: LocalModelId[]) => new Set<LocalModelId>(ids);
 
@@ -76,5 +81,32 @@ describe('planModelDownload', () => {
   it('treats a partial at or past the total as complete', () => {
     expect(planModelDownload(100, 100)).toEqual({ kind: 'complete' });
     expect(planModelDownload(150, 100)).toEqual({ kind: 'complete' });
+  });
+});
+
+const device = (overrides: Partial<AndroidDeviceProfile> = {}): AndroidDeviceProfile => ({
+  manufacturer: 'Infinix',
+  modelName: 'X6856',
+  totalMemoryBytes: 8_000_000_000,
+  availableMemoryBytes: 4_000_000_000,
+  freeStorageBytes: 8_000_000_000,
+  runtimeAvailable: true,
+  ...overrides,
+});
+
+describe('recommendLocalModel', () => {
+  it('uses Qwen 2.5 1.5B on a high-end phone', () => {
+    expect(recommendLocalModel(device())).toBe('qwen2.5-1.5b');
+  });
+
+  it('keeps Qwen 3 0.6B for tight memory or low battery', () => {
+    expect(recommendLocalModel(device({ totalMemoryBytes: 3_000_000_000 }))).toBe('qwen3-0.6b');
+    expect(
+      recommendLocalModel(device({ batteryPercent: 12, charging: false })),
+    ).toBe('qwen3-0.6b');
+  });
+
+  it('falls back when there is not enough storage for Qwen', () => {
+    expect(recommendLocalModel(device({ freeStorageBytes: 500_000_000 }))).toBe('qwen3-0.6b');
   });
 });

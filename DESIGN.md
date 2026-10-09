@@ -73,3 +73,4 @@ Banned: purple-to-blue gradients, pure black, cold gray shadows, and using red f
 ## Last updated
 
 2026-10-09 — Rebuilt Ginto around a logo-faithful soft-3D master body while preserving animated moods.
+2026-10-09 — Added the post-onboarding microphone and reminder permission step, using the existing calm card flow.

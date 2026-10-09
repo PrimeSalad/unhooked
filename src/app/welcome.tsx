@@ -15,6 +15,7 @@ import { colors, spacing } from '@/constants/theme';
 import type { Certainty } from '@/domain/types';
 import { formatPHP, parsePesoInput } from '@/domain/money';
 import { useFrameWidth } from '@/hooks/useFrame';
+import { keyboardBehavior } from '@/hooks/useKeyboard';
 import { useSettings } from '@/store/settings';
 
 const LEVELS = 4;
@@ -91,7 +92,7 @@ function Frame({
   const insets = useSafeAreaInsets();
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardBehavior}
       style={{ flex: 1, backgroundColor: colors.bg }}
     >
       <View
@@ -203,7 +204,7 @@ function Line({
 // ---------- Level 4 · your month ----------
 
 function YourMonth() {
-  const { setName, setBudget, setOnboarded } = useSettings();
+  const { setName, setBudget, setOnboarded, setPermissionsReviewed } = useSettings();
   const [name, setNameText] = useState('');
   const [income, setIncome] = useState('');
   const [bills, setBills] = useState('');
@@ -227,6 +228,11 @@ function YourMonth() {
       });
     }
     setOnboarded(true);
+    if (Platform.OS === 'android') {
+      router.replace('/permissions');
+      return;
+    }
+    setPermissionsReviewed(true);
     router.replace('/');
   };
 

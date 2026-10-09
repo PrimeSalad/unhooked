@@ -39,8 +39,8 @@ const PERFORMANCE_OPTIONS: { value: PerformanceMode; label: string }[] = [
 
 const PROFILE_GROUPS = [
   {
-    title: 'Text-only',
-    ids: ['qwen3-0.6b', 'qwen2.5-1.5b'] as LocalModelId[],
+    title: 'Chat',
+    ids: ['qwen2.5-1.5b', 'qwen3-0.6b'] as LocalModelId[],
   },
   {
     title: 'Text + vision',
@@ -279,7 +279,8 @@ export function GemmaModelSheet({
         </View>
 
         <Text variant="caption" color={colors.textMuted}>
-          Auto picks a model and chip for your phone.
+          Auto uses Qwen 2.5 1.5B when memory allows, with Qwen 3 0.6B as the
+          low-memory fallback.
         </Text>
 
         <View style={styles.deviceCard}>

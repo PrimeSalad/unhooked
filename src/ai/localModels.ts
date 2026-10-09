@@ -63,7 +63,7 @@ export const LOCAL_MODELS: LocalModelProfile[] = [
   }),
   model({
     id: 'qwen2.5-1.5b',
-    tier: 'Balanced',
+    tier: 'Primary',
     name: 'Qwen 2.5 1.5B',
     modality: 'Text',
     sizeLabel: '~1.6 GB',
@@ -72,7 +72,7 @@ export const LOCAL_MODELS: LocalModelProfile[] = [
     repo: 'litert-community/Qwen2.5-1.5B-Instruct',
     revision: '19edb84c69a0212f29a6ef17ba0d6f278b6a1614',
     hardware: '4–6 GB RAM',
-    use: 'Everyday chat · multilingual · coding',
+    use: 'Filipino + Taglish chat · stronger reasoning',
   }),
   model({
     id: 'gemma4-e2b',
@@ -155,12 +155,6 @@ export function recommendLocalModel(device: AndroidDeviceProfile | null): LocalM
     device.freeStorageBytes == null ||
     device.freeStorageBytes >= LOCAL_MODEL_BY_ID[id].bytes + STORAGE_HEADROOM;
 
-  if (totalRam >= 8 * GB && availableRam >= 4 * GB && hasSpace('gemma4-e4b')) {
-    return 'gemma4-e4b';
-  }
-  if (totalRam >= 6 * GB && availableRam >= 3 * GB && hasSpace('gemma4-e2b')) {
-    return 'gemma4-e2b';
-  }
   if (totalRam >= 4 * GB && availableRam >= 2 * GB && hasSpace('qwen2.5-1.5b')) {
     return 'qwen2.5-1.5b';
   }
