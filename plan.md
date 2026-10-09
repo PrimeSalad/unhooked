@@ -274,21 +274,16 @@ The user picks which apps and websites get a "hook guard". Opening one shows Gin
 - [x] `domain/messageRisk.ts` uses tested English + Filipino/Taglish keyword/regex rules for threats, pressure, contact-shaming, exposure and payment links/e-wallet numbers. It flags indications, not confirmed fraud.
 - [x] Message check supports paste → risk level + highlighted signals + explanation ("an indication, not proof") → **Save to Evidence Pack**; it includes basic reporting advice.
 - [x] Settings explains local storage and offers delete-all-data.
-- [ ] Add a cloud AI control and accurate disclosure in Settings. The existing photo consent is in Ask Ginto.
+- [x] Add a cloud AI control and accurate disclosure in Settings. The existing photo consent is in Ask Ginto.
 - [x] First-run onboarding explains the pause and on-device AI, and offers an optional budget.
-- [ ] Add an explicit self-help disclaimer to onboarding and align its privacy promise with optional cloud chat.
+- [x] Add an explicit self-help disclaimer to onboarding and align its privacy promise with optional cloud chat.
 
 **Removed from scope:** Help & Safety screen, `/help` links and the support-resource directory verification checklist.
 
 ### Phase 7 — Stretch (only after Phases 1–6 demo cleanly)
 
 - [x] Optional Claude chat path and server proxy keep the API key off-device; Ask Ginto prompts for consent when a first photo would enable cloud chat. This is chat, not pause reflection.
-- [ ] **Cloud pause reflections (opt-in):** send only pre-computed `facts` (no names or message text), use structured output matching `Reflection`, fall back to `localProvider` on error/offline, and disclose before first use (R2).
-- [ ] Correct cloud chat copy and consent: the request sends the chat text and can send a consented photo alongside the numbers-only record summary. The current status line says only numbers are shared.
-- [ ] Automatic scroll detection: reuse the Phase 4B `unhooked-guard` usage-stats module to start Scroll sessions automatically (dev build only).
 - [x] English + Taglish message-risk patterns and Taglish-aware Ask Ginto prompt.
-- [ ] Full Filipino / Taglish UI copy.
-- [ ] Dark mode with a dark palette.
 
 ### Explicitly deferred (from spec §18)
 
@@ -319,9 +314,6 @@ Automatic detection across every app · background monitoring through Accessibil
 6. **Scroll** — start a 1-minute demo session → notification → gentle check-in → _Take a break_.
 7. **Insights** — show labeled patterns and weekly progress; explain that core records and on-device reflections stay on the phone.
 
-- [ ] `src/db/seed.ts` + hidden "Load demo data" action in Settings (dev only).
-- [ ] Rehearse on a real Android phone in Expo Go, airplane mode on.
-
 ---
 
 ## 6. Success metrics (from the event log)
@@ -331,22 +323,13 @@ These measure **engagement**, not health outcomes — say so in the pitch.
 
 ---
 
-## 7. Definition of done (every PR)
-
-- [ ] `npm run check` passes (typecheck, lint, tests); `npm run doctor` clean.
-- [ ] New logic is in `src/domain` with tests; screens stay thin.
-- [ ] Every generated line is labeled (R3); copy has no shame words, no guarantees (R4).
-- [ ] Meaningful actions call `logEvent`.
-- [ ] No new network calls without disclosure + opt-in (R2).
-- [ ] Works on Android in Expo Go; tap targets ≥ 48dp; text readable at large font sizes.
-
-## 8. Risks
+## 7. Risks
 
 | Risk                                                                    | Mitigation                                                                                                                                                           |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | OS won't let us detect scrolling in other apps                          | Manual sessions + notifications; say so honestly; usage-stats is a stretch goal.                                                                                     |
 | AI text sounds preachy or overconfident                                 | Template-based local provider; copy checklist; `CertaintyTag` everywhere.                                                                                            |
-| Wrong fixed crisis contact numbers in Ask Ginto | Published 1553 and 911 numbers checked on 2026-10-10 against [government NCMH guidance](https://pia.gov.ph/gallery/mga-munting-paalala-sa-sarili/) and [DILG emergency guidance](https://pia.gov.ph/press-release/dilgs-unified-911-saves-lives-through-faster-emergency-response/). Live call reachability was not tested. |
+| Wrong fixed crisis contact numbers in Ask Ginto                         | Published 1553 and 911 numbers checked on 2026-10-10 against [government NCMH guidance](https://pia.gov.ph/gallery/mga-munting-paalala-sa-sarili/) and [DILG emergency guidance](https://pia.gov.ph/press-release/dilgs-unified-911-saves-lives-through-faster-emergency-response/). Live call reachability was not tested. |
 | Notification behavior differs in Expo Go                                | Test local notifications early in Phase 3; fall back to in-app banners.                                                                                              |
 | Play rejects the blocker (VpnService / foreground-service declarations) | Least-intrusive APIs only (no Accessibility, no `QUERY_ALL_PACKAGES`); prominent in-app disclosure; on-device only; drop website guard and keep app guard if needed. |
 | Blocking feels punishing or traps the user                              | Pause mode by default, _Open anyway_ after the countdown, strict mode opt-in, essential sites and dialer never blocked, guard can always be turned off.              |
