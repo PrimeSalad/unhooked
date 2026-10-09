@@ -1,137 +1,234 @@
 import { router } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
-import { Ginto } from '@/components/mascot/Ginto';
-import { Button, Card, ProgressBar, Rise, Row, Screen, ScreenHeader, Text } from '@/components/ui';
+import {
+  Button,
+  Card,
+  Chips,
+  ProgressBar,
+  Rise,
+  Row,
+  Screen,
+  ScreenHeader,
+  Sheet,
+  Text,
+} from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
-import { demoScroll as s } from '@/demo/ana';
+import { activeSession, endSession, scrollStats, setSessionOutcome, startSession } from '@/db/repo';
+import { useDbQuery } from '@/db/useDbQuery';
+import { elapsedSeconds, formatClock, formatMinutes } from '@/domain/scroll';
+import { cancelReminder, remindIn } from '@/lib/notifications';
 import { useSession } from '@/store/session';
+import { useSettings } from '@/store/settings';
 
-function CheckInSheet({ open, onClose }: { open: boolean; onClose: (msg?: string) => void }) {
-  const insets = useSafeAreaInsets();
-  const slide = useState(() => new Animated.Value(0))[0];
+const APPS = ['TikTok', 'Facebook', 'Instagram', 'YouTube', 'X', 'Other'] as const;
+const LIMITS = ['10', '20', '30', '45'] as const;
+
+const emptyStats = {
+  todayMinutes: 0,
+  longestToday: 0,
+  weekMinutes: 0,
+  weekSessions: 0,
+  peakHour: null as number | null,
+};
+
+const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h >= 12 ? 'PM' : 'AM'}`;
+
+export default function ScrollScreen() {
+  const db = useSQLiteContext();
+  const showToast = useSession((s) => s.showToast);
+  const defaultLimit = useSettings((s) => s.scrollLimitMinutes);
+  const setDefaultLimit = useSettings((s) => s.setScrollLimit);
+  const { data: session } = useDbQuery(activeSession, null);
+  const { data: stats } = useDbQuery(scrollStats, emptyStats);
+
+  const [app, setApp] = useState<(typeof APPS)[number]>('TikTok');
+  const [limit, setLimit] = useState(String(defaultLimit));
+  const [now, setNow] = useState(() => new Date());
+  const [snoozedUntil, setSnoozedUntil] = useState<Record<string, number>>({});
+  const [reminderId, setReminderId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-    slide.setValue(0);
-    Animated.timing(slide, {
-      toValue: 1,
-      duration: 550,
-      easing: Easing.bezier(0.2, 0.9, 0.2, 1),
-      useNativeDriver: true,
-    }).start();
-  }, [open, slide]);
+    if (!session) return;
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, [session]);
+
+  const elapsed = session ? elapsedSeconds(session, now) : 0;
+  const limitS = session ? session.limitMinutes * 60 : 1;
+  const due = !!session && elapsed >= limitS && now.getTime() >= (snoozedUntil[session.id] ?? 0);
+
+  const start = async () => {
+    const minutes = Number(limit);
+    setDefaultLimit(minutes);
+    await startSession(db, app, minutes);
+    setNow(new Date());
+    setReminderId(
+      await remindIn(
+        minutes * 60,
+        'Quick check-in',
+        `${minutes} minutes are up. Still scrolling on purpose?`,
+      ),
+    );
+  };
+
+  const finish = async (msg?: string) => {
+    if (!session) return;
+    await endSession(db, session.id);
+    await cancelReminder(reminderId);
+    if (msg) showToast(msg);
+  };
+
+  const takeBreak = async () => {
+    if (!session) return;
+    await setSessionOutcome(db, session.id, 'break');
+    await finish();
+    router.push('/break');
+  };
+
+  const snooze = (minutes: number) => {
+    if (!session) return;
+    setSnoozedUntil((s) => ({ ...s, [session.id]: Date.now() + minutes * 60000 }));
+  };
 
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={() => onClose()}>
-      <Pressable style={styles.scrim} onPress={() => onClose()} accessibilityLabel="Close" />
-      <Animated.View
-        style={[
-          styles.sheet,
-          {
-            paddingBottom: insets.bottom + spacing.xl,
-            transform: [
-              { translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [420, 0] }) },
-            ],
-          },
-        ]}
-      >
-        <Ginto mood="sleepy" size={128} style={styles.peek} />
+    <Screen>
+      <ScreenHeader
+        title="Scroll"
+        subtitle="Use your feed on purpose."
+        mascot={session ? 'calm' : 'happy'}
+      />
+
+      {session ? (
+        <Rise>
+          <View style={styles.session}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Text variant="eyebrow" color={colors.pauseMuted} style={{ fontSize: 11 }}>
+                {session.app} · session running
+              </Text>
+              <View style={styles.liveDot} />
+            </Row>
+            <Text variant="display" color="#F2FBFC">
+              {formatClock(elapsed)}
+            </Text>
+            <ProgressBar
+              value={elapsed / limitS}
+              color={colors.accent}
+              track="rgba(242,251,252,0.18)"
+            />
+            <Text variant="caption" color="#BFE6EC">
+              {elapsed < limitS
+                ? `I will check in at ${session.limitMinutes} minutes`
+                : `Past your ${session.limitMinutes}-minute limit`}
+            </Text>
+            <Row gap={10} style={{ marginTop: spacing.sm }}>
+              <Button
+                label="Take a break"
+                size="sm"
+                style={{ flex: 1 }}
+                onPress={() => void takeBreak()}
+              />
+              <Button
+                label="I am done"
+                size="sm"
+                kind="outlineLight"
+                style={{ flex: 1 }}
+                onPress={() => void finish('Session saved. Nice and intentional.')}
+              />
+            </Row>
+          </View>
+        </Rise>
+      ) : (
+        <Rise>
+          <Card style={{ gap: spacing.md }}>
+            <Text variant="strong">Opening a feed?</Text>
+            <Text variant="small" color={colors.textMuted}>
+              Start a session first. I will check in gently when your time is up. No blocking.
+            </Text>
+            <Text variant="caption" color={colors.textSoft}>
+              App
+            </Text>
+            <Chips
+              value={app}
+              onChange={setApp}
+              options={APPS.map((a) => ({ value: a, label: a }))}
+            />
+            <Text variant="caption" color={colors.textSoft}>
+              Limit
+            </Text>
+            <Chips
+              value={limit}
+              onChange={setLimit}
+              options={LIMITS.map((l) => ({ value: l, label: `${l} min` }))}
+            />
+            <Button label="Start session" icon="play" onPress={() => void start()} />
+          </Card>
+        </Rise>
+      )}
+
+      <Rise delay={60}>
+        <Card style={{ gap: spacing.md }}>
+          <Text variant="strong">Your scrolling</Text>
+          {stats.weekSessions === 0 ? (
+            <Text variant="small" color={colors.textMuted}>
+              Nothing tracked yet. Your patterns show up here after a few sessions.
+            </Text>
+          ) : (
+            <Row style={{ justifyContent: 'space-between' }}>
+              <View>
+                <Text variant="heading" style={{ fontSize: 20 }}>
+                  {formatMinutes(stats.todayMinutes)}
+                </Text>
+                <Text variant="caption">Today</Text>
+              </View>
+              <View>
+                <Text variant="heading" style={{ fontSize: 20 }}>
+                  {formatMinutes(stats.weekMinutes)}
+                </Text>
+                <Text variant="caption">This week</Text>
+              </View>
+              <View>
+                <Text variant="heading" style={{ fontSize: 20 }}>
+                  {stats.peakHour === null ? '–' : hourLabel(stats.peakHour)}
+                </Text>
+                <Text variant="caption">Usual time</Text>
+              </View>
+            </Row>
+          )}
+        </Card>
+      </Rise>
+
+      <Sheet open={due} onClose={() => snooze(10)} mascot="sleepy">
         <Text variant="heading" align="center" style={{ fontSize: 21, lineHeight: 27 }}>
-          You have been scrolling for {s.minutes} minutes.
+          You have been on {session?.app} for {Math.floor(elapsed / 60)} minutes.
         </Text>
         <Text variant="small" align="center" style={{ marginBottom: spacing.sm }}>
           Still using this time the way you meant to?
         </Text>
-        <Button
-          label="Take a break"
-          onPress={() => {
-            onClose();
-            router.push('/break');
-          }}
-        />
+        <Button label="Take a break" onPress={() => void takeBreak()} />
         <Button
           label="I am using this on purpose"
           kind="outline"
-          onPress={() => onClose('Got it. Enjoy it on purpose.')}
+          onPress={async () => {
+            if (!session) return;
+            await setSessionOutcome(db, session.id, 'intentional');
+            snooze(session.limitMinutes);
+            showToast('Got it. Enjoy it on purpose.');
+          }}
         />
         <Button
           label="Remind me in 10 minutes"
           kind="ghost"
           size="sm"
-          onPress={() => onClose('I will check in again in 10 minutes.')}
+          onPress={async () => {
+            if (!session) return;
+            await setSessionOutcome(db, session.id, 'snooze');
+            snooze(10);
+          }}
         />
-      </Animated.View>
-    </Modal>
-  );
-}
-
-export default function ScrollScreen() {
-  const [open, setOpen] = useState(false);
-  const breaks = useSession((st) => st.breaks);
-  const showToast = useSession((st) => st.showToast);
-
-  return (
-    <Screen>
-      <ScreenHeader title="Scroll" subtitle="Use your feed on purpose." mascot="happy" />
-
-      <Rise>
-        <View style={styles.session}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Text variant="eyebrow" color={colors.pauseMuted} style={{ fontSize: 11 }}>
-              {s.app} · session running
-            </Text>
-            <View style={styles.liveDot} />
-          </Row>
-          <Text variant="display" color="#F2FBFC">
-            {s.elapsed}
-          </Text>
-          <ProgressBar value={1} color={colors.accent} track="rgba(242,251,252,0.18)" />
-          <Text variant="caption" color="#BFE6EC">
-            Your limit: {s.limit} minutes
-          </Text>
-        </View>
-      </Rise>
-
-      <Rise delay={60}>
-        <Card style={{ gap: spacing.md }}>
-          <Text variant="strong">This week</Text>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <View>
-              <Text variant="heading" style={{ fontSize: 20 }}>
-                {s.weekTotal}
-              </Text>
-              <Text variant="caption">Total</Text>
-            </View>
-            <View>
-              <Text variant="heading" style={{ fontSize: 20 }}>
-                {s.peak}
-              </Text>
-              <Text variant="caption">Peak time</Text>
-            </View>
-            <View>
-              <Text variant="heading" style={{ fontSize: 20 }}>
-                {breaks}
-              </Text>
-              <Text variant="caption">Breaks</Text>
-            </View>
-          </Row>
-        </Card>
-      </Rise>
-
-      <Rise delay={120}>
-        <Button label="Show the check-in" onPress={() => setOpen(true)} />
-      </Rise>
-
-      <CheckInSheet
-        open={open}
-        onClose={(msg) => {
-          setOpen(false);
-          if (msg) showToast(msg);
-        }}
-      />
+      </Sheet>
     </Screen>
   );
 }
@@ -144,18 +241,4 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
-  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(42,22,8,0.35)' },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.bg,
-    borderTopLeftRadius: radius.xxl,
-    borderTopRightRadius: radius.xxl,
-    paddingTop: 92,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.sm,
-  },
-  peek: { position: 'absolute', top: -64, alignSelf: 'center' },
 });

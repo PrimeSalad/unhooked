@@ -2,7 +2,7 @@
 // Default provider is fully local (templates + rules). A cloud provider is opt-in only,
 // must be disclosed to the user, and must go through a server proxy (never ship API keys).
 
-import type { Certainty, PauseKind, RiskLevel, WellnessCheckIn } from '@/domain/types';
+import type { Certainty, PauseKind, WellnessCheckIn } from '@/domain/types';
 
 export type Tone = 'gentle' | 'neutral'; // gentle when the user reports high stress
 
@@ -31,12 +31,6 @@ export interface Insight {
   module: 'debt' | 'spend' | 'scroll' | 'overall';
   text: string;
   certainty: Certainty;
-}
-
-export interface MessageRiskResult {
-  level: RiskLevel;
-  signals: { label: string; excerpt: string }[];
-  explanation: string; // always states this is an indication, not proof
 }
 
 export interface ReflectionProvider {

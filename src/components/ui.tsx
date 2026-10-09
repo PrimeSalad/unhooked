@@ -6,11 +6,16 @@ import { useEffect, type ComponentProps, type ReactNode, useState } from 'react'
 import {
   Animated,
   Easing,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text as RNText,
+  TextInput,
   View,
+  type TextInputProps,
   type StyleProp,
   type TextProps,
   type TextStyle,
@@ -19,11 +24,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ginto, type GintoMood } from '@/components/mascot/Ginto';
-import { colors, fonts, motion, radius, shadow, spacing } from '@/constants/theme';
+import { colors, fonts, layout, motion, radius, shadow, spacing } from '@/constants/theme';
 import type { Certainty } from '@/domain/types';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export type IconName = ComponentProps<typeof Ionicons>['name'];
+
+/** router.back(), or go Home when there is nothing to go back to. */
+export function goBack() {
+  if (router.canGoBack()) router.back();
+  else router.replace('/');
+}
 
 // ---------- Text ----------
 
@@ -140,7 +151,7 @@ export function Screen({
       contentContainerStyle={{
         paddingTop: insets.top + spacing.lg,
         paddingHorizontal: spacing.xl,
-        paddingBottom: (tabs ? 0 : insets.bottom) + spacing.xxxl,
+        paddingBottom: (tabs ? layout.tabBarSpace : insets.bottom) + spacing.xxxl,
         gap,
       }}
       showsVerticalScrollIndicator={false}
@@ -163,7 +174,7 @@ export function ScreenHeader({
 }) {
   return (
     <View style={{ gap: spacing.md }}>
-      {back && <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} />}
+      {back && <IconButton icon="chevron-back" label="Back" onPress={goBack} />}
       <View
         style={{ flexDirection: 'row', alignItems: 'center', minHeight: mascot ? 82 : undefined }}
       >
@@ -519,4 +530,191 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentActive: { backgroundColor: colors.surface },
+});
+
+// ---------- Forms ----------
+
+export function Field({
+  label,
+  hint,
+  style,
+  ...input
+}: TextInputProps & { label: string; hint?: string }) {
+  return (
+    <View style={{ gap: 6 }}>
+      <Text variant="caption" color={colors.textSoft} style={{ fontFamily: fonts.semibold }}>
+        {label}
+      </Text>
+      <TextInput
+        placeholderTextColor={colors.textFaint}
+        style={[formStyles.input, style]}
+        accessibilityLabel={label}
+        {...input}
+      />
+      {hint ? <Text variant="caption">{hint}</Text> : null}
+    </View>
+  );
+}
+
+export function Chips<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T | null;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(o.value)}
+            style={[formStyles.chip, active && formStyles.chipActive]}
+          >
+            <Text
+              variant="strong"
+              color={active ? colors.bg : colors.textSoft}
+              style={{ fontSize: 13 }}
+            >
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Friendly empty state: Ginto + one sentence + one action. */
+export function EmptyState({
+  mood = 'happy',
+  title,
+  body,
+  action,
+  onAction,
+}: {
+  mood?: GintoMood;
+  title: string;
+  body: string;
+  action?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <Card style={{ alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm }}>
+      <Ginto mood={mood} size={110} />
+      <Text variant="heading" align="center">
+        {title}
+      </Text>
+      <Text variant="small" align="center" color={colors.textMuted}>
+        {body}
+      </Text>
+      {action && onAction ? (
+        <Button
+          label={action}
+          size="sm"
+          onPress={onAction}
+          style={{ marginTop: spacing.sm, alignSelf: 'stretch' }}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+/** Bottom sheet with an optional Ginto peeking over the top edge. */
+export function Sheet({
+  open,
+  onClose,
+  mascot,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  mascot?: GintoMood;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  const [slide] = useState(() => new Animated.Value(0));
+  return (
+    <Modal
+      visible={open}
+      transparent
+      animationType="fade"
+      onShow={() => {
+        slide.setValue(0);
+        Animated.spring(slide, {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 16,
+          bounciness: 6,
+        }).start();
+      }}
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <Pressable style={formStyles.scrim} onPress={onClose} accessibilityLabel="Close" />
+        <Animated.View
+          style={[
+            formStyles.sheet,
+            {
+              paddingTop: mascot ? 84 : spacing.xl,
+              paddingBottom: insets.bottom + spacing.xl,
+              transform: [
+                { translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [500, 0] }) },
+              ],
+            },
+          ]}
+        >
+          {mascot ? <Ginto mood={mascot} size={120} style={formStyles.sheetFish} /> : null}
+          {children}
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const formStyles = StyleSheet.create({
+  input: {
+    minHeight: 52,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fonts.medium,
+    fontSize: 16,
+    color: colors.text,
+  },
+  chip: {
+    minHeight: 40,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipActive: { backgroundColor: colors.text, borderColor: colors.text },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(42,22,8,0.4)' },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: radius.xxl,
+    borderTopRightRadius: radius.xxl,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+  },
+  sheetFish: { position: 'absolute', top: -60, alignSelf: 'center' },
 });

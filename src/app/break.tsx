@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Button, Card, Rise, Row, Text } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
+import { logBreak } from '@/db/repo';
 import { useSession } from '@/store/session';
 
 const STEPS = [
@@ -16,7 +18,7 @@ const STEPS = [
 
 export default function BreakScreen() {
   const insets = useSafeAreaInsets();
-  const addBreak = useSession((s) => s.addBreak);
+  const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
   const [left, setLeft] = useState(120);
 
@@ -61,8 +63,8 @@ export default function BreakScreen() {
       <Button
         label="Done, back to Today"
         kind="ink"
-        onPress={() => {
-          addBreak();
+        onPress={async () => {
+          await logBreak(db);
           router.dismissTo('/');
           showToast('Break logged. Your feed will still be there.');
         }}

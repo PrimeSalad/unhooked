@@ -1,13 +1,13 @@
 import * as Crypto from 'expo-crypto';
-import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Ginto } from '@/components/mascot/Ginto';
-import { Button, Card, Row, Screen, Text } from '@/components/ui';
+import { Button, Card, goBack, Row, Screen, Text } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { logEvent } from '@/db/events';
+import { bumpData } from '@/db/useDbQuery';
 import { useSession } from '@/store/session';
 
 type Score = 1 | 2 | 3 | 4 | 5;
@@ -37,7 +37,8 @@ export default function CheckInScreen() {
       new Date().toISOString(),
     );
     await logEvent(db, 'checkin_completed', { stress, mood, fatigue });
-    router.back();
+    bumpData();
+    goBack();
     showToast(
       stress >= 4 || fatigue >= 4
         ? 'Thanks for telling me. I will keep things gentle today.'
@@ -87,7 +88,7 @@ export default function CheckInScreen() {
       ))}
 
       <Button label="Save check-in" disabled={!complete} onPress={() => void save()} />
-      <Button label="Skip for now" kind="ghost" size="sm" onPress={() => router.back()} />
+      <Button label="Skip for now" kind="ghost" size="sm" onPress={goBack} />
     </Screen>
   );
 }

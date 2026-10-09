@@ -10,12 +10,14 @@ import { settingsStorage } from './storage';
 
 interface SettingsState {
   onboarded: boolean;
+  name: string; // optional; only used for greetings
   budget: BudgetProfile | null;
   scrollLimitMinutes: number;
   pauseSeconds: number; // the real delay is the active ingredient (PNAS one sec study)
-  cloudAiEnabled: boolean; // opt-in only, Phase 7
+  cloudAiEnabled: boolean; // opt-in only: Ask Ginto through Claude
   setOnboarded: (v: boolean) => void;
-  setBudget: (b: BudgetProfile) => void;
+  setName: (v: string) => void;
+  setBudget: (b: BudgetProfile | null) => void;
   setScrollLimit: (m: number) => void;
   setPauseSeconds: (s: number) => void;
   setCloudAi: (v: boolean) => void;
@@ -24,6 +26,7 @@ interface SettingsState {
 
 const defaults = {
   onboarded: false,
+  name: '',
   budget: null,
   scrollLimitMinutes: 20,
   pauseSeconds: 10,
@@ -35,6 +38,7 @@ export const useSettings = create<SettingsState>()(
     (set) => ({
       ...defaults,
       setOnboarded: (onboarded) => set({ onboarded }),
+      setName: (name) => set({ name: name.trim() }),
       setBudget: (budget) => set({ budget }),
       setScrollLimit: (scrollLimitMinutes) => set({ scrollLimitMinutes }),
       setPauseSeconds: (pauseSeconds) => set({ pauseSeconds }),

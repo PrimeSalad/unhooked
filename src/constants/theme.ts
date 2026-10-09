@@ -65,3 +65,8 @@ export const motion = {
 } as const;
 
 export type ModuleKey = 'debt' | 'spend' | 'scroll';
+
+export const layout = {
+  /** Room the floating tab bar takes at the bottom of tab screens. */
+  tabBarSpace: 100,
+} as const;

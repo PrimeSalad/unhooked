@@ -1,4 +1,4 @@
-// BNPL true-cost calculator (plan.md Phase 3). Pure function; the UI shows its output verbatim.
+// BNPL true-cost calculator. Pure function; the UI shows its output verbatim.
 
 import type { Centavos } from './money';
 
@@ -11,10 +11,16 @@ export interface BnplInput {
 
 export interface BnplResult {
   totalRepayment: Centavos;
-  extraCost: Centavos; // totalRepayment - upfrontPrice (can be 0)
+  extraCost: Centavos; // totalRepayment - upfrontPrice, never below 0
   extraCostPct: number; // extraCost / upfrontPrice * 100, 1 decimal
 }
 
-export function calculateBnpl(_input: BnplInput): BnplResult {
-  throw new Error('TODO(P3): implement calculateBnpl');
+export function calculateBnpl(input: BnplInput): BnplResult | null {
+  const { upfrontPrice, installmentAmount, numberOfPayments, fees } = input;
+  if (!Number.isInteger(numberOfPayments) || numberOfPayments <= 0) return null;
+  if (upfrontPrice <= 0 || installmentAmount <= 0 || fees < 0) return null;
+  const totalRepayment = installmentAmount * numberOfPayments + fees;
+  const extraCost = Math.max(0, totalRepayment - upfrontPrice);
+  const extraCostPct = Math.round((extraCost / upfrontPrice) * 1000) / 10;
+  return { totalRepayment, extraCost, extraCostPct };
 }
