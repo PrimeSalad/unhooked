@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Unhooked",
+    "slug": "unhooked",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ph.appbuilders.unhooked"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "ph.appbuilders.unhooked"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-sqlite",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Unhooked uses your photos only when you choose screenshots to add to your private Debt Evidence Pack. They stay on this device.",
+          "cameraPermission": false
+        }
+      ],
+      "expo-notifications",
+      "expo-font"
+    ],
+    "scheme": "unhooked",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
