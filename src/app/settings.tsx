@@ -3,7 +3,18 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Alert, Platform, Switch, View } from 'react-native';
 
-import { Button, Card, Field, Row, Screen, ScreenHeader, Segmented, Text } from '@/components/ui';
+import {
+  Button,
+  Card,
+  Field,
+  Group,
+  GroupRow,
+  Row,
+  Screen,
+  ScreenHeader,
+  Segmented,
+  Text,
+} from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
 import { deleteAllData } from '@/db/migrations';
@@ -158,6 +169,15 @@ export default function SettingsScreen() {
           />
         </Row>
       </Card>
+
+      <Group>
+        <GroupRow
+          icon="help"
+          title="Help and safety"
+          subtitle="Hotlines and where to report"
+          onPress={() => router.push('/help')}
+        />
+      </Group>
 
       <Button label="Delete all my data" kind="ghost" icon="trash" onPress={confirmDelete} />
     </Screen>

@@ -28,7 +28,7 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 | Is local inference fundamental? | **Yes. The product's core loop is `Trigger → AI Pause → Reflection → Decision`, and the reflection is generated on the phone.** `src/domain/*` computes the numbers (tested, deterministic); the on-device LLM phrases them during the countdown; `src/ai/guard.ts` rejects any model output that contains a number the domain did not compute or a shame word. Ask Ginto (chat), the Scan-a-message risk analysis and the Utang Scanner (ML Kit OCR of loan-app screenshots) all run on-device too. |
 | What runs where? | **LiteRT-LM** (`com.google.ai.edge.litertlm`) in a local Expo module, [`modules/ginto-local-ai`](./modules/ginto-local-ai/android/src/main/java/expo/modules/gintolocalai/GintoLocalAiModule.kt): tries **NPU**, then **GPU**, then **CPU** per model and reports which one it is using. Models: Gemma 3 1B int4 (~555 MB), Qwen 2.5 1.5B q8, Gemma 4 E2B/E4B (`src/ai/localModels.ts`). **ML Kit text recognition** for screenshot OCR (`src/lib/ocr.ts`). **Rules engine** for message risk in English + Taglish (`src/domain/messageRisk.ts`). **SQLite** for all records (`src/db`). |
 | Device-aware? | `recommendLocalModel()` picks the model from total/available RAM, low-memory flag, battery level and free storage (`src/ai/localModels.ts`). The chat model sheet shows the device, RAM, recommended model and the active accelerator. The pause card shows **"Phrased on this phone · Gemma 3 1B on GPU · 1.8 s"**. |
-| What breaks without local AI? | The pause falls back to fixed templates and loses personalised phrasing; Ask Ginto becomes a keyword bot; message analysis loses the model's explanation; OCR disappears. **No cloud alternative exists by default**: the only network call in the app (`src/ai/chat.ts → cloudReply`) is opt-in, disclosed in-app, sends a numbers-only summary (no lender names, no message text), and is never used for the pause. Disabling it changes nothing about the core loop. |
+| What breaks without local AI? | The pause falls back to fixed templates and loses personalised phrasing; Ask Ginto becomes a keyword bot; message analysis loses the model's explanation; OCR disappears. **There is no cloud AI**: every answer, phrasing and message check runs on the phone. |
 | Privacy / latency / offline / cost | **Privacy:** debt, collector messages and screenshots are sensitive personal information under the Data Privacy Act 2012; they never leave the device. **Latency:** the reflection must be ready inside a 10-second pause; the model is warmed at launch (`src/hooks/useWarmLocalModel.ts`) so it answers within the countdown. **Offline:** the demo runs in airplane mode. **Cost:** zero per-user inference cost, which is what makes a free app for a prepaid-data audience viable. **Hardware:** NPU/GPU delegation when the chipset supports it. |
 
 ### 3. Technical execution
@@ -61,7 +61,7 @@ Unhooked steps in at the moment of a risky decision (borrowing, checking out, op
 | # | Rule | In code |
 |---|---|---|
 | R1 | The pause is a real delay | `src/app/pause.tsx` disables decisions for `settings.pauseSeconds` |
-| R2 | Local-first; no network without opt-in + disclosure | SQLite only; `cloudReply` gated by `cloudAiEnabled` with in-app disclosure |
+| R2 | Local-first; no network without opt-in + disclosure | SQLite only; no cloud AI; the only downloads (model file, web text reader) happen when the user starts them |
 | R3 | Every generated line is labeled fact / estimate / suggestion | `CertaintyTag`, `LabeledLine` |
 | R4 | No shame, no guarantees, user decides | `guard.ts` shame/guarantee filters, template tests, *Continue* always present |
 | R5 | Help one tap away | Help & Safety linked from pause, Today, chat crisis path |
@@ -97,15 +97,6 @@ npx expo run:android # Development build: LiteRT-LM models, ML Kit OCR, Payday S
 
 Open **Scroll → Guards**, pick apps or add websites, and allow *Usage access* and *Display over other apps* when asked. These use only user-granted Usage access, an overlay, and a local DNS-only VPN; no Accessibility service, no `QUERY_ALL_PACKAGES`. Details in [plan.md → Phase 4B](./plan.md#phase-4b--app--website-blocking-android-only-dev-build).
 
-### Ask Ginto with Claude (optional, off by default)
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-... npm run ginto-server
-cp .env.example .env.local   # EXPO_PUBLIC_GINTO_API_URL=http://<your-computer-ip>:8787
-```
-
-With a server configured, Ask Ginto asks before using Claude (for example to read a photo). Only a numbers-only summary travels; the pause never uses it.
-
 ---
 
 ## Architecture
@@ -139,7 +130,6 @@ Unhooked is local-first: debts, purchases, screenshots and check-ins never leave
 | Service | What it is used for | When it is contacted |
 |---|---|---|
 | [Hugging Face](https://huggingface.co/litert-community) (`litert-community` models) | Downloads the on-device chat model file | Only when you tap **Download** in Ask Ginto → model settings |
-| [Anthropic Claude API](https://docs.anthropic.com/en/api/messages) via our own [`server/ginto-proxy.mjs`](./server/ginto-proxy.mjs) | Optional smarter answers in Ask Ginto (model `claude-opus-5-5`) | Only if a Ginto server URL is configured **and** you agree in the app; sends your question plus a numbers-only summary |
 | [jsDelivr CDN](https://www.jsdelivr.com/package/npm/tesseract.js) (Tesseract.js reader files) | Text reader for the Utang scanner **on web** | Once, the first time you scan on web; the screenshot itself is read in the browser and never uploaded |
 | [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2) | Reads screenshots in the Utang scanner **on Android** | Runs fully on the device; no network |
 | [Cloudflare DNS 1.1.1.1](https://one.one.one.one/) and [Google Public DNS 8.8.8.8](https://developers.google.com/speed/public-dns) | Upstream DNS for the website guard's local VPN (Android) | Only while a website guard is on; DNS lookups only, no traffic content |
@@ -171,7 +161,6 @@ We did not build these. Each is used under its own license.
 - Models from [litert-community on Hugging Face](https://huggingface.co/litert-community): [Gemma 3 1B IT](https://huggingface.co/litert-community/Gemma3-1B-IT), [Qwen 2.5 1.5B Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Gemma 4 E2B IT](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma 4 E4B IT](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (Gemma models under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms))
 - [@react-native-ml-kit/text-recognition](https://github.com/a7med-mahmoud/react-native-ml-kit) wrapping [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
 - [Tesseract.js](https://github.com/naptha/tesseract.js) for screenshot reading on web
-- [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (`@anthropic-ai/sdk`), used only by the optional Ginto server
 
 **Design**
 
