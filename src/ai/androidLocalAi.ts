@@ -98,6 +98,85 @@ export function withTimeout<T>(promise: Promise<T>, ms = LOCAL_AI_TIMEOUT_MS): P
   ]);
 }
 
+/**
+ * Gracefully invoke NativeLocalAi.startModel.
+ * Supports both newer (modelUri, vision) and older (modelUri) native module signatures.
+ */
+async function nativeStartModel(uri: string, vision: boolean): Promise<RuntimeStatus> {
+  if (!NativeLocalAi?.startModel) {
+    throw new Error('Install an Android development build to run local models.');
+  }
+  const fn = NativeLocalAi.startModel as unknown as (...args: unknown[]) => Promise<RuntimeStatus>;
+  try {
+    return await fn(uri, vision);
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('arguments, but 1 was expected') ||
+        error.message.includes('Received 2 arguments'))
+    ) {
+      return await fn(uri);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Gracefully invoke NativeLocalAi.generate.
+ * Supports both newer (modelUri, prompt, imagePath, vision) and older (modelUri, prompt) signatures.
+ */
+async function nativeGenerate(
+  modelUri: string,
+  prompt: string,
+  imagePath: string | null,
+  vision: boolean,
+): Promise<LocalGeneration> {
+  if (!NativeLocalAi?.generate) {
+    throw new Error('Local generation is not available in this build.');
+  }
+  const fn = NativeLocalAi.generate as unknown as (...args: unknown[]) => Promise<LocalGeneration>;
+  try {
+    return await fn(modelUri, prompt, imagePath, vision);
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('arguments, but 2 was expected') ||
+        error.message.includes('Received 4 arguments'))
+    ) {
+      return await fn(modelUri, prompt);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Gracefully invoke NativeLocalAi.generateOnce.
+ * Supports both newer (modelUri, systemInstruction, prompt, vision) and older signatures.
+ */
+async function nativeGenerateOnce(
+  modelUri: string,
+  systemInstruction: string,
+  prompt: string,
+  vision: boolean,
+): Promise<LocalGeneration> {
+  if (!NativeLocalAi?.generateOnce) {
+    throw new Error('One-shot generation is not available in this build.');
+  }
+  const fn = NativeLocalAi.generateOnce as unknown as (...args: unknown[]) => Promise<LocalGeneration>;
+  try {
+    return await fn(modelUri, systemInstruction, prompt, vision);
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('arguments, but 3 was expected') ||
+        error.message.includes('Received 4 arguments'))
+    ) {
+      return await fn(modelUri, systemInstruction, prompt);
+    }
+    throw error;
+  }
+}
+
 export function hasAndroidLocalAiRuntime(): boolean {
   return Platform.OS === 'android' && NativeLocalAi != null;
 }
@@ -264,7 +343,7 @@ export async function startAndroidLocalModel(modelId: LocalModelId): Promise<Run
   }
   const uri = modelUri(modelId);
   if (!uri) throw new Error('The model storage location is unavailable.');
-  return NativeLocalAi.startModel(uri, isVisionModel(modelId));
+  return nativeStartModel(uri, isVisionModel(modelId));
 }
 
 /** The model file the native engine currently holds, matched against the catalog. */
@@ -324,7 +403,7 @@ export async function warmAndroidLocalModel(
     if (!hasAndroidLocalAiRuntime() || !NativeLocalAi) return null;
     const model = await resolveInstalledModel(choice);
     if (!model) return null;
-    const status = await NativeLocalAi.startModel(model.uri, isVisionModel(model.modelId));
+    const status = await nativeStartModel(model.uri, isVisionModel(model.modelId));
     return status.backend;
   } catch {
     return null;
@@ -383,13 +462,13 @@ export async function generateAndroidLocalReply(
     if ((await loadedModelId()) !== model.modelId) {
       onPhase?.('loading', model.modelId);
       await withTimeout(
-        NativeLocalAi.startModel(model.uri, isVisionModel(model.modelId)),
+        nativeStartModel(model.uri, isVisionModel(model.modelId)),
         MODEL_START_TIMEOUT_MS,
       );
     }
     onPhase?.('thinking', model.modelId);
     return withTimeout(
-      NativeLocalAi.generate(
+      nativeGenerate(
         model.uri,
         prompt,
         imageUri ?? null,
@@ -413,7 +492,6 @@ export async function generateAndroidOnce(
   timeoutMs = LOCAL_AI_TIMEOUT_MS,
 ): Promise<(LocalGeneration & { modelId: LocalModelId; ms: number }) | null> {
   if (!supportsAndroidPausePhrasing() || !NativeLocalAi?.generateOnce) return null;
-  const generateOnce = NativeLocalAi.generateOnce;
 
   const model = await resolveInstalledModel(modelChoice);
   if (!model) return null;
@@ -421,7 +499,7 @@ export async function generateAndroidOnce(
   const startedAt = Date.now();
   const result = await enqueueGeneration(() =>
     withTimeout(
-      generateOnce(model.uri, systemInstruction, prompt, isVisionModel(model.modelId)),
+      nativeGenerateOnce(model.uri, systemInstruction, prompt, isVisionModel(model.modelId)),
       timeoutMs,
     ),
   );

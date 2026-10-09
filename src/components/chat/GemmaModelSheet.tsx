@@ -634,7 +634,7 @@ export function GemmaModelSheet({
                       size="sm"
                       disabled={
                         startingModelId != null ||
-                        download != null ||
+                        (!installed[modelId] && download != null) ||
                         isRunning === true ||
                         !nativeAvailable ||
                         !fitsDevice ||
