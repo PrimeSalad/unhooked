@@ -383,12 +383,6 @@ export default function PauseScreen() {
                   : void checkoutC()
             }
           />
-          <Button
-            label="Need to talk to someone?"
-            kind="ghostLight"
-            size="sm"
-            onPress={() => router.push('/help')}
-          />
         </Row>
       </View>
     </View>

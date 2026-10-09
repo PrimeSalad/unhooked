@@ -9,8 +9,8 @@ import {
   Button,
   Group,
   GroupRow,
-  IconButton,
   LargeTitle,
+  ProgressBar,
   Screen,
   Section,
   Sheet,
@@ -21,6 +21,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { emptyOverview, getOverview, listPurchases, setPurchaseStatus } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 import { checkAffordability } from '@/domain/affordability';
+import { dailyAllowance, daysUntil, nextPayday } from '@/domain/allowance';
 import { formatPHP } from '@/domain/money';
 import type { BudgetProfile, PlannedPurchase } from '@/domain/types';
 import { shortDate, timeLeft } from '@/lib/format';
@@ -163,69 +164,46 @@ export default function SpendScreen() {
   }, []);
 
   const cooling = purchases.filter((p) => p.status === 'cooling');
-  const recent = purchases.filter((p) => p.status !== 'cooling').slice(0, 5);
-  const kept = purchases.filter((p) => p.status === 'skipped').reduce((s, p) => s + p.price, 0);
-  const free = budget
-    ? budget.monthlyIncome -
-      budget.monthlyFixedBills -
-      budget.savingsGoalMonthly -
-      o.spentThisMonth -
-      o.dueThisMonth
+  const recent = purchases.filter((p) => p.status !== 'cooling').slice(0, 6);
+  const skipped = purchases.filter((p) => p.status === 'skipped');
+  const kept = skipped.reduce((sum, p) => sum + p.price, 0);
+
+  const available = budget
+    ? budget.monthlyIncome - budget.monthlyFixedBills - budget.savingsGoalMonthly
     : 0;
+  const committed = o.spentThisMonth + o.dueThisMonth;
+  const free = available - committed;
+  const payday = budget ? nextPayday(budget.payday, new Date(now)) : null;
+  const days = payday ? daysUntil(payday, new Date(now)) : 0;
+  const perDay = dailyAllowance(free, days);
 
   return (
     <Screen>
-      <LargeTitle
-        eyebrow="Check it before you check out"
-        title="Spend"
-        right={
-          <IconButton
-            icon="add"
-            label="Check a purchase"
-            tone={colors.text}
-            color={colors.bg}
-            onPress={() => router.push('/spend-check')}
-          />
-        }
-      />
+      <LargeTitle eyebrow="Check it before you check out" title="Spend" />
 
       {budget ? (
-        <View style={styles.hero}>
-          <View
-            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-          >
-            <Text variant="eyebrow" color={colors.textMuted} style={{ fontSize: 11 }}>
-              After repayments this month
-            </Text>
+        <View style={styles.card}>
+          <View style={styles.cardHead}>
+            <Text variant="caption">Safe to spend per day</Text>
             <Tag tone="estimate" />
           </View>
-          <Text variant="display" style={{ fontSize: 42, lineHeight: 48 }}>
-            {formatPHP(free)}
+          <Text variant="display" style={{ fontSize: 44, lineHeight: 50, letterSpacing: -1.5 }}>
+            {formatPHP(perDay)}
           </Text>
-          {budget.payday === '15_30' ? (
-            <Text variant="caption" color={colors.textMuted}>
-              Paid 15th & 30th · monthly estimate, not cash on hand
-            </Text>
-          ) : null}
-          <View style={styles.heroRow}>
-            <View style={{ flex: 1 }}>
-              <Text variant="strong">{formatPHP(o.dueThisMonth)}</Text>
-              <Text variant="caption" color={colors.textMuted}>
-                Repayments due
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text variant="strong">{formatPHP(o.spentThisMonth)}</Text>
-              <Text variant="caption" color={colors.textMuted}>
-                Bought this month
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text variant="strong">{formatPHP(kept)}</Text>
-              <Text variant="caption" color={colors.textMuted}>
-                Kept by pausing
-              </Text>
-            </View>
+          <Text variant="small" color={colors.textMuted}>
+            {free > 0
+              ? `${formatPHP(free)} left for ${days} ${days === 1 ? 'day' : 'days'} · payday ${shortDate(payday!.toISOString())}`
+              : 'Nothing left to spend this month after bills, savings and repayments.'}
+          </Text>
+          <ProgressBar
+            value={available > 0 ? committed / available : 1}
+            color={free > 0 ? colors.text : colors.spend}
+            height={10}
+          />
+          <View style={styles.stats}>
+            <Stat label="Bought" value={formatPHP(o.spentThisMonth)} />
+            <Stat label="Repayments due" value={formatPHP(o.dueThisMonth)} />
+            <Stat label="Kept by waiting" value={formatPHP(kept)} />
           </View>
         </View>
       ) : (
@@ -234,13 +212,13 @@ export default function SpendScreen() {
 
       <Button
         label="Check a purchase"
-        icon="search"
         kind="ink"
+        icon="search"
         onPress={() => router.push('/spend-check')}
       />
 
       {cooling.length > 0 && (
-        <Section title="Cooling off">
+        <Section title={`Cooling off · ${cooling.length}`}>
           <Group>
             {cooling.map((p) => {
               const left =
@@ -251,8 +229,6 @@ export default function SpendScreen() {
                 <GroupRow
                   key={p.id}
                   icon="hourglass"
-                  iconBg={left ? colors.shell : colors.spendSoft}
-                  iconFg={left ? colors.lagoon : colors.spend}
                   title={p.item}
                   subtitle={left ?? 'Ready to decide'}
                   value={formatPHP(p.price)}
@@ -264,51 +240,25 @@ export default function SpendScreen() {
         </Section>
       )}
 
-      <Section title="Recent">
-        <Group>
-          {recent.length ? (
-            recent.map((p) => (
+      <Section title="History">
+        {recent.length ? (
+          <Group>
+            {recent.map((p) => (
               <GroupRow
                 key={p.id}
-                leading={
-                  <Avatar
-                    label={p.item}
-                    bg={p.status === 'skipped' ? '#F3ECE4' : colors.surfaceMuted}
-                    fg={p.status === 'skipped' ? colors.success : colors.spend}
-                  />
-                }
+                leading={<Avatar label={p.item} />}
                 title={p.item}
-                subtitle={`${STATUS[p.status]}${p.plannedDate ? ` · planned ${shortDate(p.plannedDate)}` : ''}`}
+                subtitle={`${STATUS[p.status]}${p.plannedDate ? ` · ${shortDate(p.plannedDate)}` : ''}`}
                 value={formatPHP(p.price)}
                 valueTone={p.status === 'skipped' ? colors.success : undefined}
               />
-            ))
-          ) : (
-            <GroupRow
-              icon="receipt"
-              title="Nothing checked yet"
-              subtitle="Before your next checkout, run it past me."
-              onPress={() => router.push('/spend-check')}
-            />
-          )}
-        </Group>
-      </Section>
-
-      <Section title="Tools">
-        <Group>
-          <GroupRow
-            icon="calculator"
-            title="Pay-later true cost"
-            subtitle="See what installments really add up to"
-            onPress={() => router.push('/spend-check')}
-          />
-          <GroupRow
-            icon="chat"
-            title="Ask Ginto"
-            subtitle="“Can I afford ₱2,000 this week?”"
-            onPress={() => router.push('/chat')}
-          />
-        </Group>
+            ))}
+          </Group>
+        ) : (
+          <Text variant="small" color={colors.textMuted} style={{ paddingHorizontal: 4 }}>
+            Purchases you check show up here, with what you kept by waiting.
+          </Text>
+        )}
       </Section>
 
       <DecideSheet
@@ -324,20 +274,30 @@ export default function SpendScreen() {
   );
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text variant="strong">{value}</Text>
+      <Text variant="caption">{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  hero: {
+  card: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.xxl,
+    borderRadius: radius.xl,
     padding: spacing.xl,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  heroRow: {
+  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  stats: {
     flexDirection: 'row',
+    gap: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.md,
-    marginTop: spacing.xs,
   },
 });

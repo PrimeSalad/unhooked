@@ -133,7 +133,6 @@ export default function TodayScreen() {
         title={name ? `Hi, ${name}` : 'Hi there'}
         right={
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <IconButton icon="help" label="Help and safety" onPress={() => router.push('/help')} />
             <IconButton
               icon="person"
               label="You and settings"

@@ -181,12 +181,6 @@ export default function ShieldScreen() {
             disabled={locked}
             onPress={() => setConfirm(true)}
           />
-          <Button
-            label="Need to talk to someone?"
-            kind="ghostLight"
-            size="sm"
-            onPress={() => router.push('/help')}
-          />
         </Row>
       </View>
 

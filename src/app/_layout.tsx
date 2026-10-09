@@ -73,7 +73,6 @@ export default function RootLayout() {
           options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
         />
         <Stack.Screen name="message-check" />
-        <Stack.Screen name="help" />
         <Stack.Screen name="settings" />
       </Stack>
       <ToastHost />

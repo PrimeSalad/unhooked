@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { StyleSheet, Text as RNText, View } from 'react-native';
@@ -152,13 +151,6 @@ export default function MessageCheckScreen() {
                   size="sm"
                   style={{ flex: 1 }}
                   onPress={() => void save()}
-                />
-                <Button
-                  label="Where to report"
-                  kind="outline"
-                  size="sm"
-                  style={{ flex: 1 }}
-                  onPress={() => router.push('/help')}
                 />
               </Row>
             </Card>

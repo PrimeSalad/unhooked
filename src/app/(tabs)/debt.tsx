@@ -159,10 +159,7 @@ export default function DebtScreen() {
 
   return (
     <Screen>
-      <LargeTitle
-        eyebrow="What you owe, and what you are owed"
-        title="Debt"
-      />
+      <LargeTitle eyebrow="What you owe, and what you are owed" title="Debt" />
 
       <Segmented
         value={tab}
