@@ -21,7 +21,12 @@ const positiveCentavos = (value: number | null | undefined): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 
 export function borrowPauseFacts(
-  input: SharedInput & { amount: number; owedTotal: number; dueThisMonth: number },
+  input: SharedInput & {
+    amount: number;
+    owedTotal: number;
+    dueThisMonth: number;
+    budget?: BudgetProfile | null;
+  },
 ): PauseFactResult {
   const amount = positiveCentavos(input.amount) ? input.amount : null;
   return {
@@ -31,6 +36,13 @@ export function borrowPauseFacts(
       ...(amount === null ? {} : { amount }),
       ...(positiveCentavos(input.owedTotal) ? { owedTotal: input.owedTotal } : {}),
       ...(positiveCentavos(input.dueThisMonth) ? { dueThisMonth: input.dueThisMonth } : {}),
+      ...(input.budget
+        ? {
+            monthlyIncome: input.budget.monthlyIncome,
+            monthlyFixedBills: input.budget.monthlyFixedBills,
+            savingsGoalMonthly: input.budget.savingsGoalMonthly,
+          }
+        : {}),
       ...(input.nextDueLabel ? { nextDueLabel: input.nextDueLabel } : {}),
     },
     checkIn: input.checkIn,
@@ -43,6 +55,8 @@ export function checkoutPauseFacts(
     budget: BudgetProfile | null;
     dueThisMonth: number;
     spentThisMonth: number;
+    owedTotal?: number;
+    modelContext?: boolean;
   },
 ): PauseFactResult {
   const price = input.purchase?.price;
@@ -69,6 +83,17 @@ export function checkoutPauseFacts(
             shortfall: estimate.shortfall,
           }
         : {}),
+      ...(input.modelContext && positiveCentavos(input.owedTotal)
+        ? { owedTotal: input.owedTotal }
+        : {}),
+      ...(input.modelContext && input.budget
+        ? {
+            ...(positiveCentavos(input.dueThisMonth) ? { dueThisMonth: input.dueThisMonth } : {}),
+            monthlyIncome: input.budget.monthlyIncome,
+            monthlyFixedBills: input.budget.monthlyFixedBills,
+            savingsGoalMonthly: input.budget.savingsGoalMonthly,
+          }
+        : {}),
       ...(input.nextDueLabel ? { nextDueLabel: input.nextDueLabel } : {}),
     },
     checkIn: input.checkIn,
@@ -76,7 +101,7 @@ export function checkoutPauseFacts(
 }
 
 export function scrollPauseFacts(
-  input: SharedInput & { app: string; minutes: number },
+  input: SharedInput & { app: string; minutes: number; limitMinutes?: number },
 ): PauseFactResult {
   const app = input.app.trim() || 'your feed';
   return {
@@ -86,6 +111,9 @@ export function scrollPauseFacts(
       app,
       ...(Number.isSafeInteger(input.minutes) && input.minutes > 0
         ? { minutes: input.minutes }
+        : {}),
+      ...(Number.isSafeInteger(input.limitMinutes) && Number(input.limitMinutes) > 0
+        ? { scrollLimit: Number(input.limitMinutes) }
         : {}),
     },
     checkIn: input.checkIn,

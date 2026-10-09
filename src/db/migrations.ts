@@ -2,6 +2,7 @@
 // Bump DATABASE_VERSION and append a step for every schema change; never edit a shipped step.
 
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { deleteEvidenceImages } from '@/lib/evidenceFiles';
 
 export const DATABASE_NAME = 'unhooked.db';
 const DATABASE_VERSION = 2;
@@ -116,10 +117,10 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
 
 /** Privacy control: wipes every user record. Used by Settings → "Delete all my data". */
 export async function deleteAllData(db: SQLiteDatabase): Promise<void> {
+  await deleteEvidenceImages();
   await db.execAsync(`
     DELETE FROM payments; DELETE FROM evidence; DELETE FROM debts;
     DELETE FROM purchases; DELETE FROM scroll_sessions;
     DELETE FROM checkins; DELETE FROM events; DELETE FROM block_rules;
   `);
-  // TODO(P2): also delete evidence image files from the document directory.
 }

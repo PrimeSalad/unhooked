@@ -43,7 +43,14 @@ const MOODS: Record<GintoMood, Traits> = {
     fin: 'pec',
     extras: ['alert', 'bubbles'],
   },
-  calm: { eyes: 'calm', mouth: 'smile', body: 'breathe', fin: 'pec', extras: ['bubbles'] },
+  calm: {
+    eyes: 'open',
+    look: [0, 2],
+    mouth: 'smile',
+    body: 'breathe',
+    fin: 'pec',
+    extras: ['bubbles'],
+  },
   worried: {
     eyes: 'open',
     look: [-1, 1],
@@ -53,8 +60,8 @@ const MOODS: Record<GintoMood, Traits> = {
     fin: 'pec',
     extras: ['sweat'],
   },
-  proud: { eyes: 'happy', mouth: 'big', body: 'jump', fin: 'wave', extras: ['splash'] },
-  sleepy: { eyes: 'sleepy', mouth: 'o', body: 'sway', fin: 'pec', extras: ['zz'] },
+  proud: { eyes: 'open', mouth: 'big', body: 'jump', fin: 'wave', extras: ['splash'] },
+  sleepy: { eyes: 'open', look: [0, 3], mouth: 'o', body: 'sway', fin: 'pec', extras: ['zz'] },
   thinking: {
     eyes: 'open',
     look: [3, -4],

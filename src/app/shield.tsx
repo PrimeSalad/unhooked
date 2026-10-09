@@ -13,7 +13,7 @@ import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
 import { CountdownRing } from '@/components/pause/CountdownRing';
-import { Button, Chips, goBack, Rise, Row, Sheet, Tag, Text, TopBar } from '@/components/ui';
+import { Button, Chips, goBack, Rise, Sheet, Tag, Text, TopBar } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { attemptsToday } from '@/db/blockRules';
 import { logEvent } from '@/db/events';
@@ -173,21 +173,13 @@ export default function ShieldScreen() {
             router.replace('/break');
           }}
         />
-        <Row style={{ justifyContent: 'space-between' }}>
-          <Button
-            label="Open anyway"
-            kind="ghostLight"
-            size="sm"
-            disabled={locked}
-            onPress={() => setConfirm(true)}
-          />
-          <Button
-            label="Need to talk to someone?"
-            kind="ghostLight"
-            size="sm"
-            onPress={() => router.push('/help')}
-          />
-        </Row>
+        <Button
+          label="Open anyway"
+          kind="ghostLight"
+          size="sm"
+          disabled={locked}
+          onPress={() => setConfirm(true)}
+        />
       </View>
 
       <Sheet open={confirm} onClose={() => setConfirm(false)} mascot="worried">

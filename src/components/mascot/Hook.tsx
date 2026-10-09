@@ -23,7 +23,7 @@ export interface HookProps {
   hookColor?: string;
 }
 
-export function Hook({ x, y, shown, lineColor = '#FFD9A8', hookColor = '#3B2412' }: HookProps) {
+export function Hook({ x, y, shown, lineColor = '#FFD9A8', hookColor = '#172033' }: HookProps) {
   const reduced = useReducedMotion();
   const pos = useState(() => new Animated.Value(HIDDEN))[0];
   const sway = useState(() => new Animated.Value(0))[0];
@@ -95,7 +95,7 @@ export function Hook({ x, y, shown, lineColor = '#FFD9A8', hookColor = '#3B2412'
         <Path d="M6 46 L3 34 L11 41 Z" fill={hookColor} />
         <Path
           d="M17.5 14 H26.5 M17.5 18 H26.5 M17.5 22 H26.5"
-          stroke="#F2B544"
+          stroke="#FF6B2C"
           strokeWidth={2.6}
           strokeLinecap="round"
         />

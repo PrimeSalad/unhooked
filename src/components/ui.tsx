@@ -3,9 +3,10 @@
 import { Icon } from '@/components/Icon';
 import type { IconName } from '@/components/Icon';
 import { router } from 'expo-router';
-import { useEffect, type ReactNode, useState } from 'react';
+import { useEffect, useId, type ReactNode, useState } from 'react';
 import {
   Animated,
+  ActivityIndicator,
   Easing,
   KeyboardAvoidingView,
   Modal,
@@ -16,6 +17,7 @@ import {
   Text as RNText,
   TextInput,
   View,
+  useWindowDimensions,
   type TextInputProps,
   type StyleProp,
   type TextProps,
@@ -25,7 +27,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ginto, type GintoMood } from '@/components/mascot/Ginto';
-import { colors, fonts, layout, motion, radius, shadow, spacing } from '@/constants/theme';
+import { colors, fonts, layout, motion, radius, spacing } from '@/constants/theme';
 import type { Certainty } from '@/domain/types';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
@@ -40,8 +42,8 @@ export function goBack() {
 // ---------- Text ----------
 
 const textVariants = StyleSheet.create({
-  display: { fontFamily: fonts.extrabold, fontSize: 48, lineHeight: 52, letterSpacing: -2 },
-  title: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 36, letterSpacing: -0.6 },
+  display: { fontFamily: fonts.medium, fontSize: 46, lineHeight: 54, letterSpacing: -1.8 },
+  title: { fontFamily: fonts.medium, fontSize: 28, lineHeight: 37, letterSpacing: -0.9 },
   heading: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 25, letterSpacing: -0.2 },
   number: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 30, letterSpacing: -0.5 },
   body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23 },
@@ -80,6 +82,7 @@ export function Text({
 }: TextProps & { variant?: TextVariant; color?: string; align?: TextStyle['textAlign'] }) {
   return (
     <RNText
+      accessibilityRole={variant === 'title' || variant === 'heading' ? 'header' : undefined}
       style={[
         textVariants[variant],
         { color: color ?? defaultTone[variant] },
@@ -137,7 +140,7 @@ export function Screen({
   children,
   bg = colors.bg,
   tabs = true,
-  gap = spacing.lg,
+  gap = spacing.xl,
 }: {
   children: ReactNode;
   bg?: string;
@@ -146,15 +149,21 @@ export function Screen({
   gap?: number;
 }) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const desktop = width >= layout.desktop;
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: bg }}
       contentContainerStyle={{
-        paddingTop: insets.top + spacing.lg,
-        paddingHorizontal: spacing.xl,
-        paddingBottom: (tabs ? layout.tabBarSpace : insets.bottom) + spacing.xxxl,
+        paddingTop: insets.top + (desktop ? spacing.xxxl : spacing.xl),
+        paddingHorizontal: desktop ? spacing.xxxl : spacing.xl,
+        paddingBottom: (tabs && !desktop ? layout.tabBarSpace : insets.bottom) + spacing.xxxl,
         gap,
+        width: '100%',
+        maxWidth: tabs ? layout.contentWidth : 800,
+        alignSelf: 'center',
       }}
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
       {children}
@@ -207,7 +216,7 @@ export function Card({
   flat?: boolean;
 }) {
   return (
-    <View style={[styles.card, { backgroundColor: tone }, flat ? null : shadow.card, style]}>
+    <View style={[styles.card, { backgroundColor: tone }, flat ? null : { borderWidth: 1, borderColor: colors.border }, style]}>
       {children}
     </View>
   );
@@ -275,7 +284,7 @@ export function ListRow({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.card, shadow.card, styles.listRow, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}
     >
       <IconChip icon={icon} bg={iconBg} fg={iconFg} />
       <View style={{ flex: 1 }}>
@@ -289,10 +298,10 @@ export function ListRow({
 
 export function Stat({ value, label }: { value: string | number; label: string }) {
   return (
-    <Card style={{ flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, gap: 0 }}>
+    <View style={{ flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, gap: 4 }}>
       <Text variant="number">{value}</Text>
       <Text variant="caption">{label}</Text>
-    </Card>
+    </View>
   );
 }
 
@@ -309,7 +318,7 @@ export function ProgressBar({
 }) {
   const pctValue = Math.max(0, Math.min(1, value)) * 100;
   return (
-    <View style={{ height, borderRadius: radius.pill, backgroundColor: track, overflow: 'hidden' }}>
+    <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(pctValue) }} style={{ height, borderRadius: radius.pill, backgroundColor: track, overflow: 'hidden' }}>
       <View
         style={{
           width: `${pctValue}%`,
@@ -360,7 +369,7 @@ type ButtonKind = 'primary' | 'ink' | 'outline' | 'ghost' | 'outlineLight' | 'gh
 const buttonKinds: Record<ButtonKind, { box: ViewStyle; text: string }> = {
   primary: { box: { backgroundColor: colors.primary }, text: colors.primaryText },
   ink: { box: { backgroundColor: colors.text }, text: colors.bg },
-  outline: { box: { borderWidth: 2, borderColor: colors.text }, text: colors.text },
+  outline: { box: { borderWidth: 1, borderColor: colors.border }, text: colors.text },
   ghost: { box: {}, text: colors.textSoft },
   outlineLight: {
     box: { borderWidth: 2, borderColor: 'rgba(255,246,236,0.55)' },
@@ -376,6 +385,7 @@ export function Button({
   size = 'md',
   icon,
   disabled,
+  loading = false,
   style,
 }: {
   label: string;
@@ -384,25 +394,37 @@ export function Button({
   size?: 'md' | 'sm';
   icon?: IconName;
   disabled?: boolean;
+  loading?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const k = buttonKinds[kind];
+  const inactive = disabled || loading;
+  if (Platform.OS === 'web') {
+    const variant = { primary: 'btn-primary', ink: 'btn-neutral', outline: 'btn-outline', ghost: 'btn-ghost', outlineLight: 'btn-outline', ghostLight: 'btn-ghost' }[kind];
+    return <View style={style}>
+      <button type="button" className={`btn ${variant}`} disabled={inactive} aria-busy={loading} onClick={onPress}
+        style={{ minHeight: size === 'md' ? 52 : 44, color: k.text, borderColor: kind === 'outlineLight' ? colors.pauseMuted : undefined }}>
+        {loading ? <span className="loading loading-spinner loading-sm" aria-hidden="true" /> : icon ? <Icon name={icon} size={18} color={k.text} /> : null}
+        <span>{label}</span>
+      </button>
+    </View>;
+  }
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: !!disabled }}
+      accessibilityState={{ disabled: !!inactive, busy: loading }}
       onPress={onPress}
-      disabled={disabled}
+      disabled={inactive}
       style={({ pressed }) => [
         styles.button,
         { minHeight: size === 'md' ? 54 : 44 },
         k.box,
         pressed && !disabled && styles.pressed,
-        disabled && { opacity: 0.32 },
+        inactive && { opacity: 0.5 },
         style,
       ]}
     >
-      {icon ? <Icon name={icon} size={18} color={k.text} /> : null}
+      {loading ? <ActivityIndicator color={k.text} /> : icon ? <Icon name={icon} size={18} color={k.text} /> : null}
       <Text variant="strong" color={k.text} style={{ fontSize: size === 'md' ? 16 : 14 }}>
         {label}
       </Text>
@@ -443,10 +465,10 @@ export function IconButton({
 // ---------- Tags ----------
 
 const tagTones = {
-  records: { bg: '#F3ECE4', fg: colors.textSoft, label: 'From your records' },
-  estimate: { bg: '#F3ECE4', fg: colors.textSoft, label: 'Estimate' },
-  calculated: { bg: '#F3ECE4', fg: colors.textSoft, label: 'Calculated' },
-  suggestion: { bg: '#F3ECE4', fg: colors.textSoft, label: 'Suggestion' },
+  records: { bg: colors.surfaceMuted, fg: colors.textSoft, label: 'From your records' },
+  estimate: { bg: colors.surfaceMuted, fg: colors.textSoft, label: 'Estimate' },
+  calculated: { bg: colors.surfaceMuted, fg: colors.textSoft, label: 'Calculated' },
+  suggestion: { bg: colors.surfaceMuted, fg: colors.textSoft, label: 'Suggestion' },
 } as const;
 
 const certaintyTone: Record<Certainty, keyof typeof tagTones> = {
@@ -493,12 +515,14 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: colors.surface,
     paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  pressed: { transform: [{ scale: 0.98 }], opacity: 0.92 },
+  pressed: { opacity: 0.72 },
   button: {
     flexDirection: 'row',
     gap: spacing.sm,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
@@ -521,11 +545,11 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 4,
     borderRadius: radius.pill,
-    backgroundColor: '#F1E4D6',
+    backgroundColor: colors.surfaceMuted,
   },
   segment: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 48,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -538,21 +562,32 @@ const styles = StyleSheet.create({
 export function Field({
   label,
   hint,
+  error,
   style,
+  onFocus,
+  onBlur,
   ...input
-}: TextInputProps & { label: string; hint?: string }) {
+}: TextInputProps & { label: string; hint?: string; error?: string }) {
+  const id = useId();
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 6 }}>
-      <Text variant="caption" color={colors.textSoft} style={{ fontFamily: fonts.semibold }}>
+      {Platform.OS === 'web' ? <label htmlFor={id} style={{ fontFamily: fonts.semibold, color: colors.textSoft, fontSize: 13 }}>{label}</label> : <Text variant="caption" color={colors.textSoft} style={{ fontFamily: fonts.semibold }}>
         {label}
-      </Text>
+      </Text>}
       <TextInput
+        nativeID={id}
         placeholderTextColor={colors.textFaint}
-        style={[formStyles.input, style]}
+        style={[formStyles.input, focused && { borderColor: colors.lagoon }, error ? { borderColor: colors.danger } : null, style]}
         accessibilityLabel={label}
+        accessibilityHint={error || hint}
+        aria-invalid={!!error}
+        aria-describedby={error || hint ? `${id}-help` : undefined}
+        onFocus={(event) => { setFocused(true); onFocus?.(event); }}
+        onBlur={(event) => { setFocused(false); onBlur?.(event); }}
         {...input}
       />
-      {hint ? <Text variant="caption">{hint}</Text> : null}
+      {error ? <Text nativeID={`${id}-help`} accessibilityRole="alert" variant="caption" color={colors.danger}>{error}</Text> : hint ? <Text nativeID={`${id}-help`} variant="caption">{hint}</Text> : null}
     </View>
   );
 }
@@ -607,8 +642,8 @@ export function EmptyState({
   onAction?: () => void;
 }) {
   return (
-    <Card style={{ alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm }}>
-      <Ginto mood={mood} size={110} />
+    <View style={{ alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, gap: spacing.sm, backgroundColor: colors.surfaceMuted, borderRadius: radius.lg }}>
+      <Ginto mood={mood} size={76} />
       <Text variant="heading" align="center">
         {title}
       </Text>
@@ -623,7 +658,7 @@ export function EmptyState({
           style={{ marginTop: spacing.sm, alignSelf: 'stretch' }}
         />
       ) : null}
-    </Card>
+    </View>
   );
 }
 
@@ -640,43 +675,37 @@ export function Sheet({
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
-  const [slide] = useState(() => new Animated.Value(0));
+  const reduced = useReducedMotion();
   return (
     <Modal
       visible={open}
       transparent
-      animationType="fade"
-      onShow={() => {
-        slide.setValue(0);
-        Animated.spring(slide, {
-          toValue: 1,
-          useNativeDriver: true,
-          speed: 16,
-          bounciness: 6,
-        }).start();
-      }}
+      animationType={reduced ? 'none' : 'fade'}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <Pressable style={formStyles.scrim} onPress={onClose} accessibilityLabel="Close" />
-        <Animated.View
+        <Pressable style={formStyles.scrim} onPress={onClose} accessible={false} />
+        <View
+          accessibilityViewIsModal
           style={[
             formStyles.sheet,
             {
-              paddingTop: mascot ? 84 : spacing.xl,
+              paddingTop: spacing.lg,
               paddingBottom: insets.bottom + spacing.xl,
-              transform: [
-                { translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [500, 0] }) },
-              ],
             },
           ]}
         >
-          {mascot ? <Ginto mood={mascot} size={120} style={formStyles.sheetFish} /> : null}
-          {children}
-        </Animated.View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            {mascot ? <Ginto mood={mascot} size={60} /> : <View />}
+            <IconButton icon="close" label="Close dialog" onPress={onClose} />
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.sm }}>
+            {children}
+          </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -695,7 +724,7 @@ const formStyles = StyleSheet.create({
     color: colors.text,
   },
   chip: {
-    minHeight: 40,
+    minHeight: 48,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
@@ -708,9 +737,11 @@ const formStyles = StyleSheet.create({
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(42,22,8,0.4)' },
   sheet: {
     position: 'absolute',
-    left: 0,
-    right: 0,
     bottom: 0,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '90%',
     backgroundColor: colors.bg,
     borderTopLeftRadius: radius.xxl,
     borderTopRightRadius: radius.xxl,
@@ -764,7 +795,7 @@ export function LargeTitle({
     >
       <View style={{ flex: 1 }}>
         {eyebrow ? <Text variant="caption">{eyebrow}</Text> : null}
-        <Text variant="title" style={{ fontSize: 32, lineHeight: 38, letterSpacing: -1 }}>
+        <Text variant="title" style={{ fontSize: 32, lineHeight: 42, letterSpacing: -1.2 }}>
           {title}
         </Text>
       </View>
@@ -785,21 +816,22 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+    <View style={{ gap: spacing.md, marginTop: spacing.sm }}>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'baseline',
           justifyContent: 'space-between',
-          paddingHorizontal: 4,
+          gap: spacing.md,
+          flexWrap: 'wrap',
         }}
       >
-        <Text variant="heading" style={{ fontSize: 19 }}>
+        <Text variant="heading" style={{ fontSize: 17 }}>
           {title}
         </Text>
         {action && onAction ? (
-          <Pressable accessibilityRole="button" onPress={onAction} hitSlop={10}>
-            <Text variant="strong" color={colors.link} style={{ fontSize: 14 }}>
+          <Pressable accessibilityRole="button" onPress={onAction} hitSlop={6} style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text variant="strong" color={colors.link} style={{ fontSize: 12 }}>
               {action}
             </Text>
           </Pressable>
@@ -816,14 +848,13 @@ export function Group({ children }: { children: ReactNode }) {
   return (
     <View
       style={[
-        { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden' },
-        shadow.card,
+        { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border, overflow: 'hidden' },
       ]}
     >
       {items.map((child, i) => (
         <View key={i}>
           {i > 0 ? (
-            <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 68 }} />
+            <View style={{ height: 1, backgroundColor: colors.border }} />
           ) : null}
           {child}
         </View>
@@ -862,12 +893,12 @@ export function GroupRow({
         alignItems: 'center',
         gap: spacing.md,
         paddingVertical: 14,
-        paddingHorizontal: spacing.lg,
+        paddingHorizontal: spacing.xs,
         minHeight: 64,
       }}
     >
       {leading ?? (icon ? <IconChip icon={icon} bg={iconBg} fg={iconFg} size={38} /> : null)}
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Text variant="strong" numberOfLines={1}>
           {title}
         </Text>
@@ -889,7 +920,7 @@ export function GroupRow({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => pressed && { backgroundColor: '#FBF5EE' }}
+      style={({ pressed }) => pressed && { backgroundColor: colors.surfaceMuted }}
     >
       {body}
     </Pressable>

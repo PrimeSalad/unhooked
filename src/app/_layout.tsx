@@ -11,10 +11,14 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 
 import { ToastHost } from '@/components/Toast';
+import { AppShell } from '@/components/AppShell';
+import { WebStyles } from '@/components/WebStyles';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { colors } from '@/constants/theme';
 import { DatabaseGate } from '@/db/DatabaseGate';
 
 export default function RootLayout() {
+  const reduced = useReducedMotion();
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -41,12 +45,14 @@ export default function RootLayout() {
 
   return (
     <DatabaseGate>
+      <WebStyles />
       <StatusBar style="dark" />
+      <AppShell>
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },
-          animation: 'slide_from_right',
+          animation: reduced ? 'none' : 'slide_from_right',
         }}
       >
         <Stack.Screen name="(tabs)" />
@@ -71,9 +77,10 @@ export default function RootLayout() {
           options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
         />
         <Stack.Screen name="message-check" />
-        <Stack.Screen name="help" />
+        <Stack.Screen name="local-ai" />
         <Stack.Screen name="settings" />
       </Stack>
+      </AppShell>
       <ToastHost />
     </DatabaseGate>
   );

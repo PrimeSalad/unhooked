@@ -20,6 +20,7 @@ import type {
 
 import { logEvent } from './events';
 import { bumpData } from './useDbQuery';
+import { persistEvidenceImage } from '@/lib/evidenceFiles';
 
 const now = () => new Date().toISOString();
 const uuid = () => Crypto.randomUUID();
@@ -39,7 +40,8 @@ function daysAgo(n: number): string {
 
 export function endOfMonthDate(): string {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
 }
 
 // ---------- Debts ----------
@@ -151,13 +153,14 @@ export async function addEvidence(
     riskLevel?: RiskLevel | null;
   },
 ) {
+  const imageUri = e.imageUri ? await persistEvidenceImage(e.imageUri) : null;
   await db.runAsync(
     `INSERT INTO evidence (id, lender, incident_date, image_uri, message_text, risk_level, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     uuid(),
     e.lender,
     now(),
-    e.imageUri ?? null,
+    imageUri,
     e.messageText ?? null,
     e.riskLevel ?? null,
     now(),
@@ -194,7 +197,7 @@ const toPurchase = (r: PurchaseRow): PlannedPurchase => ({
 
 export async function listPurchases(db: SQLiteDatabase): Promise<PlannedPurchase[]> {
   const rows = await db.getAllAsync<PurchaseRow>(
-    'SELECT * FROM purchases ORDER BY created_at DESC LIMIT 30',
+    'SELECT * FROM purchases ORDER BY created_at DESC',
   );
   return rows.map(toPurchase);
 }

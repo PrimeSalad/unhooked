@@ -2,6 +2,7 @@
 // The result is an *indication*, never proof. Every flag is explainable: it points at the text.
 
 import type { RiskLevel } from './types';
+import { classifyMessageLocally, type MessageClassification } from './messageModel';
 
 export interface Signal {
   label: 'Threat' | 'Exposure' | 'Pressure' | 'Payment' | 'Shaming';
@@ -14,6 +15,7 @@ export interface MessageRisk {
   level: RiskLevel;
   signals: Signal[];
   explanation: string;
+  model: MessageClassification;
 }
 
 const RULES: { label: Signal['label']; explanation: string; patterns: RegExp[]; weight: number }[] =
@@ -86,12 +88,21 @@ export function assessMessage(text: string): MessageRisk {
   const letters = text.replace(/[^A-Za-z]/g, '');
   if (letters.length > 20 && letters === letters.toUpperCase()) score += 1;
 
+  // The statistical model catches paraphrases the exact phrase rules do not.
+  // We only add its vote when the class match is strong enough.
+  const model = classifyMessageLocally(text);
+  const modelVote = model.category !== 'safe' && model.confidence >= 0.5;
+  if (modelVote) {
+    score += model.category === 'harassment' ? 3 : model.category === 'phishing' ? 2 : 1;
+  }
+
   const level: RiskLevel = score >= 4 ? 'high' : score >= 2 ? 'medium' : 'low';
+  const indicatorCount = signals.length + (modelVote ? 1 : 0);
   const explanation =
     level === 'low'
       ? 'No strong warning signs found. This is an indication, not proof.'
-      : `Found ${signals.length} warning ${signals.length === 1 ? 'sign' : 'signs'}. This is an indication, not proof.`;
-  return { level, signals, explanation };
+      : `Found ${indicatorCount} warning ${indicatorCount === 1 ? 'sign' : 'signs'}. This is an indication, not proof.`;
+  return { level, signals, explanation, model };
 }
 
 /** Splits text into plain and flagged parts for highlighting. */

@@ -1,7 +1,8 @@
-// Ask Ginto: chat grounded in the user's own records. Local by default, Claude when opted in.
+// Ask Ginto: chat grounded in the user's own records and processed on-device.
 
 import { Icon } from '@/components/Icon';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
 import {
@@ -16,20 +17,22 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CLOUD_URL, cloudReply, localImageReply, localReply, type ChatMessage } from '@/ai/chat';
-import { Ginto } from '@/components/mascot/Ginto';
-import { Button, goBack, IconButton, Sheet, Text } from '@/components/ui';
+import { localImageReply, localReply, type ChatMessage } from '@/ai/chat';
+import { Button, goBack, IconButton, Text } from '@/components/ui';
+import { ActionError } from '@/components/FlowLayout';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { addEvidence, getOverview } from '@/db/repo';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
+import { useAsyncAction } from '@/hooks/useAsyncAction';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 const SUGGESTIONS = [
-  'Can I afford ₱1,500?',
-  'What do I owe this month?',
-  'How much did I scroll today?',
+  'What needs my attention?',
+  'Can I safely spend ₱1,500?',
+  'What should I pay first?',
   'Should I borrow ₱2,000?',
-  'I feel stressed about money',
+  'Help me stop scrolling',
 ];
 
 let seq = 0;
@@ -40,80 +43,57 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const name = useSettings((s) => s.name);
   const budget = useSettings((s) => s.budget);
-  const cloudOn = useSettings((s) => s.cloudAiEnabled);
-  const setCloudAi = useSettings((s) => s.setCloudAi);
+  const scrollLimitMinutes = useSettings((s) => s.scrollLimitMinutes);
   const showToast = useSession((s) => s.showToast);
-  const cloud = cloudOn && !!CLOUD_URL;
   const scroller = useRef<ScrollView>(null);
+  const action = useAsyncAction('Could not access your records. Your message is still here. Please try again.');
+  const attachment = useAsyncAction('Could not open or save this image. Please try again.');
+  const reduced = useReducedMotion();
+  const [savedImages, setSavedImages] = useState<string[]>([]);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'hello',
       role: 'ginto',
-      text: `Hi${name ? `, ${name}` : ''}! Ask me about your budget, debts, purchases or scrolling. I answer from your own records${cloud ? '' : ', right here on your phone'}.`,
+      text: `Hi${name ? `, ${name}` : ''}. Tell me what you are deciding. I can check a price against repayments, find the next debt to protect, or help you step away from a scroll—right here on your phone.`,
       source: 'local',
     },
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const [photo, setPhoto] = useState<ChatMessage['image'] | null>(null);
-  const [askConsent, setAskConsent] = useState(false);
 
   const pickPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.5,
-      base64: true,
+      base64: false,
     });
     const a = res.canceled ? null : res.assets[0];
-    if (!a?.base64) return;
-    setPhoto({ uri: a.uri, base64: a.base64, mediaType: a.mimeType ?? 'image/jpeg' });
+    if (!a?.uri) return;
+    setPhoto({ uri: a.uri });
   };
 
   const saveEvidence = async (uri: string) => {
     await addEvidence(db, { lender: 'From chat', imageUri: uri });
+    setSavedImages((current) => [...current, uri]);
     showToast('Saved to your private Evidence Pack.');
   };
 
-  const send = async (raw: string, route: 'auto' | 'cloud' | 'local' = 'auto') => {
+  const send = async (raw: string) => {
     const text = raw.trim();
     if ((!text && !photo) || typing) return;
-    if (route === 'auto' && photo && !cloud && CLOUD_URL) {
-      setAskConsent(true);
-      return;
-    }
-    const useCloud = route === 'cloud' || (route === 'auto' && cloud);
     const userMsg: ChatMessage = { id: nextId(), role: 'user', text, image: photo ?? undefined };
-    setPhoto(null);
-    const history = [...messages, userMsg];
-    setMessages(history);
-    setInput('');
     setTyping(true);
-
-    const ctx = { name, budget, overview: await getOverview(db) };
-    let reply: ChatMessage;
     try {
-      if (!useCloud) throw new Error('local');
-      reply = {
-        id: nextId(),
-        role: 'ginto',
-        text: await cloudReply(history.slice(1), ctx),
-        source: 'cloud',
-      };
-    } catch (e) {
-      await new Promise((r) => setTimeout(r, 650)); // a beat, so it reads like a reply
-      const fellBack = useCloud && e instanceof Error && e.message !== 'local';
-      reply = {
-        id: nextId(),
-        role: 'ginto',
-        text:
-          (fellBack ? 'I could not reach the cloud, so here is my on-device answer. ' : '') +
-          (userMsg.image ? localImageReply() : localReply(text, ctx)),
-        source: 'local',
-      };
+      const ctx = { name, budget, scrollLimitMinutes, overview: await getOverview(db) };
+      const reply: ChatMessage = { id: nextId(), role: 'ginto', text: userMsg.image ? localImageReply() : localReply(text, ctx), source: 'local' };
+      setMessages((current) => [...current, userMsg, reply]);
+      setInput('');
+      setPhoto(null);
+    } finally {
+      setTyping(false);
     }
-    setMessages((m) => [...m, reply]);
-    setTyping(false);
   };
 
   return (
@@ -121,12 +101,15 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: colors.bg }}
     >
+      <View style={styles.frame}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <IconButton icon="back" label="Back" onPress={goBack} />
-        <Ginto mood={typing ? 'thinking' : 'happy'} size={58} />
+        <View style={styles.aiMark}>
+          <Icon name="ai" size={22} color={colors.text} strokeWidth={2.1} />
+        </View>
         <View style={{ flex: 1 }}>
-          <Text variant="heading">Ginto</Text>
-          <StatusLine cloud={cloud} />
+          <Text variant="heading">Ask Ginto</Text>
+          <StatusLine />
         </View>
       </View>
 
@@ -134,12 +117,12 @@ export default function ChatScreen() {
         ref={scroller}
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
-        onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: !reduced })}
         keyboardShouldPersistTaps="handled"
       >
         {messages.map((m) => (
           <View key={m.id} style={[styles.bubble, m.role === 'user' ? styles.user : styles.ginto]}>
-            {m.image ? <Image source={{ uri: m.image.uri }} style={styles.photo} /> : null}
+            {m.image ? <Image accessibilityLabel="Your attached evidence image" source={{ uri: m.image.uri }} style={styles.photo} /> : null}
             {m.text ? (
               <Text
                 variant="body"
@@ -149,14 +132,19 @@ export default function ChatScreen() {
                 {m.text}
               </Text>
             ) : null}
+            {m.role === 'ginto' && m.source ? (
+              <Text variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+                Private · answered on this device
+              </Text>
+            ) : null}
             {m.image ? (
-              <Pressable accessibilityRole="button" onPress={() => void saveEvidence(m.image!.uri)}>
+              <Pressable accessibilityRole="button" accessibilityState={{ disabled: savedImages.includes(m.image.uri) || attachment.pending }} disabled={savedImages.includes(m.image.uri) || attachment.pending} style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => void attachment.run(() => saveEvidence(m.image!.uri))}>
                 <Text
                   variant="caption"
-                  color={colors.surfaceMuted}
+                  color={colors.primarySoft}
                   style={{ textDecorationLine: 'underline' }}
                 >
-                  Save as evidence
+                  {savedImages.includes(m.image.uri) ? 'Saved as evidence' : 'Save as evidence'}
                 </Text>
               </Pressable>
             ) : null}
@@ -184,7 +172,7 @@ export default function ChatScreen() {
               <Pressable
                 key={s}
                 accessibilityRole="button"
-                onPress={() => void send(s)}
+                onPress={() => { setInput(s); void action.run(() => send(s)); }}
                 style={({ pressed }) => [styles.suggestion, pressed && { opacity: 0.8 }]}
               >
                 <Text variant="small" color={colors.text}>
@@ -213,7 +201,7 @@ export default function ChatScreen() {
             <Pressable
               key={s}
               accessibilityRole="button"
-              onPress={() => void send(s)}
+              onPress={() => { setInput(s); void action.run(() => send(s)); }}
               style={({ pressed }) => [styles.chip, pressed && { opacity: 0.8 }]}
             >
               <Text variant="caption" color={colors.text}>
@@ -239,12 +227,17 @@ export default function ChatScreen() {
         </View>
       )}
 
+      <View style={{ paddingHorizontal: spacing.lg }}>
+        <ActionError message={action.error ?? attachment.error} />
+      </View>
+      {messages.length === 1 && <Text variant="caption" align="center" style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>Answers use your saved records. This conversation is not saved after you leave.</Text>}
+
       <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.md }]}>
         <IconButton
           icon="image"
           label="Attach a photo"
           tone={colors.surface}
-          onPress={() => void pickPhoto()}
+          onPress={() => void attachment.run(pickPhoto)}
         />
         <TextInput
           value={input}
@@ -253,14 +246,15 @@ export default function ChatScreen() {
           placeholderTextColor={colors.textFaint}
           style={styles.input}
           accessibilityLabel="Message to Ginto"
-          onSubmitEditing={() => void send(input)}
+          onSubmitEditing={() => void action.run(() => send(input))}
           returnKeyType="send"
         />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Send"
           disabled={(!input.trim() && !photo) || typing}
-          onPress={() => void send(input)}
+          onPress={() => void action.run(() => send(input))}
+          accessibilityState={{ disabled: (!input.trim() && !photo) || typing, busy: typing }}
           style={({ pressed }) => [
             styles.send,
             ((!input.trim() && !photo) || typing) && { opacity: 0.35 },
@@ -270,49 +264,23 @@ export default function ChatScreen() {
           <Icon name="arrow-up" size={22} color={colors.primary} />
         </Pressable>
       </View>
-      <Sheet open={askConsent} onClose={() => setAskConsent(false)} mascot="thinking">
-        <Text variant="heading" align="center">
-          Let me read this photo?
-        </Text>
-        <Text variant="small" align="center" color={colors.textMuted}>
-          To read photos, Ginto sends this one picture and your question to Claude, with a
-          numbers-only summary of your records. Nothing else leaves your phone.
-        </Text>
-        <Button
-          label="Yes, read photos"
-          kind="ink"
-          onPress={() => {
-            setAskConsent(false);
-            setCloudAi(true);
-            void send(input, 'cloud');
-          }}
-        />
-        <Button
-          label="Keep it on my phone"
-          kind="ghost"
-          size="sm"
-          onPress={() => {
-            setAskConsent(false);
-            void send(input, 'local');
-          }}
-        />
-      </Sheet>
+      <Button label="Scan pasted message text" kind="ghost" size="sm" onPress={() => router.push('/message-check')} />
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
-function StatusLine({ cloud }: { cloud: boolean }) {
+function StatusLine() {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <View style={[styles.status, { backgroundColor: cloud ? colors.lagoon : colors.success }]} />
-      <Text variant="caption">
-        {cloud ? 'Claude · only your numbers are shared' : 'On-device · private'}
-      </Text>
+      <View style={[styles.status, { backgroundColor: colors.success }]} />
+      <Text variant="caption">On-device · private</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  frame: { width: '100%', maxWidth: 820, alignSelf: 'center', flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -321,6 +289,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  aiMark: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
   },
   bubble: {
     maxWidth: '86%',
@@ -343,7 +319,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   chip: {
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -381,7 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   status: { width: 8, height: 8, borderRadius: 4 },
-  photo: { width: 220, height: 220, borderRadius: radius.md, marginBottom: spacing.sm },
+  photo: { width: 220, maxWidth: '100%', height: 220, borderRadius: radius.md, marginBottom: spacing.sm },
   preview: {
     flexDirection: 'row',
     alignItems: 'center',

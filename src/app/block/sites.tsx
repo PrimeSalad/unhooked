@@ -13,25 +13,28 @@ import {
   Group,
   GroupRow,
   IconButton,
-  Screen,
   ScreenHeader,
   Section,
   Sheet,
   Text,
 } from '@/components/ui';
+import { ActionError, FlowScreen, FormSection } from '@/components/FlowLayout';
 import { colors, spacing } from '@/constants/theme';
 import { addRules, listRules, removeRule } from '@/db/blockRules';
 import { useDbQuery } from '@/db/useDbQuery';
 import { normalizeDomain } from '@/domain/blocking';
 import { isGuardAvailable } from '@/lib/guard';
 import { useSession } from '@/store/session';
+import { useAsyncAction } from '@/hooks/useAsyncAction';
 
 const SUGGESTED = ['tiktok.com', 'facebook.com', 'youtube.com', 'shopee.ph', 'lazada.com.ph'];
 
 export default function SitesScreen() {
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
-  const { data: rules } = useDbQuery(listRules, []);
+  const { data: rules, error, retry } = useDbQuery(listRules, []);
+  const action = useAsyncAction();
+  const native = isGuardAvailable();
   const [text, setText] = useState('');
   const [disclose, setDisclose] = useState<string | null>(null);
   const sites = rules.filter((r) => r.kind === 'site');
@@ -43,7 +46,7 @@ export default function SitesScreen() {
       schedule: null,
     });
     setText('');
-    showToast(`${domain} is guarded.`);
+    showToast(native ? `${domain} is added to your guard list.` : `${domain} is saved. Website guards run in the Android build.`);
   };
 
   const add = async (domain: string) => {
@@ -56,13 +59,17 @@ export default function SitesScreen() {
   };
 
   return (
-    <Screen tabs={false}>
+    <FlowScreen>
       <ScreenHeader
         back
-        title="Guard websites"
-        subtitle="For shopping or video sites in your browser."
+        title="Leave a little space."
+        subtitle="Choose websites where you would like a pause."
       />
 
+      {!native && <View style={{ padding: spacing.lg, backgroundColor: colors.surfaceMuted, gap: spacing.sm }}><Text variant="strong">Prepare your list here.</Text><Text variant="small">Website guards work in the Android build. Saving a site here does not block this browser or other apps.</Text></View>}
+      <ActionError message={error ? 'Your saved website list could not be loaded.' : null} onRetry={retry} />
+
+      <FormSection title="Add a website">
       <Field
         label="Website"
         placeholder="Paste a link, like shopee.ph"
@@ -71,6 +78,7 @@ export default function SitesScreen() {
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
+        error={result && !result.ok ? result.error : undefined}
       />
       {result && (
         <Text variant="small" color={result.ok ? colors.text : colors.spend}>
@@ -78,26 +86,29 @@ export default function SitesScreen() {
         </Text>
       )}
       <Button
-        label="Add"
-        disabled={!result?.ok}
-        onPress={() => result?.ok && void add(result.domain)}
+        label={result?.ok && sites.some((site) => site.target === result.domain) ? 'Already on your list' : 'Add website'}
+        disabled={!result?.ok || !!error || (result?.ok && sites.some((site) => site.target === result.domain))}
+        loading={action.pending}
+        onPress={() => result?.ok && void action.run(() => add(result.domain))}
       />
+      </FormSection>
+      <ActionError message={action.error} />
 
       {sites.length > 0 && (
-        <Section title="Guarded sites">
+        <Section title={native ? 'Your guarded websites' : 'Your saved websites'}>
           <Group>
             {sites.map((s) => (
               <GroupRow
                 key={s.id}
                 leading={<Avatar label={s.label} bg={colors.scrollSoft} fg={colors.scroll} />}
                 title={s.label}
-                subtitle="Opening it shows a pause first"
+                subtitle={native ? 'Included when website guards are enabled' : 'Ready for the Android build'}
                 trailing={
                   <IconButton
                     icon="close"
                     label={`Remove ${s.label}`}
                     tone={colors.track}
-                    onPress={() => void removeRule(db, s.id)}
+                    onPress={() => void action.run(() => removeRule(db, s.id))}
                   />
                 }
               />
@@ -118,7 +129,7 @@ export default function SitesScreen() {
                   icon="add"
                   label={`Guard ${d}`}
                   tone={colors.track}
-                  onPress={() => void add(d)}
+                  onPress={() => void action.run(() => add(d))}
                 />
               }
             />
@@ -146,16 +157,17 @@ export default function SitesScreen() {
           </Text>
         </View>
         <Button
-          label="Allow"
-          onPress={async () => {
+          label="Continue to Android permission"
+          loading={action.pending}
+          onPress={() => void action.run(async () => {
             const domain = disclose;
-            setDisclose(null);
             if (domain && (await prepareWebGuard())) await save(domain);
             else showToast('Website guard stays off. App guards still work.');
-          }}
+            setDisclose(null);
+          })}
         />
         <Button label="Not now" kind="ghost" size="sm" onPress={() => setDisclose(null)} />
       </Sheet>
-    </Screen>
+    </FlowScreen>
   );
 }
