@@ -1,36 +1,67 @@
-// Design tokens. Calm, non-alarming palette: Unhooked nudges, it never scolds.
-// Use tokens everywhere; never hard-code colors or spacing in screens.
+// Design tokens. Brand palette, type and motion match the Ginto prototype
+// (prototype/ and plan.md → Brand & mascot). Never hard-code colors or fonts in screens.
 
-// Brand palette matches the Ginto prototype (see prototype/ and plan.md → Brand & mascot).
 export const colors = {
   bg: '#FFF6EC', // Cream
   surface: '#FFFFFF',
   surfaceMuted: '#FFE3CC', // Peach
   border: '#F0E2D4',
+  track: '#F3E7DB',
   text: '#2A1608', // Ink
+  textSoft: '#5C3A22',
   textMuted: '#7A5B47',
+  textFaint: '#B39580',
   primary: '#FF6B1A', // Goldfish — always paired with Ink text, never white
   primaryText: '#2A1608',
+  primarySoft: '#FF8A3D',
   link: '#C4450B', // Ember — orange text on light backgrounds
   accent: '#FFB061', // Amber — countdown ring, progress
   pause: '#0B3440', // Deep water — the pause screen
-  info: '#0F5F6E',
-  warning: '#7A4A00',
-  danger: '#B3261E', // reserved for high-risk messages, never for user setbacks
-  success: '#1E5E3B',
-  // Module identity colors
+  pauseText: '#FFF6EC',
+  pauseMuted: '#8FD3E0',
+  lagoon: '#0F5F6E',
+  lagoonDeep: '#0F4A57',
+  shell: '#DDF0F3',
+  danger: '#B3261E', // high-risk messages only, never user setbacks
+  success: '#2F8F5B',
+  white: '#FFFFFF',
+  // Module identity
   debt: '#5E3D8C',
-  spend: '#C4450B',
-  scroll: '#0F5F6E', // Lagoon
+  debtSoft: '#EFE6F7',
+  spend: '#B8480A',
+  spendSoft: '#FFE3CC',
+  scroll: '#0F5F6E',
+  scrollSoft: '#DDF0F3',
 } as const;
 
-export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28, xxxl: 40 } as const;
 
-export const radius = { sm: 8, md: 12, lg: 20, pill: 999 } as const;
+export const radius = { sm: 10, md: 14, lg: 20, xl: 24, xxl: 30, pill: 999 } as const;
 
-export const font = {
-  size: { xs: 12, sm: 14, md: 16, lg: 20, xl: 24, xxl: 32 },
-  weight: { regular: '400', medium: '500', semibold: '600', bold: '700' },
+/** Poppins families. On Android a custom font ignores fontWeight, so pick the family per weight. */
+export const fonts = {
+  regular: 'Poppins_400Regular',
+  medium: 'Poppins_500Medium',
+  semibold: 'Poppins_600SemiBold',
+  bold: 'Poppins_700Bold',
+  extrabold: 'Poppins_800ExtraBold',
+} as const;
+
+export const shadow = {
+  card: {
+    shadowColor: '#2A1608',
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
+  },
+} as const;
+
+export const motion = {
+  swim: 800, // Ginto moving between positions
+  hook: 900, // hook drop / yank
+  breath: 4000, // pause breathing: 4s in, 4s out
+  rise: 450, // screen content entrance
 } as const;
 
 export type ModuleKey = 'debt' | 'spend' | 'scroll';

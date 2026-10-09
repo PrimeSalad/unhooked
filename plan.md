@@ -58,7 +58,7 @@ These come straight from the research brief. Every phase must respect them. A fe
 
 | # | Rule | Why (evidence) | How it shows up in code |
 |---|------|----------------|-------------------------|
-| R1 | **The pause is a real delay**, not just a message. | PNAS *one sec* study: the delay drove the 57% reduction; a message alone did not. | `PauseCountdown` blocks the decision buttons for `settings.pauseSeconds` (default 10s). |
+| R1 | **The pause is a real delay**, not just a message. | PNAS *one sec* study: the delay drove the 57% reduction; a message alone did not. | `src/app/pause.tsx` blocks the decision buttons for `settings.pauseSeconds` (default 10s). |
 | R2 | **Local-first.** Sensitive data never leaves the device by default. | Data Privacy Act 2012 treats health info as sensitive personal info; stigma blocks help-seeking. | SQLite on device (`src/db`). Cloud AI is opt-in, disclosed, and Phase 7 only. |
 | R3 | **Label everything**: fact vs. estimate vs. suggestion. | Responsible AI section; estimates must not look like facts. | Every AI/derived line is a `LabeledLine` and renders a `<CertaintyTag>`. |
 | R4 | **No shame, no guarantees, user decides.** | Responsible AI section. | Copy review checklist (§7). The "Continue" option is always available. |
@@ -133,19 +133,23 @@ Estimates assume a 2–3 person hackathon team; phases 2–4 can run in parallel
 - [x] Help & Safety screen, delete-all-data control, privacy copy
 - [x] Jest, ESLint, Prettier, expo-doctor (21/21), Android bundle export verified
 
+### Phase 0.5 — UI pass ✅
+Every screen matches the prototype, on demo data for persona Ana (`src/demo/ana.ts`). Later phases swap the demo data for real repositories without redesigning the screens.
+- [x] Poppins via `@expo-google-fonts/poppins`; type scale, buttons, cards, tags, list rows and headers in `src/components/ui.tsx`
+- [x] Ginto in `react-native-svg` (`src/components/mascot/Ginto.tsx`), with 9 moods animated on the native driver through layered SVGs and `transformOrigin`, plus reduced-motion support. The plan had called for Reanimated; the built-in Animated API was enough.
+- [x] Hook (`Hook.tsx`), countdown ring (`pause/CountdownRing.tsx`), dot pattern, global toast
+- [x] Screens: Welcome (first launch), Today, Spend, Debt, Scroll + check-in sheet, Insights, Pause (checkout/borrow), Unhooked, Break, Check-in (saved to SQLite), Message check (sample), Help, Settings (pause length, delete data)
+- [x] Web works: Metro `.wasm` support, `localStorage` for settings on web (`store/storage.web.ts`), and a retry for the OPFS lock on reload (`db/DatabaseGate.tsx`)
+
 ### Phase 1 — The AI Pause (core loop) ★ highest priority
-The one screen that must be flawless; every module reuses it. Match the prototype's pause screen.
-- [ ] Brand setup: load Poppins (`@expo-google-fonts/poppins` + `expo-font`) and apply it in `src/components/ui.tsx`.
-- [ ] `src/components/mascot/Ginto.tsx`: port the prototype SVG to `react-native-svg` with a `mood` prop (9 moods) and animate the tail, fins, blink and body with `react-native-reanimated`. Respect reduced motion.
-- [ ] `src/components/mascot/Hook.tsx`: the hook that drops in and yanks away.
-- [ ] `src/components/pause/PauseCountdown.tsx` — animated ring, `settings.pauseSeconds`, decision buttons disabled until it ends (R1). Haptic tick on finish.
-- [ ] `src/components/pause/ReflectionCard.tsx` — headline + labeled lines + suggestions with `CertaintyTag` (R3).
-- [ ] `src/app/pause.tsx` — accept `kind` + serialized `facts` params; call `getReflectionProvider().reflect()`; render options per kind:
-  - borrow → *Review my obligations* · *Adjust amount* · *Continue anyway*
-  - checkout → *Save for 24h* · *See cheaper option* · *Buy anyway*
-  - scroll → *I'm using this intentionally* · *Take a break* · *Remind me later*
-- [ ] Always-visible "Need to talk to someone?" link → `/help` (R5).
-- [ ] Log `pause_shown` and `pause_decision { kind, decision, secondsViewed }`.
+The one screen that must be flawless; every module reuses it. The UI is done (Phase 0.5); what remains is real facts and the template engine.
+- [x] Pause screen with a real countdown: decision buttons are disabled until it ends (R1); Ginto breathes, then swims up and reacts; the hook drops in
+- [x] Reflection card with labeled lines (`Tag` from your records / estimate) (R3)
+- [x] Always-visible "Need to talk to someone?" link → `/help` (R5)
+- [x] Log `pause_shown` and `pause_decision { kind, decision, secondsViewed }`
+- [ ] Pass real `facts` (from Debt/Spend repositories) as params instead of `pauseCopy` demo text; call `getReflectionProvider().reflect()`
+- [ ] Scroll pause kind (*I'm using this intentionally* · *Take a break* · *Remind me later*): the sheet UI exists on the Scroll tab
+- [ ] Haptic tick when the countdown completes
 - [ ] `src/ai/templates.ts` — template tables per `PauseKind × Tone`; `localProvider` fills them from `facts`. Tests for: no shame words, every number comes from `facts`, gentle tone when stress/fatigue ≥ 4.
 
 **Done when:** each tab's trigger button opens a pause, countdown blocks decisions, decision is in the `events` table.

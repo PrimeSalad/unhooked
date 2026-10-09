@@ -1,73 +1,68 @@
+import {
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  Poppins_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/poppins';
 import { Stack } from 'expo-router';
-import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
-import { Component, Suspense, type ReactNode } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
+import { ToastHost } from '@/components/Toast';
 import { colors } from '@/constants/theme';
-import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/migrations';
+import { DatabaseGate } from '@/db/DatabaseGate';
 
-function Loading() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.bg,
-      }}
-    >
-      <ActivityIndicator color={colors.primary} />
-    </View>
-  );
-}
+export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
+  });
 
-/** Shows the real error instead of an endless spinner if the database fails to open. */
-class DatabaseErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null as Error | null };
-
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-
-  render() {
-    if (!this.state.error) return this.props.children;
+  // Fall back to system fonts rather than blocking the app if a font fails to load.
+  if (!fontsLoaded && !fontError) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.bg }}>
-        <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 8 }}>
-          Unhooked could not open its local database.
-        </Text>
-        <Text style={{ fontSize: 14, color: colors.textMuted }}>{this.state.error.message}</Text>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.bg,
+        }}
+      >
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
-}
 
-export default function RootLayout() {
   return (
-    <DatabaseErrorBoundary>
-      <Suspense fallback={<Loading />}>
-        <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded} useSuspense>
-          <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerStyle: { backgroundColor: colors.bg },
-              headerTintColor: colors.text,
-              contentStyle: { backgroundColor: colors.bg },
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="pause"
-              options={{ presentation: 'fullScreenModal', headerShown: false }}
-            />
-            <Stack.Screen name="check-in" options={{ presentation: 'modal', title: 'Check-in' }} />
-            <Stack.Screen name="message-check" options={{ title: 'Check a message' }} />
-            <Stack.Screen name="help" options={{ title: 'Help & Safety' }} />
-            <Stack.Screen name="settings" options={{ title: 'Privacy & Settings' }} />
-          </Stack>
-        </SQLiteProvider>
-      </Suspense>
-    </DatabaseErrorBoundary>
+    <DatabaseGate>
+      <StatusBar style="dark" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+        <Stack.Screen
+          name="pause"
+          options={{ presentation: 'fullScreenModal', animation: 'fade' }}
+        />
+        <Stack.Screen name="unhooked" options={{ animation: 'fade' }} />
+        <Stack.Screen name="break" options={{ animation: 'fade' }} />
+        <Stack.Screen name="check-in" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="message-check" />
+        <Stack.Screen name="help" />
+        <Stack.Screen name="settings" />
+      </Stack>
+      <ToastHost />
+    </DatabaseGate>
   );
 }

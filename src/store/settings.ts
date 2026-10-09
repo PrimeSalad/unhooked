@@ -1,10 +1,12 @@
 // Small, non-sensitive preferences. Records (debts, purchases, …) live in SQLite, not here.
 
-import Storage from 'expo-sqlite/kv-store';
+import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { BudgetProfile } from '@/domain/types';
+
+import { settingsStorage } from './storage';
 
 interface SettingsState {
   onboarded: boolean;
@@ -15,6 +17,7 @@ interface SettingsState {
   setOnboarded: (v: boolean) => void;
   setBudget: (b: BudgetProfile) => void;
   setScrollLimit: (m: number) => void;
+  setPauseSeconds: (s: number) => void;
   setCloudAi: (v: boolean) => void;
   reset: () => void;
 }
@@ -34,9 +37,21 @@ export const useSettings = create<SettingsState>()(
       setOnboarded: (onboarded) => set({ onboarded }),
       setBudget: (budget) => set({ budget }),
       setScrollLimit: (scrollLimitMinutes) => set({ scrollLimitMinutes }),
+      setPauseSeconds: (pauseSeconds) => set({ pauseSeconds }),
       setCloudAi: (cloudAiEnabled) => set({ cloudAiEnabled }),
       reset: () => set(defaults),
     }),
-    { name: 'unhooked-settings', storage: createJSONStorage(() => Storage) },
+    {
+      name: 'unhooked-settings',
+      storage: createJSONStorage(() => settingsStorage),
+    },
   ),
 );
+
+/** False until persisted settings are loaded, so screens don't flash the wrong state. */
+export function useSettingsHydrated(): boolean {
+  return useSyncExternalStore(
+    (onChange) => useSettings.persist.onFinishHydration(onChange),
+    () => useSettings.persist.hasHydrated(),
+  );
+}

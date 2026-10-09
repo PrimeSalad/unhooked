@@ -1,155 +1,522 @@
-// Minimal design-system primitives. Screens compose these; extend here, not inline.
+// Design-system primitives. Screens compose these; extend here, not inline.
 
-import type { ReactNode } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
+import { useEffect, type ComponentProps, type ReactNode, useState } from 'react';
 import {
+  Animated,
+  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
   Text as RNText,
   View,
+  type StyleProp,
   type TextProps,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, font, radius, spacing } from '@/constants/theme';
+import { Ginto, type GintoMood } from '@/components/mascot/Ginto';
+import { colors, fonts, motion, radius, shadow, spacing } from '@/constants/theme';
 import type { Certainty } from '@/domain/types';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
-export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
-  const body = <View style={styles.screenBody}>{children}</View>;
+export type IconName = ComponentProps<typeof Ionicons>['name'];
+
+// ---------- Text ----------
+
+const textVariants = StyleSheet.create({
+  display: { fontFamily: fonts.extrabold, fontSize: 48, lineHeight: 52, letterSpacing: -2 },
+  title: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 36, letterSpacing: -0.6 },
+  heading: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 25, letterSpacing: -0.2 },
+  number: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 30, letterSpacing: -0.5 },
+  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23 },
+  strong: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22 },
+  small: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19 },
+  caption: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 17 },
+  eyebrow: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+});
+
+export type TextVariant = keyof typeof textVariants;
+
+const defaultTone: Record<TextVariant, string> = {
+  display: colors.text,
+  title: colors.text,
+  heading: colors.text,
+  number: colors.text,
+  body: colors.text,
+  strong: colors.text,
+  small: colors.textSoft,
+  caption: colors.textMuted,
+  eyebrow: colors.textMuted,
+};
+
+export function Text({
+  variant = 'body',
+  color,
+  align,
+  style,
+  ...rest
+}: TextProps & { variant?: TextVariant; color?: string; align?: TextStyle['textAlign'] }) {
   return (
-    <SafeAreaView style={styles.screen} edges={['left', 'right']}>
-      {scroll ? <ScrollView contentContainerStyle={styles.scroll}>{body}</ScrollView> : body}
-    </SafeAreaView>
+    <RNText
+      style={[
+        textVariants[variant],
+        { color: color ?? defaultTone[variant] },
+        align ? { textAlign: align } : null,
+        style,
+      ]}
+      {...rest}
+    />
   );
 }
 
-type Variant = 'title' | 'heading' | 'body' | 'muted' | 'caption';
+// ---------- Layout ----------
 
-export function Text({ variant = 'body', style, ...rest }: TextProps & { variant?: Variant }) {
-  return <RNText style={[textStyles[variant], style]} {...rest} />;
-}
-
-export function Card({
+/** Fades + rises children in on mount (450 ms, 14 px). */
+export function Rise({
   children,
-  accent,
+  delay = 0,
   style,
 }: {
   children: ReactNode;
-  accent?: string;
-  style?: ViewStyle;
+  delay?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const reduced = useReducedMotion();
+  const v = useState(() => new Animated.Value(reduced ? 1 : 0))[0];
+  useEffect(() => {
+    if (reduced) {
+      v.setValue(1);
+      return;
+    }
+    Animated.timing(v, {
+      toValue: 1,
+      duration: motion.rise,
+      delay,
+      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [delay, reduced, v]);
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity: v,
+          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+export function Screen({
+  children,
+  bg = colors.bg,
+  tabs = true,
+  gap = spacing.lg,
+}: {
+  children: ReactNode;
+  bg?: string;
+  /** Inside the tab navigator (the tab bar handles the bottom inset). */
+  tabs?: boolean;
+  gap?: number;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: bg }}
+      contentContainerStyle={{
+        paddingTop: insets.top + spacing.lg,
+        paddingHorizontal: spacing.xl,
+        paddingBottom: (tabs ? 0 : insets.bottom) + spacing.xxxl,
+        gap,
+      }}
+      showsVerticalScrollIndicator={false}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+export function ScreenHeader({
+  title,
+  subtitle,
+  mascot,
+  back,
+}: {
+  title: string;
+  subtitle?: string;
+  mascot?: GintoMood;
+  back?: boolean;
 }) {
   return (
-    <View
-      style={[styles.card, accent ? { borderLeftWidth: 4, borderLeftColor: accent } : null, style]}
-    >
+    <View style={{ gap: spacing.md }}>
+      {back && <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} />}
+      <View
+        style={{ flexDirection: 'row', alignItems: 'center', minHeight: mascot ? 82 : undefined }}
+      >
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="title">{title}</Text>
+          {subtitle ? (
+            <Text variant="small" color={colors.textMuted}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        {mascot ? <Ginto mood={mascot} size={92} /> : null}
+      </View>
+    </View>
+  );
+}
+
+// ---------- Surfaces ----------
+
+export function Card({
+  children,
+  style,
+  tone = colors.surface,
+  flat,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  tone?: string;
+  flat?: boolean;
+}) {
+  return (
+    <View style={[styles.card, { backgroundColor: tone }, flat ? null : shadow.card, style]}>
       {children}
     </View>
   );
 }
 
-export function Button({
-  label,
-  onPress,
-  kind = 'primary',
-  disabled,
+export function Row({
+  children,
+  style,
+  gap = spacing.md,
 }: {
-  label: string;
-  onPress: () => void;
-  kind?: 'primary' | 'secondary' | 'ghost';
-  disabled?: boolean;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  gap?: number;
+}) {
+  return (
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>
+  );
+}
+
+export function IconChip({
+  icon,
+  bg,
+  fg,
+  size = 42,
+}: {
+  icon: IconName;
+  bg: string;
+  fg: string;
+  size?: number;
+}) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.34,
+        backgroundColor: bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Ionicons name={icon} size={size * 0.52} color={fg} />
+    </View>
+  );
+}
+
+export function ListRow({
+  icon,
+  iconBg,
+  iconFg,
+  title,
+  subtitle,
+  onPress,
+  trailing,
+}: {
+  icon: IconName;
+  iconBg: string;
+  iconFg: string;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  trailing?: ReactNode;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.button,
-        buttonStyles[kind],
-        (pressed || disabled) && { opacity: 0.6 },
-      ]}
+      style={({ pressed }) => [styles.card, shadow.card, styles.listRow, pressed && styles.pressed]}
     >
-      <RNText style={[styles.buttonLabel, kind !== 'primary' && { color: colors.text }]}>
-        {label}
-      </RNText>
+      <IconChip icon={icon} bg={iconBg} fg={iconFg} />
+      <View style={{ flex: 1 }}>
+        <Text variant="strong">{title}</Text>
+        {subtitle ? <Text variant="caption">{subtitle}</Text> : null}
+      </View>
+      {trailing ?? <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />}
     </Pressable>
   );
 }
 
-const certaintyLabel: Record<Certainty, string> = {
-  fact: 'From your records',
-  estimate: 'Estimate',
-  suggestion: 'Suggestion',
-};
-
-/** Responsible-AI requirement: every generated line shows whether it is a fact, estimate or suggestion. */
-export function CertaintyTag({ certainty }: { certainty: Certainty }) {
+export function Stat({ value, label }: { value: string | number; label: string }) {
   return (
-    <View style={styles.tag}>
-      <RNText style={styles.tagText}>{certaintyLabel[certainty]}</RNText>
-    </View>
-  );
-}
-
-export function Placeholder({ phase, children }: { phase: string; children: ReactNode }) {
-  return (
-    <Card style={{ borderStyle: 'dashed' }}>
-      <Text variant="caption">{`Coming in ${phase} — see plan.md`}</Text>
-      <Text variant="muted">{children}</Text>
+    <Card style={{ flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, gap: 0 }}>
+      <Text variant="number">{value}</Text>
+      <Text variant="caption">{label}</Text>
     </Card>
   );
 }
 
+export function ProgressBar({
+  value,
+  color = colors.primary,
+  track = colors.track,
+  height = 8,
+}: {
+  value: number;
+  color?: string;
+  track?: string;
+  height?: number;
+}) {
+  const pctValue = Math.max(0, Math.min(1, value)) * 100;
+  return (
+    <View style={{ height, borderRadius: radius.pill, backgroundColor: track, overflow: 'hidden' }}>
+      <View
+        style={{
+          width: `${pctValue}%`,
+          height: '100%',
+          borderRadius: radius.pill,
+          backgroundColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <View style={styles.segmented} accessibilityRole="tablist">
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(o.value)}
+            style={[styles.segment, active && styles.segmentActive]}
+          >
+            <Text variant="strong" style={{ fontSize: 14 }}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// ---------- Buttons ----------
+
+type ButtonKind = 'primary' | 'ink' | 'outline' | 'ghost' | 'outlineLight' | 'ghostLight';
+
+const buttonKinds: Record<ButtonKind, { box: ViewStyle; text: string }> = {
+  primary: { box: { backgroundColor: colors.primary }, text: colors.primaryText },
+  ink: { box: { backgroundColor: colors.text }, text: colors.bg },
+  outline: { box: { borderWidth: 2, borderColor: colors.text }, text: colors.text },
+  ghost: { box: {}, text: colors.textSoft },
+  outlineLight: {
+    box: { borderWidth: 2, borderColor: 'rgba(255,246,236,0.55)' },
+    text: colors.pauseText,
+  },
+  ghostLight: { box: {}, text: '#FFE9D2' },
+};
+
+export function Button({
+  label,
+  onPress,
+  kind = 'primary',
+  size = 'md',
+  icon,
+  disabled,
+  style,
+}: {
+  label: string;
+  onPress: () => void;
+  kind?: ButtonKind;
+  size?: 'md' | 'sm';
+  icon?: IconName;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const k = buttonKinds[kind];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.button,
+        { minHeight: size === 'md' ? 54 : 44 },
+        k.box,
+        pressed && !disabled && styles.pressed,
+        disabled && { opacity: 0.32 },
+        style,
+      ]}
+    >
+      {icon ? <Ionicons name={icon} size={18} color={k.text} /> : null}
+      <Text variant="strong" color={k.text} style={{ fontSize: size === 'md' ? 16 : 14 }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function IconButton({
+  icon,
+  label,
+  onPress,
+  tone = colors.surface,
+  color = colors.text,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  tone?: string;
+  color?: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={6}
+      style={({ pressed }) => [
+        styles.iconButton,
+        { backgroundColor: tone },
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name={icon} size={22} color={color} />
+    </Pressable>
+  );
+}
+
+// ---------- Tags ----------
+
+const tagTones = {
+  records: { bg: '#FFEBDC', fg: '#8F3207', label: 'From your records' },
+  estimate: { bg: '#FFF1C9', fg: '#7A4A00', label: 'Estimate' },
+  calculated: { bg: '#E5F2EA', fg: '#1E5E3B', label: 'Calculated' },
+  suggestion: { bg: '#F4ECE4', fg: colors.textSoft, label: 'Suggestion' },
+} as const;
+
+const certaintyTone: Record<Certainty, keyof typeof tagTones> = {
+  fact: 'records',
+  estimate: 'estimate',
+  suggestion: 'suggestion',
+};
+
+/** Responsible-AI requirement (plan.md R3): every generated line shows fact / estimate / suggestion. */
+export function Tag({
+  tone,
+  certainty,
+  label,
+  dark,
+}: {
+  tone?: keyof typeof tagTones;
+  certainty?: Certainty;
+  label?: string;
+  dark?: boolean;
+}) {
+  const t = tagTones[tone ?? (certainty ? certaintyTone[certainty] : 'suggestion')];
+  return (
+    <View style={[styles.tag, { backgroundColor: dark ? 'rgba(255,246,236,0.12)' : t.bg }]}>
+      <Text
+        variant="eyebrow"
+        color={dark ? '#FFD9B5' : t.fg}
+        style={{ fontSize: 10.5, letterSpacing: 0.4 }}
+      >
+        {label ?? t.label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  scroll: { paddingBottom: spacing.xxl },
-  screenBody: { padding: spacing.lg, gap: spacing.md },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.sm,
   },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+  },
+  pressed: { transform: [{ scale: 0.98 }], opacity: 0.92 },
   button: {
-    minHeight: 48,
+    flexDirection: 'row',
+    gap: spacing.sm,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonLabel: {
-    color: colors.primaryText,
-    fontSize: font.size.md,
-    fontWeight: font.weight.semibold,
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tag: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  tagText: { fontSize: font.size.xs, color: colors.textMuted },
-});
-
-const buttonStyles = StyleSheet.create({
-  primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: 'transparent', borderWidth: 2, borderColor: colors.text },
-  ghost: { backgroundColor: 'transparent' },
-});
-
-const textStyles = StyleSheet.create({
-  title: { fontSize: font.size.xxl, fontWeight: font.weight.bold, color: colors.text },
-  heading: { fontSize: font.size.lg, fontWeight: font.weight.semibold, color: colors.text },
-  body: { fontSize: font.size.md, color: colors.text, lineHeight: 22 },
-  muted: { fontSize: font.size.sm, color: colors.textMuted, lineHeight: 20 },
-  caption: {
-    fontSize: font.size.xs,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  segmented: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    borderRadius: radius.pill,
+    backgroundColor: '#F1E4D6',
   },
+  segment: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentActive: { backgroundColor: colors.surface },
 });
