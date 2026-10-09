@@ -6,6 +6,7 @@ AI-in-Health wellness app (Debt · Spend · Scroll) built around one loop:
 **Trigger → AI Pause → Reflection → Recommendation → Decision.**
 
 - **Work from [`plan.md`](./plan.md).** Pick the next unchecked task in the current phase, implement it, tick the box. Product spec and research live in `initalplan.md` (read-only).
+- **Design for the primary persona** (plan.md → Target users): Ana, 24, BPO agent on a budget Android phone with OLA + BNPL debt. That means offline, private, discreet notifications, gentle tone, and a 15th/30th payday schedule.
 - **Non-negotiables (plan.md §0):** real countdown in every pause; local-first data, no network calls without opt-in + disclosure; every AI/derived line labeled fact / estimate / suggestion via `CertaintyTag`; no shame language, no guarantees, the user always decides; Help & Safety one tap away.
 - **Where code goes:** routes in `src/app` stay thin; all math and rules in `src/domain` (pure TS, no React/Expo imports) with Jest tests; SQL in `src/db`; phrasing in `src/ai`. The AI never computes numbers — it phrases facts computed in `src/domain`.
 - **Money is integer centavos** (`src/domain/money.ts`). Never store floats; format with `formatPHP` at the edge.

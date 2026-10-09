@@ -8,6 +8,38 @@
 
 ---
 
+## Target users
+
+**Primary:** Filipino adults aged **18–35** on a monthly salary or allowance, using an **Android phone**, who are juggling online loans and/or BNPL installments, scroll several hours a day, and feel stressed about money but are **unlikely to seek professional help** (only 2.2–17.5% of Filipinos with mental health problems do, mainly because of cost and stigma).
+
+**Segments**
+
+| Segment | Who | Pain | Main modules |
+|---|---|---|---|
+| **OLA borrowers** | Borrowers from online lending apps, often several at once | Overlapping due dates, re-borrowing to pay old loans, harassment and contact-shaming (47,446 PAOCC complaints, Aug 2024–Jan 2026) | Debt tracker, borrowing pause, Evidence Pack, message detector |
+| **BNPL / online shoppers** | Weekly online shoppers (56.4% of Filipinos) using SPayLater, GGives, Home Credit, etc. | Only see the small installment; the average BNPL purchase is ≈ 42% of monthly income | Affordability check, BNPL calculator, checkout pause, 24h cooling |
+| **Heavy scrollers** | Students and young workers on TikTok, Facebook, Instagram, YouTube (PH ≈ 4.8 h/day on social media) | Late-night doomscrolling hurts sleep and focus; hard blocks feel punishing | Scroll sessions, gentle check-ins, break suggestions |
+| **Informal lenders** | People who lend to friends and family | Forget who owes what; awkward to ask for repayment | "Owed to me" tracker, polite reminder drafts |
+
+**Personas** (assumptions; validate with 3–5 quick user interviews before the pitch)
+
+1. **Ana, 24, BPO agent, Pasig — primary persona and demo user.** Earns about ₱22,000/month, paid on the 15th and 30th. Has 3 OLA loans and 2 SPayLater plans. Gets threatening texts from a collector and has screenshots scattered in her gallery. Scrolls TikTok after her night shift. Wants to get out of debt without anyone finding out. *The demo script (§5) follows Ana.*
+2. **Migs, 29, freelance designer, Cebu.** Irregular income, shops on Lazada and Shopee every week, and treats installments as "affordable." Needs: the true total cost and a reason to wait.
+3. **Bea, 20, college student, Quezon City.** Gets a ₱5,000/month allowance. Loses 3–4 hours a night to scrolling and wants to keep using social media, just more intentionally. Needs: gentle, non-judgmental check-ins.
+4. **Tita Lorna, 45, sari-sari store owner, Batangas.** Secondary user. Lends small amounts to relatives and neighbors and loses track of them. Needs: a simple "owed to me" list and polite reminders.
+
+**Design implications**
+
+- **Low-end Android and prepaid data** → offline-first, small bundle, no required account or login, test on a budget Android phone.
+- **Privacy and shame** → no sign-up, on-device storage, discreet app name and notification text (never "You have debt!" on the lock screen).
+- **Paid twice a month** → the budget supports a 15th/30th payday schedule, not only monthly.
+- **Plain language, Taglish-friendly** → short sentences now; full Filipino/Taglish copy in Phase 7.
+- **Stress** → gentle tone, no red alarm UI for user setbacks (red is reserved for high-risk messages).
+
+**Not for:** people in an acute mental health crisis (route them to NCMH 1553 and emergency services via Help & Safety), or anyone who needs professional legal, medical or financial advice. Unhooked is a first step, not treatment.
+
+---
+
 ## 0. North star & non-negotiables
 
 These come straight from the research brief. Every phase must respect them. A feature that breaks one is not done.
@@ -117,7 +149,7 @@ The one screen that must be flawless; every module reuses it.
 **Done when:** demo script steps D1–D3 (§5) work end to end.
 
 ### Phase 3 — Spend
-- [ ] Budget onboarding (monthly income, fixed bills, savings goal, payday) → `settings.budget`.
+- [ ] Budget onboarding (monthly income, fixed bills, savings goal, pay schedule: monthly **or 15th/30th**) → `settings.budget`. Change `BudgetProfile.payday` to support twice-monthly pay (persona Ana).
 - [ ] Implement `domain/affordability.ts` + `domain/bnpl.ts` + tests (including the ₱4,500 demo case).
 - [ ] `src/db/purchases.ts` repository.
 - [ ] Purchase planner form: item, price, need/want, planned date, optional cheaper alternative.
