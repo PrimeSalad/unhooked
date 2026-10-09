@@ -64,7 +64,7 @@ export const APP_GUIDE = [
   '- Scroll tab: guard apps and websites, Unhook timer, scroll fade, log scroll sessions.',
   '- Pause button (middle of the bar): a real countdown before buying, borrowing or scrolling.',
   '- Scan a message: check a lender text for warning signs.',
-  '- This chat (typed or by voice) can log spending, debt payments, new debts, money lent, scroll time and breaks, e.g. "gumastos ako ng 250 sa pagkain".',
+  '- This chat (typed, by voice or from a receipt photo) can log spending, debt payments, new debts, money lent, scroll time and breaks, e.g. "gumastos ako ng 250 sa pagkain".',
 ].join('\n');
 
 /** The user's own records for the on-device model: amounts, dates and lender names, never message text or notes. */

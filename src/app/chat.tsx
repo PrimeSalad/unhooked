@@ -53,8 +53,9 @@ import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { logEvent } from '@/db/events';
 import { openLenders, saveChatLog } from '@/db/chatLog';
 import { addEvidence, getOverview } from '@/db/repo';
-import { parseChatLog } from '@/domain/chatLog';
+import { parseChatLog, parsePhotoLog } from '@/domain/chatLog';
 import { keyboardBehavior, useKeyboardVisible } from '@/hooks/useKeyboard';
+import { readImageText } from '@/lib/ocr';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
 
@@ -294,9 +295,16 @@ export default function ChatScreen() {
     const computed = localReplyOrNull(text, ctx);
     const crisis = isCrisis(text);
     // "Gumastos ako ng 250 sa pagkain": a log, read by rules and saved only after the user confirms.
-    const logged = crisis || userMsg.image ? null : parseChatLog(text, await openLenders(db));
+    const lenders = crisis ? [] : await openLenders(db);
+    let logged = crisis || userMsg.image ? null : parseChatLog(text, lenders);
+    // A photo with no words (or "i-log mo ito"): read its text on the phone for a receipt or loan screen.
+    if (!crisis && userMsg.image && (!text || /\b(i-?log|log|record|save|ilista)\b/i.test(text))) {
+      const ocr = await readImageText(userMsg.image.uri);
+      if (ocr) logged = parsePhotoLog(ocr, lenders);
+    }
     if (logged) {
-      const taglish = soundsTagalog(text);
+      // The app speaks Taglish first; a photo with no words gets the same.
+      const taglish = !text || soundsTagalog(text);
       const card: ChatMessage =
         logged.kind === 'gap'
           ? { id: nextId(), role: 'ginto', text: logGapReply(logged, taglish), source: 'local' }

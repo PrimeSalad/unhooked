@@ -231,6 +231,7 @@ export default function DebtScreen() {
               label="Make a repayment plan"
               kind="outline"
               onPress={() => router.push('/repayment-plan')}
+              style={{ marginTop: spacing.lg }}
             />
           ) : null}
         </>

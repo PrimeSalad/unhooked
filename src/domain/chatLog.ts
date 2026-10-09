@@ -5,6 +5,7 @@
 
 import { parsePesoInput, type Centavos } from './money';
 import type { DebtDirection, ISODate } from './types';
+import { scanLoanText } from './utangScan';
 
 export type ChatLogEntry =
   | { kind: 'spent'; amount: Centavos; item: string; isNeed: boolean }
@@ -174,6 +175,115 @@ export function parseChatLog(
     const item =
       nameAfter(text, ['para sa', 'sa', 'on', 'for', 'ng', 'ang']) ?? 'Logged from chat';
     return { kind: 'spent', amount, item, isNeed: has(item.toLowerCase(), ...NEEDS) };
+  }
+
+  return null;
+}
+
+// ---- Photos: text read on the phone (OCR) from a receipt, an e-wallet receipt or a loan app ----
+
+const PAID_RECEIPT =
+  /\b(you (?:have )?paid|payment (?:successful|received|confirmed|complete)|successfully paid|paid to|amount paid|transaction successful|sent via|bayad na)\b/i;
+const STORE_RECEIPT =
+  /\b(grand total|total amount|amount due|sub-?total|vatable|vat\b|official receipt|sales invoice|change\b|cashier|qty)\b/i;
+const LOAN_SCREEN =
+  /\b(loan (?:amount|approved|disbursed)|disbursed|approved amount|principal|repayment|due date|amount to repay|installment)\b/i;
+
+// Pick the total, not the subtotal: labels in order of trust.
+const TOTAL_LABELS = [
+  'grand total',
+  'total amount due',
+  'amount due',
+  'total amount paid',
+  'amount paid',
+  'total amount',
+  'total',
+  'amount',
+];
+
+/** A peso amount as a receipt prints it: marked (₱, PHP, P), or with centavos or a thousands comma. */
+function receiptAmount(line: string): Centavos | null {
+  const m =
+    line.match(/(?:₱|php|\bp)\s?(\d[\d,]*(?:\.\d{1,2})?)/i) ??
+    line.match(/(?<![\d.])(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2})(?![\d])/);
+  if (!m?.[1]) return null;
+  const value = parsePesoInput(m[1]);
+  return value && value > 0 ? value : null;
+}
+
+/** The amount on (or right under) the most trusted total label. */
+export function receiptTotal(text: string): Centavos | null {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  for (const label of TOTAL_LABELS) {
+    const re = new RegExp(`(?<!sub[- ]?)\\b${escapeRe(label)}\\b`, 'i');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (!re.test(line)) continue;
+      const amount = receiptAmount(line) ?? (lines[i + 1] ? receiptAmount(lines[i + 1]!) : null);
+      if (amount) return amount;
+    }
+  }
+  return null;
+}
+
+/** Store name: the first line with real words, which is how receipts and wallet screens start. */
+function firstName(text: string): string | null {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim().replace(/\s+/g, ' ');
+    if (/[a-z]{3,}/i.test(line) && !/\d{3,}/.test(line) && !PAID_RECEIPT.test(line)) {
+      return line.slice(0, 40);
+    }
+  }
+  return null;
+}
+
+function paidTo(text: string): string | null {
+  const m = text.match(/\b(?:paid to|sent to|to|merchant|biller)\s*:?\s*([A-Za-z][A-Za-z0-9 &.'-]{1,38})/i);
+  return m?.[1]?.trim().replace(/\s+/g, ' ') ?? null;
+}
+
+/**
+ * Reads one log from the text of a photo, or null when it is not a receipt or loan screen
+ * (then Ginto describes the photo instead). `lenders` are the user's open debts by name.
+ */
+export function parsePhotoLog(
+  ocrText: string,
+  lenders: string[],
+  today: Date = new Date(),
+): ChatLogEntry | ChatLogGap | null {
+  const text = ocrText.trim();
+  if (!text) return null;
+  const loan = scanLoanText(text, today);
+  const knownLender = loan.lender;
+  const lower = text.toLowerCase();
+  const openLender =
+    lenders.find((l) => lower.includes(l.toLowerCase())) ??
+    (knownLender ? (lenders.find((l) => l.toLowerCase() === knownLender.toLowerCase()) ?? null) : null);
+
+  if (PAID_RECEIPT.test(text)) {
+    const amount = receiptTotal(text) ?? loan.amount;
+    if (!amount) return { kind: 'gap', need: 'amount' };
+    if (openLender) return { kind: 'payment', amount, lender: openLender };
+    const item = paidTo(text) ?? firstName(text) ?? 'Receipt';
+    return { kind: 'spent', amount, item, isNeed: has(item.toLowerCase(), ...NEEDS) };
+  }
+
+  if (knownLender && LOAN_SCREEN.test(text) && !openLender) {
+    if (!loan.amount) return { kind: 'gap', need: 'amount' };
+    return {
+      kind: 'debt',
+      amount: loan.amount,
+      lender: knownLender,
+      direction: 'owed',
+      dueDate: loan.dueDate,
+    };
+  }
+
+  if (STORE_RECEIPT.test(text)) {
+    const amount = receiptTotal(text);
+    if (!amount) return { kind: 'gap', need: 'amount' };
+    const item = firstName(text) ?? 'Receipt';
+    return { kind: 'spent', amount, item, isNeed: has(lower, ...NEEDS) };
   }
 
   return null;

@@ -1,4 +1,4 @@
-import { amountIn, parseChatLog } from '../chatLog';
+import { amountIn, parseChatLog, parsePhotoLog } from '../chatLog';
 
 const today = new Date(2026, 9, 10); // 10 Oct 2026
 const parse = (text: string, lenders: string[] = []) => parseChatLog(text, lenders, today);
@@ -101,5 +101,59 @@ describe('parseChatLog', () => {
     expect(parse('Okay bang umutang ng ₱2,000?')).toBeNull();
     expect(parse('Ano ang babayaran ko this month')).toBeNull();
     expect(parse('Stressed ako sa pera')).toBeNull();
+  });
+});
+
+describe('parsePhotoLog', () => {
+  const photo = (text: string, lenders: string[] = []) => parsePhotoLog(text, lenders, today);
+
+  it('logs a store receipt from its total, not the subtotal', () => {
+    const receipt = [
+      'JOLLIBEE SM NORTH',
+      'OFFICIAL RECEIPT',
+      '1 Chickenjoy 1pc   99.00',
+      '1 Spaghetti        65.00',
+      'SUBTOTAL          164.00',
+      'VAT                17.57',
+      'TOTAL             164.00',
+      'CASH              200.00',
+      'CHANGE             36.00',
+    ].join('\n');
+    expect(photo(receipt)).toEqual({
+      kind: 'spent',
+      amount: 16_400,
+      item: 'JOLLIBEE SM NORTH',
+      isNeed: false,
+    });
+  });
+
+  it('turns an e-wallet payment to an open lender into a debt payment', () => {
+    const gcash = ['You have paid', 'PHP 1,250.00', 'to Tala Philippines', 'Ref No. 1009 234 567890'].join('\n');
+    expect(photo(gcash, ['Tala'])).toEqual({ kind: 'payment', amount: 125_000, lender: 'Tala' });
+  });
+
+  it('logs an e-wallet payment to a shop as spending', () => {
+    const maya = ['Payment successful', 'Amount paid', '₱450.00', 'Paid to Meralco', 'Oct 10, 2026'].join('\n');
+    expect(photo(maya)).toMatchObject({ kind: 'spent', amount: 45_000, item: 'Meralco' });
+  });
+
+  it('logs a loan app screen as a new debt with its due date', () => {
+    const loan = ['Digido', 'Loan approved!', 'Loan amount: ₱3,000', 'Due date: 2026-10-24'].join('\n');
+    expect(photo(loan)).toEqual({
+      kind: 'debt',
+      amount: 300_000,
+      lender: 'Digido',
+      direction: 'owed',
+      dueDate: '2026-10-24',
+    });
+  });
+
+  it('asks for the amount when a receipt total cannot be read', () => {
+    expect(photo('SARI-SARI STORE\nOFFICIAL RECEIPT\nTOTAL')).toEqual({ kind: 'gap', need: 'amount' });
+  });
+
+  it('leaves ordinary photos to Ginto', () => {
+    expect(photo('Happy birthday Mama! See you Sunday')).toBeNull();
+    expect(photo('')).toBeNull();
   });
 });
