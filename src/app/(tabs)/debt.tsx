@@ -10,7 +10,6 @@ import {
   Field,
   Group,
   GroupRow,
-  IconButton,
   LargeTitle,
   ProgressBar,
   Screen,
@@ -164,11 +163,11 @@ export default function DebtScreen() {
         eyebrow="What you owe, and what you are owed"
         title="Debt"
         right={
-          <IconButton
-            icon="add"
-            label="Add a debt"
-            tone={colors.text}
-            color={colors.bg}
+          <Button
+            label={owedTab ? 'Add debt' : 'Add loan'}
+            kind="ink"
+            size="sm"
+            style={{ minHeight: 40, paddingHorizontal: spacing.lg }}
             onPress={() => router.push({ pathname: '/debt-new', params: { direction: tab } })}
           />
         }
@@ -242,30 +241,29 @@ export default function DebtScreen() {
         </>
       )}
 
-      <Section title="Safety">
+      <Section title="Protect yourself">
         <Group>
           <GroupRow
             icon="images"
-            iconBg={colors.text}
-            iconFg={colors.accent}
             title="Evidence Pack"
             subtitle={
               o.evidence.count
-                ? `${o.evidence.count} saved · ${o.evidence.lenders} ${o.evidence.lenders === 1 ? 'lender' : 'lenders'} · private`
-                : 'Keep threatening messages and screenshots safe'
+                ? `${o.evidence.count} saved from ${o.evidence.lenders} ${o.evidence.lenders === 1 ? 'lender' : 'lenders'}`
+                : 'Screenshots and messages, stored only on this phone'
             }
+            value={o.evidence.count ? String(o.evidence.count) : undefined}
             onPress={() => router.push('/evidence-pack')}
           />
           <GroupRow
             icon="shield"
             title="Scan a message"
-            subtitle="Check a collector's text for warning signs"
+            subtitle="Check a collector's text for threats"
             onPress={() => router.push('/message-check')}
           />
           <GroupRow
             icon="hand"
-            title="Thinking of borrowing?"
-            subtitle="Pause with me before you sign"
+            title="Before you borrow"
+            subtitle="See how another loan fits your month"
             onPress={() => router.push('/borrow')}
           />
         </Group>
