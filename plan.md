@@ -155,16 +155,16 @@ Every screen matches the prototype, on demo data for persona Ana (`src/demo/ana.
 - [x] Screens: Welcome (first launch), Today, Spend, Debt, Scroll + check-in sheet, Insights, Pause (checkout/borrow), Unhooked, Break, Check-in (saved to SQLite), Message check (sample), Help, Settings (pause length, delete data)
 - [x] Web works: Metro `.wasm` support, `localStorage` for settings on web (`store/storage.web.ts`), and a retry for the OPFS lock on reload (`db/DatabaseGate.tsx`)
 
-### Phase 1 — The AI Pause (core loop) ★ highest priority
-The one screen that must be flawless; every module reuses it. The UI is done (Phase 0.5); what remains is real facts and the template engine.
+### Phase 1 — The AI Pause (core loop) ✅
+The pause uses real on-device records and deterministic local templates. Gemma and OCR are not needed for this phase.
 - [x] Pause screen with a real countdown: decision buttons are disabled until it ends (R1); Ginto breathes, then swims up and reacts; the hook drops in
 - [x] Reflection card with labeled lines (`Tag` from your records / estimate) (R3)
 - [x] Always-visible "Need to talk to someone?" link → `/help` (R5)
 - [x] Log `pause_shown` and `pause_decision { kind, decision, secondsViewed }`
-- [ ] Pass real `facts` (from Debt/Spend repositories) as params instead of `pauseCopy` demo text; call `getReflectionProvider().reflect()`
-- [ ] Scroll pause kind (*I'm using this intentionally* · *Take a break* · *Remind me later*): the sheet UI exists on the Scroll tab
-- [ ] Haptic tick when the countdown completes
-- [ ] `src/ai/templates.ts` — template tables per `PauseKind × Tone`; `localProvider` fills them from `facts`. Tests for: no shame words, every number comes from `facts`, gentle tone when stress/fatigue ≥ 4.
+- [x] Load real Debt/Spend facts from the repositories, compute affordability in `src/domain/pauseFacts.ts`, and call `getReflectionProvider().reflect()`; no `pauseCopy` demo text.
+- [x] Scroll pause kind (*I'm using this intentionally* · *Take a break* · *Remind me later*): the Scroll timer opens the pause and records the chosen session outcome.
+- [x] Haptic tick when the countdown completes
+- [x] `src/ai/templates.ts` — template tables per `PauseKind × Tone`; `localProvider` fills them from `facts`. Tests cover shame words, number provenance, and gentle tone when stress/fatigue ≥ 4.
 
 **Done when:** each tab's trigger button opens a pause, countdown blocks decisions, decision is in the `events` table.
 

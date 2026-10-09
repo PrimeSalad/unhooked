@@ -20,9 +20,10 @@ export interface HookProps {
   /** false = yanked up out of view. */
   shown: boolean;
   lineColor?: string;
+  hookColor?: string;
 }
 
-export function Hook({ x, y, shown, lineColor = '#FFD9A8' }: HookProps) {
+export function Hook({ x, y, shown, lineColor = '#FFD9A8', hookColor = '#3B2412' }: HookProps) {
   const reduced = useReducedMotion();
   const pos = useState(() => new Animated.Value(HIDDEN))[0];
   const sway = useState(() => new Animated.Value(0))[0];
@@ -83,15 +84,15 @@ export function Hook({ x, y, shown, lineColor = '#FFD9A8' }: HookProps) {
         viewBox="0 0 44 64"
         style={{ position: 'absolute', left: 0, top: LINE }}
       >
-        <Circle cx={22} cy={6} r={4.5} fill="none" stroke="#3B2412" strokeWidth={3} />
+        <Circle cx={22} cy={6} r={4.5} fill="none" stroke={hookColor} strokeWidth={3} />
         <Path
           d="M22 11 V42 C22 56 6 58 6 44"
           fill="none"
-          stroke="#3B2412"
+          stroke={hookColor}
           strokeWidth={5}
           strokeLinecap="round"
         />
-        <Path d="M6 46 L3 34 L11 41 Z" fill="#3B2412" />
+        <Path d="M6 46 L3 34 L11 41 Z" fill={hookColor} />
         <Path
           d="M17.5 14 H26.5 M17.5 18 H26.5 M17.5 22 H26.5"
           stroke="#F2B544"

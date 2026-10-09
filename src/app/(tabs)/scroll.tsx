@@ -316,31 +316,34 @@ function ScrollSession({
   const showToast = useSession((s) => s.showToast);
   const defaultLimit = useSettings((s) => s.scrollLimitMinutes);
   const setDefaultLimit = useSettings((s) => s.setScrollLimit);
+  const scrollPauseUntil = useSession((s) => s.scrollPauseUntil);
+  const snoozeScrollPause = useSession((s) => s.snoozeScrollPause);
+  const scrollReminderIds = useSession((s) => s.scrollReminderIds);
+  const setScrollReminderId = useSession((s) => s.setScrollReminderId);
   const [app, setApp] = useState<(typeof SESSION_APPS)[number]>('TikTok');
   const [limit, setLimit] = useState(String(defaultLimit));
-  const [snoozedUntil, setSnoozedUntil] = useState<Record<string, number>>({});
-  const [reminderId, setReminderId] = useState<string | null>(null);
 
   const elapsed = session ? elapsedSeconds(session, now) : 0;
   const limitS = session ? session.limitMinutes * 60 : 1;
-  const due = !!session && elapsed >= limitS && now.getTime() >= (snoozedUntil[session.id] ?? 0);
+  const due =
+    !!session && elapsed >= limitS && now.getTime() >= (scrollPauseUntil[session.id] ?? 0);
 
   const start = async () => {
     const minutes = Number(limit);
     setDefaultLimit(minutes);
     await startSession(db, app, minutes);
-    setReminderId(
-      await remindIn(
-        minutes * 60,
-        'Quick check-in',
-        `${minutes} minutes are up. Still scrolling on purpose?`,
-      ),
+    const started = await activeSession(db);
+    if (!started) return;
+    setScrollReminderId(
+      started.id,
+      await remindIn(minutes * 60, 'Quick check-in', 'Still scrolling on purpose?'),
     );
   };
   const finish = async (msg?: string) => {
     if (!session) return;
     await endSession(db, session.id);
-    await cancelReminder(reminderId);
+    await cancelReminder(scrollReminderIds[session.id]);
+    setScrollReminderId(session.id, null);
     if (msg) showToast(msg);
   };
   const takeBreak = async () => {
@@ -349,9 +352,29 @@ function ScrollSession({
     await finish();
     router.push('/break');
   };
-  const snooze = (minutes: number) => {
+  const openScrollPause = async () => {
     if (!session) return;
-    setSnoozedUntil((s) => ({ ...s, [session.id]: Date.now() + minutes * 60000 }));
+    await cancelReminder(scrollReminderIds[session.id]);
+    setScrollReminderId(session.id, null);
+    snoozeScrollPause(session.id, Date.now() + session.limitMinutes * 60000);
+    router.push({
+      pathname: '/pause',
+      params: {
+        kind: 'scroll',
+        sessionId: session.id,
+        app: session.app,
+        minutes: String(Math.floor(elapsed / 60)),
+      },
+    });
+  };
+  const snooze = async (minutes: number) => {
+    if (!session) return;
+    snoozeScrollPause(session.id, Date.now() + minutes * 60000);
+    await cancelReminder(scrollReminderIds[session.id]);
+    setScrollReminderId(
+      session.id,
+      await remindIn(minutes * 60, 'Time check', 'Still using this time the way you meant to?'),
+    );
   };
 
   return (
@@ -413,21 +436,21 @@ function ScrollSession({
         )}
       </View>
 
-      <Sheet open={due} onClose={() => snooze(10)} mascot="sleepy">
+      <Sheet open={due} onClose={() => void snooze(10)} mascot="sleepy">
         <Text variant="heading" align="center" style={{ fontSize: 21, lineHeight: 27 }}>
           You have been on {session?.app} for {Math.floor(elapsed / 60)} minutes.
         </Text>
         <Text variant="small" align="center" style={{ marginBottom: spacing.sm }}>
           Still using this time the way you meant to?
         </Text>
-        <Button label="Take a break" onPress={() => void takeBreak()} />
+        <Button label="Check in with Ginto" onPress={() => void openScrollPause()} />
         <Button
           label="I am using this on purpose"
           kind="outline"
           onPress={async () => {
             if (!session) return;
             await setSessionOutcome(db, session.id, 'intentional');
-            snooze(session.limitMinutes);
+            await snooze(session.limitMinutes);
             showToast('Got it. Enjoy it on purpose.');
           }}
         />
@@ -438,7 +461,7 @@ function ScrollSession({
           onPress={async () => {
             if (!session) return;
             await setSessionOutcome(db, session.id, 'snooze');
-            snooze(10);
+            await snooze(10);
           }}
         />
       </Sheet>

@@ -20,6 +20,7 @@ export interface LabeledLine {
 
 export interface Reflection {
   headline: string; // one sentence, no shame language
+  headlineCertainty: Certainty;
   lines: LabeledLine[]; // 1–3 context lines
   suggestions: LabeledLine[]; // 1–3 practical options
   tone: Tone;

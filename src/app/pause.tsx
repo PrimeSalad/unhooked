@@ -5,7 +5,7 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getReflectionProvider, type PauseContext, type Reflection } from '@/ai';
+import { getReflectionProvider, type Reflection } from '@/ai';
 import { DotPattern } from '@/components/DotPattern';
 import { Ginto } from '@/components/mascot/Ginto';
 import { Hook } from '@/components/mascot/Hook';
@@ -25,16 +25,28 @@ import { CountdownRing } from '@/components/pause/CountdownRing';
 import { Button, goBack, Rise, Row, Tag, Text, TopBar } from '@/components/ui';
 import { colors, motion, radius, spacing } from '@/constants/theme';
 import { logEvent } from '@/db/events';
-import { getOverview, getPurchase, setPurchaseStatus } from '@/db/repo';
-import { checkAffordability } from '@/domain/affordability';
+import {
+  activeSession,
+  endSession,
+  getOverview,
+  getPurchase,
+  setPurchaseStatus,
+  setSessionOutcome,
+} from '@/db/repo';
+import {
+  borrowPauseFacts,
+  checkoutPauseFacts,
+  scrollPauseFacts,
+  type PauseFactResult,
+} from '@/domain/pauseFacts';
 import { formatPHP } from '@/domain/money';
-import type { BudgetProfile, PauseDecision, WellnessCheckIn } from '@/domain/types';
+import type { BudgetProfile, PauseDecision } from '@/domain/types';
 import { dueLabel } from '@/lib/format';
 import { remindIn } from '@/lib/notifications';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
 
-type Kind = 'checkout' | 'borrow';
+type Kind = 'checkout' | 'borrow' | 'scroll';
 
 const STAGE = 290;
 const RING = 244;
@@ -43,54 +55,33 @@ const FISH = 200;
 async function buildFacts(
   db: SQLiteDatabase,
   kind: Kind,
-  params: { purchaseId?: string; amount?: string },
+  params: { purchaseId?: string; amount?: string; app?: string; minutes?: string },
   budget: BudgetProfile | null,
-): Promise<{
-  title: string;
-  item: string;
-  facts: PauseContext['facts'];
-  checkIn: WellnessCheckIn | null;
-}> {
+): Promise<PauseFactResult> {
   const o = await getOverview(db);
   const nextDueLabel = o.nextDue
     ? `${o.nextDue.debt.counterparty}: ${formatPHP(o.nextDue.outstanding)} · ${dueLabel(o.nextDue.debt.dueDate)}.`
     : '';
+  const shared = { nextDueLabel, checkIn: o.checkIn };
   if (kind === 'borrow') {
-    return {
-      title: `Before you borrow ${formatPHP(Number(params.amount ?? 0))}`,
-      item: '',
-      facts: {
-        amount: Number(params.amount ?? 0),
-        owedTotal: o.owedTotal,
-        dueThisMonth: o.dueThisMonth,
-        nextDueLabel,
-      },
-      checkIn: o.checkIn,
-    };
+    return borrowPauseFacts({
+      ...shared,
+      amount: Number(params.amount),
+      owedTotal: o.owedTotal,
+      dueThisMonth: o.dueThisMonth,
+    });
+  }
+  if (kind === 'scroll') {
+    return scrollPauseFacts({ ...shared, app: params.app ?? '', minutes: Number(params.minutes) });
   }
   const p = params.purchaseId ? await getPurchase(db, params.purchaseId) : null;
-  const price = p?.price ?? 0;
-  const r = budget
-    ? checkAffordability({
-        price,
-        budget,
-        upcomingRepayments: o.dueThisMonth,
-        spentThisMonth: o.spentThisMonth,
-      })
-    : null;
-  return {
-    title: p ? `Before you buy ${p.item}` : 'Before you buy',
-    item: p?.item ?? '',
-    facts: {
-      price,
-      hasBudget: budget ? 1 : 0,
-      verdict: r?.verdict ?? '',
-      remainingAfter: r?.remainingAfter ?? 0,
-      shortfall: r?.shortfall ?? 0,
-      nextDueLabel,
-    },
-    checkIn: o.checkIn,
-  };
+  return checkoutPauseFacts({
+    ...shared,
+    purchase: p,
+    budget,
+    dueThisMonth: o.dueThisMonth,
+    spentThisMonth: o.spentThisMonth,
+  });
 }
 
 export default function PauseScreen() {
@@ -99,21 +90,30 @@ export default function PauseScreen() {
     purchaseId?: string;
     amount?: string;
     lender?: string;
+    app?: string;
+    minutes?: string;
+    sessionId?: string;
   }>();
-  const kind: Kind = params.kind === 'borrow' ? 'borrow' : 'checkout';
+  const kind: Kind =
+    params.kind === 'borrow' ? 'borrow' : params.kind === 'scroll' ? 'scroll' : 'checkout';
 
   const db = useSQLiteContext();
   const total = useSettings((s) => s.pauseSeconds);
   const budget = useSettings((s) => s.budget);
   const showToast = useSession((s) => s.showToast);
+  const snoozeScrollPause = useSession((s) => s.snoozeScrollPause);
+  const setScrollReminderId = useSession((s) => s.setScrollReminderId);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
   const [left, setLeft] = useState(total);
-  const [title, setTitle] = useState(kind === 'borrow' ? 'Before you borrow' : 'Before you buy');
+  const [title, setTitle] = useState(
+    kind === 'borrow' ? 'Before you borrow' : kind === 'scroll' ? 'Time check' : 'Before you buy',
+  );
   const [item, setItem] = useState('');
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [reveal] = useState(() => new Animated.Value(0));
+  const scrollDecisionPending = useRef(false);
   const locked = left > 0;
 
   useEffect(() => {
@@ -129,7 +129,17 @@ export default function PauseScreen() {
 
   useEffect(() => {
     let alive = true;
-    buildFacts(db, kind, { purchaseId: params.purchaseId, amount: params.amount }, budget)
+    buildFacts(
+      db,
+      kind,
+      {
+        purchaseId: params.purchaseId,
+        amount: params.amount,
+        app: params.app,
+        minutes: params.minutes,
+      },
+      budget,
+    )
       .then(async ({ title: t, item: i, facts, checkIn }) => {
         const r = await getReflectionProvider().reflect({ kind, facts, latestCheckIn: checkIn });
         if (!alive) return;
@@ -141,7 +151,7 @@ export default function PauseScreen() {
     return () => {
       alive = false;
     };
-  }, [budget, db, kind, params.amount, params.purchaseId]);
+  }, [budget, db, kind, params.amount, params.purchaseId, params.app, params.minutes]);
 
   useEffect(() => {
     if (locked) return;
@@ -188,14 +198,58 @@ export default function PauseScreen() {
     showToast('Your call. Add it here so I can help you track it.');
   };
 
+  const scrollDecision = async (
+    decision: PauseDecision,
+    outcome: 'intentional' | 'break' | 'snooze',
+  ) => {
+    if (scrollDecisionPending.current) return;
+    scrollDecisionPending.current = true;
+    try {
+      const session = await activeSession(db);
+      if (session && session.id === params.sessionId) {
+        await setSessionOutcome(db, session.id, outcome);
+        if (outcome === 'break') {
+          await endSession(db, session.id);
+        } else {
+          const minutes = outcome === 'snooze' ? 10 : session.limitMinutes;
+          snoozeScrollPause(session.id, Date.now() + minutes * 60000);
+          const reminderId = await remindIn(
+            minutes * 60,
+            'Time check',
+            'Still using this time the way you meant to?',
+          );
+          setScrollReminderId(session.id, reminderId);
+        }
+      }
+      await logEvent(db, 'pause_decision', { kind, decision, secondsViewed: total });
+      if (outcome === 'break') router.replace('/break');
+      else {
+        goBack();
+        if (outcome === 'snooze') showToast('Got it. I will check back in 10 minutes.');
+      }
+    } catch (error) {
+      console.warn('scroll pause decision failed', error);
+      showToast('Could not save that choice. Please try again.');
+    } finally {
+      scrollDecisionPending.current = false;
+    }
+  };
+
   const isBorrow = kind === 'borrow';
+  const isScroll = kind === 'scroll';
   const options = isBorrow
     ? { a: 'Review what I owe', b: 'Ask for a payment plan instead', c: 'Borrow anyway' }
-    : { a: 'Save for 24 hours', b: 'Look for a cheaper option', c: 'Buy anyway' };
+    : isScroll
+      ? {
+          a: 'I am using this on purpose',
+          b: 'Take a break',
+          c: 'Remind me in 10 minutes',
+        }
+      : { a: 'Save for 24 hours', b: 'Look for a cheaper option', c: 'Buy anyway' };
 
   const elapsed = total - left;
   const breath = Math.floor(elapsed / 4) % 2 === 0 ? 'Breathe in' : 'Breathe out';
-  const mood = locked ? 'calm' : isBorrow ? 'worried' : 'curious';
+  const mood = locked ? 'calm' : isBorrow ? 'worried' : isScroll ? 'sleepy' : 'curious';
   const stageW = width - spacing.xl * 2;
 
   return (
@@ -210,7 +264,7 @@ export default function PauseScreen() {
 
       <View style={{ gap: 4, maxWidth: '68%' }}>
         <Text variant="eyebrow" color={colors.pauseMuted}>
-          {isBorrow ? 'Borrowing pause' : 'Checkout pause'}
+          {isBorrow ? 'Borrowing pause' : isScroll ? 'Scroll check-in' : 'Checkout pause'}
         </Text>
         <Text
           variant="title"
@@ -223,7 +277,13 @@ export default function PauseScreen() {
       </View>
 
       <View style={{ height: STAGE, marginTop: spacing.lg }}>
-        <Hook x={stageW / 2 + 92} y={locked ? 6 : -18} shown />
+        <Hook
+          x={stageW / 2 + 92}
+          y={locked ? 28 : 12}
+          shown
+          lineColor="#FFDBA4"
+          hookColor="#FFC56B"
+        />
         <Animated.View
           style={[
             styles.center,
@@ -263,6 +323,7 @@ export default function PauseScreen() {
         ) : (
           <Rise>
             <View style={styles.reflection}>
+              <Tag certainty={reflection.headlineCertainty} dark />
               <Text variant="heading" color={colors.pauseText}>
                 {reflection.headline}
               </Text>
@@ -283,13 +344,25 @@ export default function PauseScreen() {
         <Button
           label={options.a}
           disabled={locked}
-          onPress={() => (isBorrow ? done('reconsider', 'review') : void checkoutA())}
+          onPress={() =>
+            isBorrow
+              ? done('reconsider', 'review')
+              : isScroll
+                ? void scrollDecision('continue', 'intentional')
+                : void checkoutA()
+          }
         />
         <Button
           label={options.b}
           kind="outlineLight"
           disabled={locked}
-          onPress={() => (isBorrow ? done('reconsider', 'plan') : checkoutB())}
+          onPress={() =>
+            isBorrow
+              ? done('reconsider', 'plan')
+              : isScroll
+                ? void scrollDecision('break', 'break')
+                : checkoutB()
+          }
         />
         <Row style={{ justifyContent: 'space-between' }}>
           <Button
@@ -297,7 +370,13 @@ export default function PauseScreen() {
             kind="ghostLight"
             size="sm"
             disabled={locked}
-            onPress={() => (isBorrow ? borrowC() : void checkoutC())}
+            onPress={() =>
+              isBorrow
+                ? borrowC()
+                : isScroll
+                  ? void scrollDecision('reconsider', 'snooze')
+                  : void checkoutC()
+            }
           />
           <Button
             label="Need to talk to someone?"

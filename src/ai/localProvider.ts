@@ -3,6 +3,7 @@
 
 import { formatPHP } from '@/domain/money';
 
+import { templates } from './templates';
 import type { LabeledLine, PauseContext, Reflection, ReflectionProvider, Tone } from './types';
 
 export function pickTone(ctx: PauseContext): Tone {
@@ -10,97 +11,104 @@ export function pickTone(ctx: PauseContext): Tone {
   return c && (c.stress >= 4 || c.fatigue >= 4) ? 'gentle' : 'neutral';
 }
 
-const num = (v: string | number | undefined) => (typeof v === 'number' ? v : Number(v ?? 0));
+const recordedAmount = (value: string | number | undefined): number | null =>
+  typeof value === 'number' && Number.isSafeInteger(value) ? value : null;
 
 function checkout(f: PauseContext['facts'], tone: Tone): Omit<Reflection, 'tone' | 'source'> {
-  const price = formatPHP(num(f.price));
+  const price = recordedAmount(f.price);
   const lines: LabeledLine[] = [];
-  const suggestions: LabeledLine[] = [];
+  if (price !== null && price > 0)
+    lines.push({ certainty: 'fact', text: `The planned price is ${formatPHP(price)}.` });
 
-  if (f.nextDueLabel) lines.push({ certainty: 'fact', text: String(f.nextDueLabel) });
-
-  if (!f.hasBudget) {
-    lines.push({
-      certainty: 'suggestion',
-      text: 'Add your monthly budget in Spend so I can estimate what is left after this.',
-    });
-    return {
-      headline:
-        tone === 'gentle' ? 'No rush. Let it sit for a moment.' : `Is ${price} worth it today?`,
-      lines,
-      suggestions: [{ certainty: 'suggestion', text: 'Waiting a day costs nothing.' }],
-    };
-  }
-
-  const left = formatPHP(num(f.remainingAfter));
-  lines.push({ certainty: 'estimate', text: `After ${price}, about ${left} is left this month.` });
-
-  const verdict = String(f.verdict);
-  if (verdict === 'conflicts') {
+  const remainingAfter = recordedAmount(f.remainingAfter);
+  if (remainingAfter !== null && f.hasBudget === 1 && price !== null && price > 0) {
     lines.push({
       certainty: 'estimate',
-      text: `Your repayments would be about ${formatPHP(num(f.shortfall))} short.`,
+      text: `After this purchase, about ${formatPHP(remainingAfter)} is left this month.`,
     });
-    suggestions.push({
-      certainty: 'suggestion',
-      text: 'Save it for 24 hours, or wait until after payday.',
-    });
-    return {
-      headline:
-        tone === 'gentle'
-          ? 'This one might make the month harder.'
-          : 'This one could pinch your repayment.',
-      lines,
-      suggestions,
-    };
   }
-  if (verdict === 'tight') {
-    suggestions.push({
-      certainty: 'suggestion',
-      text: 'A cheaper option or a short wait keeps you safe.',
+
+  const shortfall = recordedAmount(f.shortfall);
+  if (f.verdict === 'conflicts' && shortfall !== null && shortfall > 0) {
+    lines.push({
+      certainty: 'estimate',
+      text: `Based on your budget, repayments may be ${formatPHP(shortfall)} short.`,
     });
-    return { headline: 'You can, but it gets tight.', lines, suggestions };
   }
-  suggestions.push({
-    certainty: 'suggestion',
-    text: 'If it still feels right after the pause, go for it.',
-  });
-  return { headline: 'Looks affordable. Still want it?', lines, suggestions };
+  if (lines.length < 3 && typeof f.nextDueLabel === 'string' && f.nextDueLabel)
+    lines.push({ certainty: 'fact', text: f.nextDueLabel });
+
+  const variant =
+    price === null || price <= 0
+      ? 'missingPurchase'
+      : f.hasBudget !== 1
+        ? 'noBudget'
+        : remainingAfter === null
+          ? 'unavailableEstimate'
+          : f.verdict === 'conflicts' || f.verdict === 'tight' || f.verdict === 'comfortable'
+            ? f.verdict
+            : 'unavailableEstimate';
+  const copy = templates.checkout[tone][variant];
+  return {
+    headline: copy.headline,
+    headlineCertainty:
+      variant === 'conflicts' || variant === 'tight' || variant === 'comfortable'
+        ? 'estimate'
+        : 'suggestion',
+    lines,
+    suggestions: [{ certainty: 'suggestion', text: copy.suggestion }],
+  };
 }
 
 function borrow(f: PauseContext['facts'], tone: Tone): Omit<Reflection, 'tone' | 'source'> {
-  const amount = formatPHP(num(f.amount));
+  const amount = recordedAmount(f.amount);
+  const owedTotal = recordedAmount(f.owedTotal);
+  const dueThisMonth = recordedAmount(f.dueThisMonth);
   const lines: LabeledLine[] = [];
-  if (num(f.owedTotal) > 0) {
+  if (amount !== null && amount > 0)
+    lines.push({ certainty: 'fact', text: `You are considering ${formatPHP(amount)}.` });
+  if (owedTotal !== null && owedTotal > 0) {
     lines.push({
       certainty: 'fact',
-      text: `You already owe ${formatPHP(num(f.owedTotal))} in total.`,
+      text: `Your records show ${formatPHP(owedTotal)} still owed.`,
     });
   }
-  if (f.nextDueLabel) lines.push({ certainty: 'fact', text: String(f.nextDueLabel) });
-  if (num(f.dueThisMonth) > 0) {
+  if (dueThisMonth !== null && dueThisMonth > 0) {
     lines.push({
-      certainty: 'estimate',
-      text: `With ${amount} more, ${formatPHP(num(f.dueThisMonth) + num(f.amount))} would be due soon.`,
+      certainty: 'fact',
+      text: `Your records show ${formatPHP(dueThisMonth)} due by month-end.`,
     });
   }
-  if (!lines.length) {
-    lines.push({
-      certainty: 'suggestion',
-      text: 'Check the full repayment amount and due date before you agree.',
-    });
-  }
+  if (lines.length < 3 && typeof f.nextDueLabel === 'string' && f.nextDueLabel)
+    lines.push({ certainty: 'fact', text: f.nextDueLabel });
+  const copy = templates.borrow[tone][owedTotal !== null && owedTotal > 0 ? 'withDebt' : 'noDebt'];
   return {
-    headline:
-      num(f.owedTotal) > 0
-        ? tone === 'gentle'
-          ? 'Another loan would add to what is already heavy.'
-          : 'Another loan would stack on top of this month.'
-        : `Before you borrow ${amount}, take a breath.`,
+    headline: copy.headline,
+    headlineCertainty: 'suggestion',
     lines,
-    suggestions: [
-      { certainty: 'suggestion', text: 'Ask your lender for a payment arrangement first.' },
-    ],
+    suggestions: [{ certainty: 'suggestion', text: copy.suggestion }],
+  };
+}
+
+function scroll(f: PauseContext['facts'], tone: Tone): Omit<Reflection, 'tone' | 'source'> {
+  const app = typeof f.app === 'string' && f.app.trim() ? f.app : 'your feed';
+  const minutes = recordedAmount(f.minutes);
+  const lines: LabeledLine[] = [];
+
+  if (minutes !== null && minutes > 0) {
+    lines.push({
+      certainty: 'fact',
+      text: `This session on ${app} has lasted ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`,
+    });
+  } else {
+    lines.push({ certainty: 'fact', text: `This check-in is for ${app}.` });
+  }
+  const copy = templates.scroll[tone];
+  return {
+    headline: copy.headline,
+    headlineCertainty: 'suggestion',
+    lines,
+    suggestions: [{ certainty: 'suggestion', text: copy.suggestion }],
   };
 }
 
@@ -108,7 +116,12 @@ export const localProvider: ReflectionProvider = {
   id: 'local',
   async reflect(ctx: PauseContext): Promise<Reflection> {
     const tone = pickTone(ctx);
-    const body = ctx.kind === 'borrow' ? borrow(ctx.facts, tone) : checkout(ctx.facts, tone);
+    const body =
+      ctx.kind === 'borrow'
+        ? borrow(ctx.facts, tone)
+        : ctx.kind === 'scroll'
+          ? scroll(ctx.facts, tone)
+          : checkout(ctx.facts, tone);
     return { ...body, tone, source: 'local' };
   },
 };

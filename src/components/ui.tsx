@@ -1,6 +1,7 @@
 // Design-system primitives. Screens compose these; extend here, not inline.
 
 import { Icon } from '@/components/Icon';
+import type { IconName } from '@/components/Icon';
 import { router } from 'expo-router';
 import { useEffect, type ReactNode, useState } from 'react';
 import {
@@ -29,7 +30,6 @@ import type { Certainty } from '@/domain/types';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export type { IconName } from '@/components/Icon';
-import type { IconName } from '@/components/Icon';
 
 /** router.back(), or go Home when there is nothing to go back to. */
 export function goBack() {

@@ -4,7 +4,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { goHome } from '../../modules/unhooked-guard';
@@ -41,6 +41,7 @@ export default function ShieldScreen() {
 
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const showToast = useSession((s) => s.showToast);
   const base = useSettings((s) => s.pauseSeconds);
   const timerUntil = useSettings((s) => s.timerUntil);
@@ -95,7 +96,13 @@ export default function ShieldScreen() {
     >
       <DotPattern color="#FFF6EC" opacity={0.1} gap={26} />
       <TopBar icon="close" dark onPress={() => void close()} />
-      <Hook x={250} y={locked ? 96 : 60} shown={locked} />
+      <Hook
+        x={width - spacing.xl - 72}
+        y={locked ? 96 : 60}
+        shown={locked}
+        lineColor="#FFDBA4"
+        hookColor="#FFC56B"
+      />
 
       <View style={{ gap: 4, maxWidth: '70%' }}>
         <Text variant="eyebrow" color={colors.pauseMuted}>
