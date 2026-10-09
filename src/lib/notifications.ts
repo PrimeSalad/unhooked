@@ -66,6 +66,7 @@ export async function cancelReminder(id: string | null | undefined) {
 
 /** A stable identifier lets payments, deletion and a full reset cancel this reminder. */
 export const debtReminderId = (debtId: string) => `debt-due-${debtId}`;
+export const coolingReminderId = (purchaseId: string) => `cooling-${purchaseId}`;
 
 export async function cancelAllReminders(): Promise<void> {
   if (Platform.OS === 'web') return;
@@ -86,6 +87,32 @@ export async function scheduleDebtReminder(debtId: string, dueDate: string): Pro
       content: {
         title: 'Upcoming date',
         body: 'A date you saved is coming up. Open Unhooked to review it.',
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date,
+        channelId: Platform.OS === 'android' ? REMINDER_CHANNEL : undefined,
+      },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function scheduleCoolingReminder(
+  purchaseId: string,
+  untilIso: string,
+): Promise<boolean> {
+  const date = new Date(untilIso);
+  if (!Number.isFinite(date.getTime()) || date.getTime() <= Date.now() || !(await allowed()))
+    return false;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier: coolingReminderId(purchaseId),
+      content: {
+        title: 'Ready to decide?',
+        body: 'Something you saved is ready for another look in Unhooked.',
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,

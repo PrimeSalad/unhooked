@@ -61,7 +61,7 @@ export interface BudgetProfile {
   monthlyIncome: Centavos;
   monthlyFixedBills: Centavos;
   savingsGoalMonthly: Centavos;
-  payday: number | null; // day of month 1–31
+  payday: number | '15_30' | null; // null/1–31 = monthly; '15_30' = twice monthly
 }
 
 // ---------- Scroll ----------

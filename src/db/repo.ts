@@ -8,7 +8,6 @@ import type { Centavos } from '@/domain/money';
 import { dueBy, endOfMonthDate, type DebtBalance } from '@/domain/repayment';
 import type {
   PlannedPurchase,
-  PurchaseStatus,
   ScrollOutcome,
   ScrollSession,
   WellnessCheckIn,
@@ -17,12 +16,21 @@ import type {
 import { logEvent } from './events';
 import { listDebts } from './debts';
 import { evidenceSummary } from './evidence';
+import { listPurchases, spentThisMonth } from './purchases';
 import { bumpData } from './useDbQuery';
 
 export { addDebt, addPayment, closeDebt, deleteDebt, listDebts } from './debts';
 export type { NewDebt } from './debts';
 export { addEvidence, deleteEvidence, evidenceSummary, listEvidence } from './evidence';
 export { endOfMonthDate } from '@/domain/repayment';
+export {
+  addPurchase,
+  getPurchase,
+  listPurchases,
+  setPurchaseStatus,
+  spentThisMonth,
+} from './purchases';
+export type { NewPurchase } from './purchases';
 
 const now = () => new Date().toISOString();
 const uuid = () => Crypto.randomUUID();
@@ -38,86 +46,6 @@ function daysAgo(n: number): string {
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - n);
   return d.toISOString();
-}
-
-// ---------- Purchases ----------
-
-interface PurchaseRow {
-  id: string;
-  item: string;
-  price: number;
-  is_need: number;
-  planned_date: string | null;
-  alternative_price: number | null;
-  status: PurchaseStatus;
-  cooling_until: string | null;
-  created_at: string;
-}
-
-const toPurchase = (r: PurchaseRow): PlannedPurchase => ({
-  id: r.id,
-  item: r.item,
-  price: r.price,
-  isNeed: r.is_need === 1,
-  plannedDate: r.planned_date,
-  alternativePrice: r.alternative_price,
-  status: r.status,
-  coolingUntil: r.cooling_until,
-  createdAt: r.created_at,
-});
-
-export async function listPurchases(db: SQLiteDatabase): Promise<PlannedPurchase[]> {
-  const rows = await db.getAllAsync<PurchaseRow>(
-    'SELECT * FROM purchases ORDER BY created_at DESC',
-  );
-  return rows.map(toPurchase);
-}
-
-export async function getPurchase(db: SQLiteDatabase, id: string) {
-  const r = await db.getFirstAsync<PurchaseRow>('SELECT * FROM purchases WHERE id = ?', id);
-  return r ? toPurchase(r) : null;
-}
-
-export async function addPurchase(
-  db: SQLiteDatabase,
-  p: { item: string; price: Centavos; isNeed: boolean },
-): Promise<string> {
-  const id = uuid();
-  await db.runAsync(
-    'INSERT INTO purchases (id, item, price, is_need, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    id,
-    p.item,
-    p.price,
-    p.isNeed ? 1 : 0,
-    'planned',
-    now(),
-  );
-  await logEvent(db, 'purchase_evaluated', { price: p.price, isNeed: p.isNeed });
-  bumpData();
-  return id;
-}
-
-export async function setPurchaseStatus(db: SQLiteDatabase, id: string, status: PurchaseStatus) {
-  const until = status === 'cooling' ? new Date(Date.now() + 24 * 3600 * 1000).toISOString() : null;
-  await db.runAsync(
-    'UPDATE purchases SET status = ?, cooling_until = ? WHERE id = ?',
-    status,
-    until,
-    id,
-  );
-  if (status === 'cooling') await logEvent(db, 'purchase_saved_for_later', { id });
-  bumpData();
-  return until;
-}
-
-export async function spentThisMonth(db: SQLiteDatabase): Promise<Centavos> {
-  const d = new Date();
-  const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
-  const row = await db.getFirstAsync<{ s: number | null }>(
-    "SELECT SUM(price) AS s FROM purchases WHERE status = 'bought' AND created_at >= ?",
-    start,
-  );
-  return row?.s ?? 0;
 }
 
 // ---------- Scroll ----------

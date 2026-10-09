@@ -1,4 +1,3 @@
-import { Icon } from '@/components/Icon';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
@@ -12,35 +11,34 @@ import {
   goBack,
   Rise,
   Row,
+  Screen,
   ScreenHeader,
   Tag,
   Text,
 } from '@/components/ui';
 import { BudgetSetup } from '@/components/BudgetSetup';
-import { ActionError, FlowScreen, FormSection } from '@/components/FlowLayout';
+import { PlannedDatePicker } from '@/components/PlannedDatePicker';
 import { colors, radius, spacing } from '@/constants/theme';
 import { addPurchase, emptyOverview, getOverview, setPurchaseStatus } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 import { checkAffordability } from '@/domain/affordability';
 import { calculateBnpl } from '@/domain/bnpl';
 import { formatPHP, parsePesoInput } from '@/domain/money';
-import { remindIn } from '@/lib/notifications';
+import { isValidPlannedDate } from '@/domain/purchases';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
 
 const VERDICT = {
-  comfortable: { label: 'Looks affordable', bg: colors.surfaceMuted, fg: colors.success },
-  tight: { label: 'Tight', bg: colors.surfaceMuted, fg: colors.link },
-  conflicts: { label: 'Clashes with repayments', bg: colors.surfaceMuted, fg: colors.error },
+  comfortable: { label: 'Looks affordable', bg: '#F3ECE4', fg: '#1E5E3B' },
+  tight: { label: 'Tight', bg: '#F3ECE4', fg: '#7A4A00' },
+  conflicts: { label: 'Clashes with repayments', bg: '#FBE3E0', fg: '#8C1D18' },
 } as const;
 
 export default function SpendCheckScreen() {
   const db = useSQLiteContext();
   const showToast = useSession((s) => s.showToast);
   const budget = useSettings((s) => s.budget);
-  const { data: o, error, retry, loaded } = useDbQuery(getOverview, emptyOverview);
-  const action = useAsyncAction();
+  const { data: o } = useDbQuery(getOverview, emptyOverview);
 
   const [item, setItem] = useState('');
   const [price, setPrice] = useState('');
@@ -50,11 +48,13 @@ export default function SpendCheckScreen() {
   const [inst, setInst] = useState('');
   const [count, setCount] = useState('');
   const [fee, setFee] = useState('');
+  const [plannedDate, setPlannedDate] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const priceC = parsePesoInput(price);
   const altC = parsePesoInput(alt);
   const result =
-    budget && priceC && loaded && !error
+    budget && priceC
       ? checkAffordability({
           price: priceC,
           budget,
@@ -71,7 +71,11 @@ export default function SpendCheckScreen() {
           fees: parsePesoInput(fee) ?? 0,
         })
       : null;
-  const ready = item.trim().length > 0 && !!priceC && (!alt.trim() || altC !== null);
+  const dateValid = !plannedDate.trim() || isValidPlannedDate(plannedDate.trim());
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const alternativeValid = !alt.trim() || (!!altC && !!priceC && altC < priceC);
+  const ready = item.trim().length > 0 && !!priceC && dateValid && alternativeValid;
 
   const reset = () => {
     setItem('');
@@ -81,65 +85,65 @@ export default function SpendCheckScreen() {
     setCount('');
     setFee('');
     setShowBnpl(false);
+    setPlannedDate('');
   };
 
+  const purchaseInput = () => ({
+    item: item.trim(),
+    price: priceC!,
+    isNeed: need === 'need',
+    plannedDate: plannedDate.trim() || null,
+    alternativePrice: altC,
+  });
+
   const checkout = async () => {
-    if (!ready || !priceC) return;
-    const id = await addPurchase(db, { item: item.trim(), price: priceC, isNeed: need === 'need' });
-    reset();
-    router.replace({ pathname: '/pause', params: { kind: 'checkout', purchaseId: id } });
+    if (!ready || busy) return;
+    setBusy(true);
+    try {
+      const id = await addPurchase(db, purchaseInput());
+      reset();
+      router.replace({ pathname: '/pause', params: { kind: 'checkout', purchaseId: id } });
+    } catch {
+      showToast('Could not save this purchase. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const saveForLater = async () => {
-    if (!ready || !priceC) return;
-    await db.withTransactionAsync(async () => {
-      const id = await addPurchase(db, {
-        item: item.trim(),
-        price: priceC,
-        isNeed: need === 'need',
-      });
+    if (!ready || busy) return;
+    setBusy(true);
+    try {
+      const id = await addPurchase(db, purchaseInput());
       await setPurchaseStatus(db, id, 'cooling');
-    });
-    const reminder = await remindIn(
-      24 * 3600,
-      'Ready to decide?',
-      'Something you saved yesterday is waiting for a decision.',
-    );
-    reset();
-    goBack();
-    showToast(
-      reminder
-        ? 'Saved for 24 hours. A reminder is set.'
-        : 'Saved for 24 hours. Come back to Spend when you are ready.',
-    );
+      reset();
+      goBack();
+      showToast('Saved for 24 hours. Find it in Spend when you are ready.');
+    } catch {
+      showToast('Could not save this purchase. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <FlowScreen>
+    <Screen tabs={false}>
       <ScreenHeader
         back
-        title="Is it worth your month?"
-        subtitle="A little perspective before you check out."
+        title="Check a purchase"
+        subtitle="Before you check out, see what it really costs you."
       />
 
       {!budget && <BudgetSetup />}
-      <ActionError
-        message={
-          error
-            ? 'Your saved records could not be loaded, so the budget estimate is unavailable.'
-            : null
-        }
-        onRetry={retry}
-      />
 
       <Rise>
-        <FormSection title="What caught your eye?">
+        <Card style={{ gap: spacing.md }}>
+          <Text variant="strong">What are you thinking of buying?</Text>
           <Field
             label="Item"
             placeholder="Wireless earbuds, shoes, a game…"
             value={item}
             onChangeText={setItem}
-            maxLength={100}
           />
           <Field
             label="Price"
@@ -147,7 +151,6 @@ export default function SpendCheckScreen() {
             keyboardType="decimal-pad"
             value={price}
             onChangeText={setPrice}
-            error={price && !priceC ? 'Enter a price greater than zero.' : undefined}
           />
           <Chips
             value={need}
@@ -163,9 +166,19 @@ export default function SpendCheckScreen() {
             keyboardType="decimal-pad"
             value={alt}
             onChangeText={setAlt}
-            error={alt && altC === null ? 'Enter a valid amount or leave this blank.' : undefined}
           />
-        </FormSection>
+          {alt.trim() && !alternativeValid ? (
+            <Text variant="caption" color={colors.spend}>
+              Enter a valid price lower than this item.
+            </Text>
+          ) : null}
+          <PlannedDatePicker value={plannedDate} onChange={setPlannedDate} />
+          {!dateValid ? (
+            <Text variant="caption" color={colors.spend}>
+              Choose a date today or later.
+            </Text>
+          ) : null}
+        </Card>
       </Rise>
 
       {priceC && result && (
@@ -183,7 +196,9 @@ export default function SpendCheckScreen() {
                 ]}
               >
                 <Text variant="strong" color={VERDICT[result.verdict].fg} style={{ fontSize: 13 }}>
-                  {VERDICT[result.verdict].label}
+                  {result.verdict === 'conflicts' && o.dueThisMonth === 0
+                    ? 'Over monthly budget'
+                    : VERDICT[result.verdict].label}
                 </Text>
               </View>
               <Tag tone="estimate" />
@@ -211,6 +226,17 @@ export default function SpendCheckScreen() {
                 ? `, with ${formatPHP(o.dueThisMonth)} in repayments still due.`
                 : '.'}
             </Text>
+            {plannedDate.trim() && dateValid && !plannedDate.trim().startsWith(thisMonth) ? (
+              <Text variant="caption" color={colors.textMuted}>
+                This estimate uses this month’s records, not the future month you selected.
+              </Text>
+            ) : null}
+            {budget?.payday === '15_30' ? (
+              <Text variant="caption" color={colors.textMuted}>
+                You’re paid on the 15th and 30th; this monthly estimate does not show cash available
+                before each payday.
+              </Text>
+            ) : null}
             {result.shortfall > 0 && (
               <Row
                 style={{
@@ -220,9 +246,10 @@ export default function SpendCheckScreen() {
                   padding: spacing.md,
                 }}
               >
-                <Icon name="alert" size={20} color={colors.spend} />
                 <Text variant="small" color={colors.text} style={{ flex: 1 }}>
-                  Your repayments would be about {formatPHP(result.shortfall)} short.
+                  {o.dueThisMonth > 0
+                    ? `Your repayments would be about ${formatPHP(result.shortfall)} short.`
+                    : `This goes about ${formatPHP(result.shortfall)} over your monthly budget.`}
                 </Text>
               </Row>
             )}
@@ -230,12 +257,11 @@ export default function SpendCheckScreen() {
               <Row
                 style={{
                   alignItems: 'flex-start',
-                  backgroundColor: colors.surfaceMuted,
+                  backgroundColor: '#F3ECE4',
                   borderRadius: radius.md,
                   padding: spacing.md,
                 }}
               >
-                <Icon name="leaf" size={20} color={colors.success} />
                 <Text variant="small" color={colors.text} style={{ flex: 1 }}>
                   The cheaper option keeps {formatPHP(priceC - altC)} in your pocket.
                 </Text>
@@ -245,7 +271,7 @@ export default function SpendCheckScreen() {
         </Rise>
       )}
 
-      <FormSection title="Paying over time?">
+      <Card style={{ gap: spacing.md }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
             <Text variant="strong">Paying in installments?</Text>
@@ -304,7 +330,7 @@ export default function SpendCheckScreen() {
                 <Text variant="caption">
                   {bnpl.extraCost > 0
                     ? 'than paying upfront.'
-                    : 'No extra cost in the amounts you entered. Check the agreement for other fees.'}
+                    : 'Same as paying upfront. No hidden cost.'}
                 </Text>
               </View>
             ) : (
@@ -312,26 +338,20 @@ export default function SpendCheckScreen() {
             )}
           </>
         )}
-      </FormSection>
-
-      <ActionError message={action.error} />
+      </Card>
 
       <Button
-        label="Pause before I decide"
+        label="Check out"
         icon="arrow-forward"
-        disabled={!ready}
-        loading={action.pending}
-        onPress={() => void action.run(checkout)}
+        disabled={!ready || busy}
+        onPress={() => void checkout()}
       />
       <Button
         label="Save for 24 hours instead"
         kind="outline"
-        disabled={!ready || action.pending}
-        onPress={() => void action.run(saveForLater)}
+        disabled={!ready || busy}
+        onPress={() => void saveForLater()}
       />
-      <Text variant="caption">
-        Your choice stays yours. Estimates use only the budget and records you have entered.
-      </Text>
-    </FlowScreen>
+    </Screen>
   );
 }

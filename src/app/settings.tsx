@@ -1,207 +1,164 @@
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { Switch, View } from 'react-native';
+import { Alert, Platform, Switch, View } from 'react-native';
 
-import { ActionError, FlowScreen, FormSection } from '@/components/FlowLayout';
-import { Button, Field, Row, ScreenHeader, Segmented, Sheet, Text } from '@/components/ui';
+import { Button, Card, Field, Row, Screen, ScreenHeader, Segmented, Text } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
 import { deleteAllData } from '@/db/migrations';
 import { loadDemoData } from '@/db/seed';
+import { isGuardAvailable, syncGuard } from '@/lib/guard';
 import { bumpData } from '@/db/useDbQuery';
 import { parsePesoInput, toPesos } from '@/domain/money';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
-import { isGuardAvailable, syncGuard } from '@/lib/guard';
 import { useSession } from '@/store/session';
 import { useSettings } from '@/store/settings';
 
 const PAUSE_OPTIONS = ['5', '10', '15'] as const;
-const pesoText = (c: number | undefined) => (c === undefined ? '' : String(toPesos(c)));
+const pesoText = (c: number | undefined) => (c ? String(toPesos(c)) : '');
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const s = useSettings();
-  const showToast = useSession((state) => state.showToast);
-  const action = useAsyncAction();
-  const deletion = useAsyncAction('Could not finish deleting your records. Please try again.');
-  const [confirming, setConfirming] = useState(false);
+  const showToast = useSession((st) => st.showToast);
+
   const [name, setName] = useState(s.name);
   const [income, setIncome] = useState(pesoText(s.budget?.monthlyIncome));
   const [bills, setBills] = useState(pesoText(s.budget?.monthlyFixedBills));
   const [savings, setSavings] = useState(pesoText(s.budget?.savingsGoalMonthly));
-  const incomeC = parsePesoInput(income);
-  const billsC = parsePesoInput(bills);
-  const savingsC = parsePesoInput(savings);
-  const valid =
-    (!income.trim() || !!incomeC) &&
-    (!bills.trim() || billsC !== null) &&
-    (!savings.trim() || savingsC !== null) &&
-    (!!incomeC || (!bills.trim() && !savings.trim()));
+  const [paySchedule, setPaySchedule] = useState<'monthly' | 'twice'>(
+    s.budget?.payday === '15_30' ? 'twice' : 'monthly',
+  );
 
-  const saveProfile = () =>
-    action.run(async () => {
-      if (!valid) return;
-      s.setName(name);
-      s.setBudget(
-        incomeC
-          ? {
-              monthlyIncome: incomeC,
-              monthlyFixedBills: billsC ?? 0,
-              savingsGoalMonthly: savingsC ?? 0,
-              payday: null,
-            }
-          : null,
-      );
-      showToast('Your profile and budget are saved.');
-    });
+  const saveProfile = () => {
+    s.setName(name);
+    const incomeC = parsePesoInput(income);
+    s.setBudget(
+      incomeC
+        ? {
+            monthlyIncome: incomeC,
+            monthlyFixedBills: parsePesoInput(bills) ?? 0,
+            savingsGoalMonthly: parsePesoInput(savings) ?? 0,
+            payday:
+              paySchedule === 'twice'
+                ? '15_30'
+                : typeof s.budget?.payday === 'number'
+                  ? s.budget.payday
+                  : null,
+          }
+        : null,
+    );
+    showToast('Saved.');
+  };
 
-  const wipe = () =>
-    deletion.run(async () => {
-      await syncGuard([]);
+  const wipe = async () => {
+    try {
       await deleteAllData(db);
-      s.reset();
+      await syncGuard([]);
       bumpData();
-      setConfirming(false);
-      router.replace('/welcome');
-      showToast('Your local records and preferences have been deleted.');
-    });
+      s.reset();
+      router.dismissTo('/');
+      showToast('All your data was deleted from this phone.');
+    } catch {
+      showToast('Some data could not be removed. Please try again.');
+    }
+  };
+
+  const confirmDelete = () => {
+    const msg = 'This permanently removes every record on this device.';
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.(msg)) void wipe();
+      return;
+    }
+    Alert.alert('Delete all data?', msg, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void wipe() },
+    ]);
+  };
 
   return (
-    <FlowScreen>
-      <ScreenHeader
-        back
-        title="Make it yours."
-        subtitle="Your preferences, your privacy, your pace."
-      />
-      <View style={{ gap: spacing.sm, paddingVertical: spacing.sm }}>
-        <Text variant="eyebrow">Private by default</Text>
-        <Text>
-          Unhooked stores your records on this device. There is no account, bank connection or cloud
-          upload. Clearing browser storage or uninstalling the app can remove these records.
-        </Text>
-      </View>
+    <Screen tabs={false}>
+      <ScreenHeader back title="Privacy and settings" mascot="brave" />
 
-      <FormSection
-        title="You and your month"
-        description="Estimates are enough. These numbers make purchase checks useful."
-      >
+      <Card tone={colors.shell} flat>
+        <Text variant="strong">Your data stays on this phone</Text>
+        <Text variant="small">
+          Debts, purchases, screenshots and check-ins are stored only on this device. No account and
+          no server.
+        </Text>
+      </Card>
+
+      <Card style={{ gap: spacing.md }}>
+        <Text variant="strong">You and your month</Text>
+        <Field label="Name" placeholder="Optional" value={name} onChangeText={setName} />
         <Field
-          label="First name (optional)"
-          placeholder="What should we call you?"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="words"
-          maxLength={50}
-        />
-        <Field
-          label="Monthly income or allowance (₱)"
-          hint="Leave all budget fields blank to remove your budget."
-          placeholder="0.00"
+          label="Monthly income or allowance"
+          placeholder="₱ 0"
           keyboardType="decimal-pad"
           value={income}
           onChangeText={setIncome}
-          error={
-            income && !incomeC
-              ? 'Enter a monthly amount greater than zero.'
-              : !income && (bills || savings)
-                ? 'Add your income, or clear all three budget fields.'
-                : undefined
-          }
         />
         <Field
-          label="Fixed monthly bills (₱)"
-          placeholder="0.00"
+          label="Fixed bills each month"
+          hint="Do not include debts already tracked in Debt."
+          placeholder="₱ 0"
           keyboardType="decimal-pad"
           value={bills}
           onChangeText={setBills}
-          error={bills && billsC === null ? 'Enter a valid amount.' : undefined}
         />
         <Field
-          label="Monthly savings goal (₱)"
-          placeholder="0.00"
+          label="Savings goal each month"
+          placeholder="₱ 0"
           keyboardType="decimal-pad"
           value={savings}
           onChangeText={setSavings}
-          error={savings && savingsC === null ? 'Enter a valid amount.' : undefined}
         />
-        <ActionError message={action.error} />
-        <Button
-          label="Save profile"
-          disabled={!valid}
-          loading={action.pending}
-          onPress={() => void saveProfile()}
+        <Text variant="small">When do you get paid?</Text>
+        <Segmented
+          value={paySchedule}
+          onChange={setPaySchedule}
+          options={[
+            { value: 'monthly', label: 'Monthly' },
+            { value: 'twice', label: '15th & 30th' },
+          ]}
         />
-      </FormSection>
+        <Button label="Save" size="sm" onPress={saveProfile} />
+      </Card>
 
-      <FormSection
-        title="Room to pause"
-        description="Choose the length of your decision pause. Changes save immediately."
-      >
+      <Card style={{ gap: spacing.md }}>
+        <Text variant="strong">Pause length</Text>
+        <Text variant="small" color={colors.textMuted}>
+          The real delay is what helps. Ten seconds is the default.
+        </Text>
         <Segmented
           value={String(s.pauseSeconds) as (typeof PAUSE_OPTIONS)[number]}
-          onChange={(value) =>
-            void action.run(async () => {
-              s.setPauseSeconds(Number(value));
-              await syncGuard(await listRules(db));
-            })
-          }
-          options={PAUSE_OPTIONS.map((value) => ({ value, label: `${value} seconds` }))}
+          onChange={(v) => s.setPauseSeconds(Number(v))}
+          options={PAUSE_OPTIONS.map((v) => ({ value: v, label: `${v} s` }))}
         />
-      </FormSection>
+      </Card>
 
-      <FormSection title="App and website guards">
+      <Card style={{ gap: spacing.sm }}>
         <Row style={{ justifyContent: 'space-between' }}>
-          <View style={{ flex: 1, gap: spacing.xs }}>
-            <Text variant="strong">Enable guards</Text>
-            <Text variant="small">
+          <View style={{ flex: 1 }}>
+            <Text variant="strong">App and website guards</Text>
+            <Text variant="caption">
               {isGuardAvailable()
-                ? 'Turn off to stop every guard. Your selected apps and websites stay saved.'
-                : 'Guards run in the Android development build. Website lists can be prepared here.'}
+                ? 'Turn off to stop every guard right away.'
+                : 'Runs in the Android app. Set up guards in Scroll.'}
             </Text>
           </View>
           <Switch
-            value={s.guardOn && isGuardAvailable()}
-            disabled={!isGuardAvailable() || action.pending}
-            onValueChange={(value) =>
-              void action.run(async () => {
-                const previous = s.guardOn;
-                s.setGuardOn(value);
-                try {
-                  await syncGuard(await listRules(db));
-                } catch (error) {
-                  s.setGuardOn(previous);
-                  throw error;
-                }
-              })
-            }
+            value={s.guardOn}
+            onValueChange={async (v) => {
+              s.setGuardOn(v);
+              await syncGuard(await listRules(db));
+            }}
             trackColor={{ true: colors.lagoon, false: colors.track }}
             thumbColor={colors.white}
-            accessibilityLabel="Enable app and website guards"
+            accessibilityLabel="App and website guards"
           />
         </Row>
-        <Button
-          label="Manage apps and websites"
-          kind="outline"
-          onPress={() => router.push('/scroll')}
-        />
-      </FormSection>
-
-      <FormSection
-        title="Your data belongs to you"
-        description="Delete your records, saved evidence and preferences from this device. This cannot be undone."
-      >
-        <Button
-          label="Delete all my data"
-          kind="outline"
-          icon="trash"
-          onPress={() => setConfirming(true)}
-        />
-      </FormSection>
-      <Text variant="caption">
-        Unhooked is a self-help tool. Its estimates support your decisions; they do not replace
-        professional advice.
-      </Text>
+      </Card>
 
       {__DEV__ && (
         <Button
@@ -217,31 +174,7 @@ export default function SettingsScreen() {
         />
       )}
 
-      <Sheet
-        open={confirming}
-        onClose={() => {
-          if (!deletion.pending) setConfirming(false);
-        }}
-      >
-        <Text variant="heading">Delete everything on this device?</Text>
-        <Text>
-          Debts, payments, purchases, check-ins, evidence and preferences will be permanently
-          removed. You will return to the welcome screen.
-        </Text>
-        <ActionError message={deletion.error} />
-        <Button
-          label="Yes, delete my data"
-          icon="trash"
-          loading={deletion.pending}
-          onPress={() => void wipe()}
-        />
-        <Button
-          label="Keep my data"
-          kind="ghost"
-          disabled={deletion.pending}
-          onPress={() => setConfirming(false)}
-        />
-      </Sheet>
-    </FlowScreen>
+      <Button label="Delete all my data" kind="ghost" icon="trash" onPress={confirmDelete} />
+    </Screen>
   );
 }

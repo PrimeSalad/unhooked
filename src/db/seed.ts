@@ -86,14 +86,15 @@ export async function loadDemoData(db: SQLiteDatabase): Promise<void> {
     until: string | null,
   ) =>
     db.runAsync(
-      `INSERT INTO purchases (id, item, price, is_need, status, cooling_until, created_at)
-       VALUES (?, ?, ?, 0, ?, ?, ?)`,
+      `INSERT INTO purchases (id, item, price, is_need, status, cooling_until, created_at, bought_at)
+       VALUES (?, ?, ?, 0, ?, ?, ?, ?)`,
       id(),
       item,
       toCentavos(price),
       status,
       until,
       created,
+      status === 'bought' ? created : null,
     );
   await purchase(
     'Wireless earbuds',
