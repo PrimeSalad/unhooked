@@ -3,19 +3,18 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { buildSpendInsights } from '@/ai/insights';
+import { buildSpendInsights, visibleInsights } from '@/ai/insights';
 import { BudgetSetup } from '@/components/BudgetSetup';
+import { InsightCard } from '@/components/InsightCard';
 import {
   Avatar,
   Chips,
   Button,
-  Card,
   Group,
   GroupRow,
   LargeTitle,
   ProgressBar,
   Rise,
-  Row,
   Screen,
   Section,
   Sheet,
@@ -25,7 +24,10 @@ import {
 import { colors, radius, spacing } from '@/constants/theme';
 import { emptyOverview, getOverview, listPurchases, setPurchaseStatus } from '@/db/repo';
 import { listRules } from '@/db/blockRules';
+import { recentEvents } from '@/db/events';
+import { dismissInsight } from '@/db/insights';
 import { useDbQuery } from '@/db/useDbQuery';
+import { summarizeActivity } from '@/domain/activity';
 import { checkAffordability } from '@/domain/affordability';
 import { dailyAllowance, daysUntil, nextPayday } from '@/domain/allowance';
 import { formatPHP } from '@/domain/money';
@@ -159,10 +161,13 @@ function DecideSheet({
 }
 
 export default function SpendScreen() {
+  const db = useSQLiteContext();
+  const showToast = useSession((s) => s.showToast);
   const budget = useSettings((s) => s.budget);
   const { data: o } = useDbQuery(getOverview, emptyOverview);
   const { data: purchases } = useDbQuery(listPurchases, []);
   const { data: rules } = useDbQuery(listRules, []);
+  const { data: events } = useDbQuery(recentEvents, []);
   const shoppingRules = rules.filter((r) => r.kind === 'app' && isShoppingApp(r.target, r.label));
   const previewShield = (pkg: string, label: string) =>
     router.push({ pathname: '/shield', params: { pkg, label, preview: '1' } });
@@ -187,7 +192,16 @@ export default function SpendScreen() {
   const payday = budget ? nextPayday(budget.payday, new Date(now)) : null;
   const days = payday ? daysUntil(payday, new Date(now)) : 0;
   const perDay = dailyAllowance(free, days);
-  const spendInsights = buildSpendInsights(o, budget);
+  const activity = summarizeActivity(events, new Date(now));
+  const spendInsights = visibleInsights(buildSpendInsights(o, budget), activity.dismissedIds);
+  const hideInsight = async (id: string) => {
+    try {
+      await dismissInsight(db, id);
+      showToast('Hidden for 7 days.');
+    } catch {
+      showToast('Could not hide this insight. Try again.');
+    }
+  };
 
   return (
     <Screen>
@@ -196,7 +210,7 @@ export default function SpendScreen() {
       {budget ? (
         <View style={styles.card}>
           <View style={styles.cardHead}>
-            <Text variant="caption">Safe to spend per day</Text>
+            <Text variant="caption">Estimated free to spend per day</Text>
             <Tag tone="estimate" />
           </View>
           <Text variant="display" style={{ fontSize: 44, lineHeight: 50, letterSpacing: -1.5 }}>
@@ -205,7 +219,7 @@ export default function SpendScreen() {
           <Text variant="small" color={colors.textMuted}>
             {free > 0
               ? `${formatPHP(free)} left for ${days} ${days === 1 ? 'day' : 'days'} · payday ${shortDate(payday!.toISOString())}`
-              : 'Nothing left to spend this month after bills, savings and repayments.'}
+              : 'Your free-to-spend estimate is at or below zero after bills, savings and repayments.'}
           </Text>
           <ProgressBar
             value={available > 0 ? committed / available : 1}
@@ -268,17 +282,17 @@ export default function SpendScreen() {
       </Section>
 
       <Section title="AI insights">
-        {spendInsights.map((insight, index) => (
-          <Rise key={insight.id} delay={60 * (index + 1)}>
-            <Card>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <Text variant="strong">Spend</Text>
-                <Tag certainty={insight.certainty} />
-              </Row>
-              <Text>{insight.text}</Text>
-            </Card>
-          </Rise>
-        ))}
+        {spendInsights.length ? (
+          spendInsights.map((insight, index) => (
+            <Rise key={insight.id} delay={60 * (index + 1)}>
+              <InsightCard insight={insight} onDismiss={(id) => void hideInsight(id)} />
+            </Rise>
+          ))
+        ) : (
+          <Text variant="small" color={colors.textMuted}>
+            Hidden insights return after 7 days.
+          </Text>
+        )}
       </Section>
 
       {cooling.length > 0 && (

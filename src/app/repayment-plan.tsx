@@ -15,7 +15,7 @@ import {
   Text,
 } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
-import { logEvent } from '@/db/events';
+import { logEventAndRefresh } from '@/db/events';
 import { emptyOverview, getOverview } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
 import { formatPHP, parsePesoInput } from '@/domain/money';
@@ -40,7 +40,7 @@ export default function RepaymentPlanScreen() {
   const showPlan = () => {
     if (!budget) return;
     setShown(true);
-    void logEvent(db, 'repayment_plan_viewed', { strategy, monthlyBudget: budget });
+    void logEventAndRefresh(db, 'repayment_plan_viewed', { strategy, monthlyBudget: budget });
   };
 
   return (

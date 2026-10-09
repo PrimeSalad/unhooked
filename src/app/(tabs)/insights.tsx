@@ -1,25 +1,39 @@
+import { useSQLiteContext } from 'expo-sqlite';
 import { View } from 'react-native';
 
-import { buildInsights } from '@/ai/insights';
-import { Card, EmptyState, Rise, Row, Screen, ScreenHeader, Tag, Text } from '@/components/ui';
+import { buildEventInsights, buildInsights, visibleInsights } from '@/ai/insights';
+import { InsightCard } from '@/components/InsightCard';
+import { Card, EmptyState, Rise, Row, Screen, ScreenHeader, Text } from '@/components/ui';
 import { colors, spacing } from '@/constants/theme';
+import { recentEvents } from '@/db/events';
+import { dismissInsight } from '@/db/insights';
 import { dodgedLast7Days, emptyOverview, getOverview } from '@/db/repo';
 import { useDbQuery } from '@/db/useDbQuery';
+import { summarizeActivity } from '@/domain/activity';
+import { useSession } from '@/store/session';
 
 const BAR_MAX = 84;
-const MODULE = {
-  debt: { label: 'Debt', color: colors.debt },
-  spend: { label: 'Spend', color: colors.spend },
-  scroll: { label: 'Scroll', color: colors.scroll },
-  overall: { label: 'You', color: colors.text },
-} as const;
 
 export default function InsightsScreen() {
+  const db = useSQLiteContext();
+  const showToast = useSession((s) => s.showToast);
   const { data: o } = useDbQuery(getOverview, emptyOverview);
   const { data: week } = useDbQuery(dodgedLast7Days, []);
-  const insights = buildInsights(o);
+  const { data: events, loaded: eventsLoaded } = useDbQuery(recentEvents, []);
+  const activity = summarizeActivity(events);
+  const insights = eventsLoaded
+    ? visibleInsights([...buildEventInsights(activity), ...buildInsights(o)], activity.dismissedIds)
+    : [];
   const max = Math.max(1, ...week.map((d) => d.n));
   const total = week.reduce((a, d) => a + d.n, 0);
+  const hideInsight = async (id: string) => {
+    try {
+      await dismissInsight(db, id);
+      showToast('Hidden for 7 days.');
+    } catch {
+      showToast('Could not hide this insight. Try again.');
+    }
+  };
 
   return (
     <Screen>
@@ -65,24 +79,16 @@ export default function InsightsScreen() {
         </Card>
       </Rise>
 
-      {insights.length === 0 ? (
+      {eventsLoaded && insights.length === 0 ? (
         <EmptyState
           mood="thinking"
-          title="Still learning your rhythm"
-          body="Add a debt, check a purchase or track a scroll session. Insights from your own data show up here."
+          title="Nothing else to show right now"
+          body="Hidden insights return after 7 days. New activity can bring new patterns sooner."
         />
       ) : (
         insights.map((n, i) => (
           <Rise key={n.id} delay={60 * (i + 1)}>
-            <Card>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <Text variant="caption" color={MODULE[n.module].color} style={{ fontSize: 13 }}>
-                  {MODULE[n.module].label}
-                </Text>
-                <Tag certainty={n.certainty} />
-              </Row>
-              <Text>{n.text}</Text>
-            </Card>
+            <InsightCard insight={n} onDismiss={(id) => void hideInsight(id)} />
           </Rise>
         ))
       )}

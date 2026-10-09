@@ -1,9 +1,14 @@
 import { Icon } from '@/components/Icon';
 import { Redirect, router, type Href } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { buildEventInsights, buildInsights, todayMessage, visibleInsights } from '@/ai/insights';
+import { InsightCard } from '@/components/InsightCard';
 import { Ginto } from '@/components/mascot/Ginto';
 import {
+  Card,
   Group,
   GroupRow,
   IconButton,
@@ -11,16 +16,22 @@ import {
   Rise,
   Screen,
   Section,
+  Tag,
   Text,
   type IconName,
 } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { listRules } from '@/db/blockRules';
+import { recentEvents } from '@/db/events';
+import { dismissInsight } from '@/db/insights';
 import { dodgedLast7Days, emptyOverview, getOverview } from '@/db/repo';
-import { useDbQuery } from '@/db/useDbQuery';
+import { bumpData, useDbQuery } from '@/db/useDbQuery';
+import { summarizeActivity } from '@/domain/activity';
 import { formatPHP } from '@/domain/money';
 import { formatMinutes } from '@/domain/scroll';
+import { localDateKey } from '@/lib/dateOnly';
 import { dueLabel, greeting, isUrgent, timeLeft } from '@/lib/format';
+import { useSession } from '@/store/session';
 import { useSettings, useSettingsHydrated } from '@/store/settings';
 
 const ACTIONS: { icon: IconName; label: string; bg: string; fg: string; to: Href }[] = [
@@ -55,6 +66,8 @@ const ACTIONS: { icon: IconName; label: string; bg: string; fg: string; to: Href
 ];
 
 export default function TodayScreen() {
+  const db = useSQLiteContext();
+  const showToast = useSession((s) => s.showToast);
   const hydrated = useSettingsHydrated();
   const onboarded = useSettings((s) => s.onboarded);
   const permissionsReviewed = useSettings((s) => s.permissionsReviewed);
@@ -63,6 +76,15 @@ export default function TodayScreen() {
   const { data: o } = useDbQuery(getOverview, emptyOverview);
   const { data: week } = useDbQuery(dodgedLast7Days, []);
   const { data: rules } = useDbQuery(listRules, []);
+  const { data: events, loaded: eventsLoaded } = useDbQuery(recentEvents, []);
+  const todayKey = localDateKey(new Date());
+
+  useEffect(() => {
+    const nextDay = new Date();
+    nextDay.setHours(24, 0, 0, 0);
+    const timer = setTimeout(bumpData, Math.max(1000, nextDay.getTime() - Date.now() + 100));
+    return () => clearTimeout(timer);
+  }, [todayKey]);
 
   if (!hydrated) return null;
   if (!onboarded) return <Redirect href="/welcome" />;
@@ -72,6 +94,26 @@ export default function TodayScreen() {
   const cooling = o.cooling[0];
   const timer = timerUntil ? timeLeft(timerUntil) : null;
   const guards = rules.filter((r) => r.enabled).length;
+  const activity = summarizeActivity(events);
+  const daily = todayMessage(activity.today);
+  const candidates = visibleInsights(
+    [
+      ...buildEventInsights(activity).filter((insight) => insight.module !== 'overall'),
+      ...buildInsights(o),
+    ],
+    activity.dismissedIds,
+  );
+  const topInsight = eventsLoaded
+    ? (candidates.find((insight) => insight.certainty !== 'suggestion') ?? candidates[0])
+    : null;
+  const hideInsight = async (id: string) => {
+    try {
+      await dismissInsight(db, id);
+      showToast('Hidden for 7 days.');
+    } catch {
+      showToast('Could not hide this insight. Try again.');
+    }
+  };
 
   const upcoming = [
     o.nextDue && (
@@ -182,12 +224,19 @@ export default function TodayScreen() {
           </View>
           <Ginto mood={o.dodgedToday > 0 ? 'proud' : 'happy'} size={118} />
           <View style={styles.heroStats}>
-            <HeroStat value={String(o.breaksToday)} label="Breaks" />
-            <HeroStat value={String(o.cooling.length)} label="Cooling off" />
-            <HeroStat value={formatMinutes(o.scroll.todayMinutes)} label="Scrolled" />
+            <HeroStat value={String(activity.today.pauses)} label="Pauses" />
+            <HeroStat value={String(activity.today.purchasesReviewed)} label="Reviewed" />
+            <HeroStat value={String(activity.today.breaks)} label="Breaks" />
           </View>
         </View>
       </Rise>
+
+      {eventsLoaded ? (
+        <Card tone={colors.surfaceMuted} flat style={{ gap: spacing.sm }}>
+          <Tag certainty={daily.certainty} />
+          <Text>{daily.text}</Text>
+        </Card>
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -235,20 +284,39 @@ export default function TodayScreen() {
               icon="check-circle"
               iconBg="#F3ECE4"
               iconFg={colors.success}
-              title="All clear"
+              title="Nothing coming up"
               subtitle="No due dates, cooling items or guards yet."
             />
           )}
         </Group>
       </Section>
 
+      {topInsight ? (
+        <Section title="Worth a look" action="See all" onAction={() => router.push('/insights')}>
+          <InsightCard insight={topInsight} onDismiss={(id) => void hideInsight(id)} />
+        </Section>
+      ) : null}
+
       <Section title="You">
         <Group>
           <GroupRow
-            icon="heart"
+            icon={o.checkIn ? 'check-circle' : 'heart'}
+            iconFg={o.checkIn ? colors.success : colors.text}
             title={o.checkIn ? 'Checked in today' : 'How are you feeling?'}
-            subtitle={o.checkIn ? 'Tap to update' : 'Ten seconds. Keeps my tone gentle.'}
-            onPress={() => router.push('/check-in')}
+            subtitle={
+              o.checkIn
+                ? "Today's check-in is saved. Come back tomorrow."
+                : 'One check-in a day. Helps me keep my tone gentle.'
+            }
+            value={o.checkIn ? 'Done' : undefined}
+            valueTone={colors.success}
+            onPress={o.checkIn ? undefined : () => router.push('/check-in')}
+          />
+          <GroupRow
+            icon="chart"
+            title="Check-in history"
+            subtitle="Your mood, stress and fatigue over time"
+            onPress={() => router.push('/check-in-history')}
           />
           <GroupRow
             icon="chart"

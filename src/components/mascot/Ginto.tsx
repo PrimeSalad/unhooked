@@ -168,12 +168,13 @@ export interface GintoProps {
   mood?: GintoMood;
   size?: number;
   style?: ViewStyle;
+  animated?: boolean;
 }
 
-export function Ginto({ mood = 'happy', size = 120, style }: GintoProps) {
+export function Ginto({ mood = 'happy', size = 120, style, animated = true }: GintoProps) {
   const t = MOODS[mood];
   const reduced = useReducedMotion();
-  const on = !reduced;
+  const on = animated && !reduced;
   const k = size / VB_W;
   const has = (e: Extra) => t.extras.includes(e);
 

@@ -20,7 +20,7 @@ import { Hook } from '@/components/mascot/Hook';
 import { CountdownRing } from '@/components/pause/CountdownRing';
 import { Button, goBack, Rise, Row, Tag, Text, TopBar } from '@/components/ui';
 import { colors, motion, radius, spacing } from '@/constants/theme';
-import { logEvent } from '@/db/events';
+import { logEvent, logEventAndRefresh } from '@/db/events';
 import {
   activeSession,
   endSession,
@@ -118,7 +118,7 @@ export default function PauseScreen() {
   const locked = left > 0;
 
   useEffect(() => {
-    void logEvent(db, 'pause_shown', { kind });
+    void logEventAndRefresh(db, 'pause_shown', { kind });
     const timer = setInterval(() => {
       setLeft((l) => {
         if (l <= 1) clearInterval(timer);
@@ -215,7 +215,7 @@ export default function PauseScreen() {
   }, [locked, reveal]);
 
   const done = (decision: PauseDecision, outcome: string) => {
-    void logEvent(db, 'pause_decision', { kind, decision, secondsViewed: total });
+    void logEventAndRefresh(db, 'pause_decision', { kind, decision, secondsViewed: total });
     router.replace({
       pathname: '/unhooked',
       params: { outcome, item, amount: params.amount ?? '' },
@@ -234,7 +234,11 @@ export default function PauseScreen() {
   const checkoutC = async () => {
     try {
       if (params.purchaseId) await setPurchaseStatus(db, params.purchaseId, 'bought');
-      void logEvent(db, 'pause_decision', { kind, decision: 'continue', secondsViewed: total });
+      void logEventAndRefresh(db, 'pause_decision', {
+        kind,
+        decision: 'continue',
+        secondsViewed: total,
+      });
       goBack();
       showToast('Your call. Logged without judgment.');
     } catch {
@@ -242,7 +246,11 @@ export default function PauseScreen() {
     }
   };
   const borrowC = () => {
-    void logEvent(db, 'pause_decision', { kind, decision: 'continue', secondsViewed: total });
+    void logEventAndRefresh(db, 'pause_decision', {
+      kind,
+      decision: 'continue',
+      secondsViewed: total,
+    });
     router.replace({
       pathname: '/debt-new',
       params: { direction: 'owed', amount: params.amount ?? '', counterparty: params.lender ?? '' },
@@ -273,7 +281,7 @@ export default function PauseScreen() {
           setScrollReminderId(session.id, reminderId);
         }
       }
-      await logEvent(db, 'pause_decision', { kind, decision, secondsViewed: total });
+      await logEventAndRefresh(db, 'pause_decision', { kind, decision, secondsViewed: total });
       if (outcome === 'break') router.replace('/break');
       else {
         goBack();
