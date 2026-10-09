@@ -68,7 +68,7 @@ describe('findAmount', () => {
 });
 
 describe('contextSummary', () => {
-  it('never includes lender names or message text', () => {
+  it('names the lender but never includes notes or message text', () => {
     const summary = contextSummary(
       ctx({
         overview: {
@@ -93,7 +93,7 @@ describe('contextSummary', () => {
         },
       }),
     );
-    expect(summary).not.toMatch(/SuperLoan|threatened/);
-    expect(summary).toMatch(/₱5,000 on 2026-10-15/);
+    expect(summary).not.toMatch(/threatened/);
+    expect(summary).toMatch(/₱5,000 to SuperLoan Collections on 2026-10-15/);
   });
 });

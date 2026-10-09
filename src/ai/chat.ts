@@ -30,17 +30,20 @@ export interface ChatContext {
   overview: Overview;
 }
 
+/** A lender name as the user typed it, trimmed so one long entry cannot crowd the prompt. */
+const lenderName = (name: string) => name.trim().replace(/\s+/g, ' ').slice(0, 40) || 'unnamed';
+
 /** Most items listed one by one; the totals above them always cover everything. */
 const MAX_LISTED = 5;
 
-/** Open debts the user owes, soonest due first, without lender names. */
+/** Open debts the user owes, soonest due first. The model runs on the phone, so names stay here. */
 function debtLines(o: Overview): string[] {
   const open = o.debts
     .filter((b) => b.debt.direction === 'owed' && b.outstanding > 0)
     .sort((a, b) => (a.debt.dueDate ?? '9999').localeCompare(b.debt.dueDate ?? '9999'));
   return open.slice(0, MAX_LISTED).map(
     (b, i) =>
-      `Debt ${i + 1}: ${formatPHP(b.outstanding)} left of ${formatPHP(b.debt.principal)}${
+      `Debt ${i + 1} (${lenderName(b.debt.counterparty)}): ${formatPHP(b.outstanding)} left of ${formatPHP(b.debt.principal)}${
         b.debt.dueDate ? `, due ${b.debt.dueDate}` : ', no due date'
       }.`,
   );
@@ -60,7 +63,7 @@ export const APP_GUIDE = [
   '- Scan a message: check a lender text for warning signs.',
 ].join('\n');
 
-/** Numbers only: no names of lenders, no message text, no screenshots leave the phone. */
+/** The user's own records for the on-device model: amounts, dates and lender names, never message text or notes. */
 export function contextSummary(c: ChatContext): string {
   const o = c.overview;
   const lines = [
@@ -69,7 +72,7 @@ export function contextSummary(c: ChatContext): string {
       : 'No budget set yet.',
     `Owes ${formatPHP(o.owedTotal)} in total across ${o.debts.filter((b) => b.debt.direction === 'owed' && b.outstanding > 0).length} debts; ${formatPHP(o.dueThisMonth)} due by the end of this month.`,
     o.nextDue
-      ? `Next due: ${formatPHP(o.nextDue.outstanding)} on ${o.nextDue.debt.dueDate}.`
+      ? `Next due: ${formatPHP(o.nextDue.outstanding)} to ${lenderName(o.nextDue.debt.counterparty)} on ${o.nextDue.debt.dueDate}.`
       : 'No dated repayments.',
     ...debtLines(o),
     `Owed to them by others: ${formatPHP(o.lentTotal)}.`,
