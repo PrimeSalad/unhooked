@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ginto mascot sheet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#C4450B}a:hover{color:#8F3207}
+.m-dots{background-image:radial-gradient(rgba(255,255,255,.15) 1.6px,transparent 1.7px);background-size:22px 22px}
+.f-bob{animation:fBob 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%}
+@keyframes fBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-6px) rotate(-2deg)}}
+.f-breathe{animation:fBreathe 8s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 60%}
+@keyframes fBreathe{0%,100%{transform:scale(.93)}50%{transform:scale(1.07)}}
+.f-jump{animation:fJump 1.6s cubic-bezier(.3,.7,.4,1) infinite;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes fJump{0%{transform:translateY(0) scale(1,1)}12%{transform:translateY(4px) scale(1.07,.9)}40%{transform:translateY(-30px) rotate(-12deg) scale(.95,1.06)}62%{transform:translateY(-34px) rotate(8deg) scale(1,1)}86%{transform:translateY(0) rotate(0) scale(1.06,.94)}100%{transform:translateY(0) scale(1,1)}}
+.f-shiver{animation:fShiver 2.4s ease-in-out infinite}
+@keyframes fShiver{0%,50%,100%{transform:translateX(0)}10%,30%{transform:translateX(-1.6px)}20%,40%{transform:translateX(1.6px)}}
+.f-sway{animation:fSway 5s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%}
+@keyframes fSway{0%,100%{transform:rotate(-5deg) translateY(0)}50%{transform:rotate(3deg) translateY(5px)}}
+.f-tail{animation:fTail 1.1s ease-in-out infinite;transform-box:fill-box;transform-origin:100% 50%}
+@keyframes fTail{0%,100%{transform:rotate(-10deg) scaleX(1)}50%{transform:rotate(10deg) scaleX(.88)}}
+.f-dorsal{animation:fDorsal 2.2s ease-in-out infinite;transform-box:fill-box;transform-origin:30% 100%}
+@keyframes fDorsal{0%,100%{transform:rotate(0)}50%{transform:rotate(-7deg)}}
+.f-side{animation:fSide 1.7s ease-in-out infinite;transform-box:fill-box;transform-origin:0% 50%}
+@keyframes fSide{0%,100%{transform:rotate(0)}50%{transform:rotate(14deg)}}
+.f-pec{animation:fPec 1.4s ease-in-out infinite;transform-box:fill-box;transform-origin:25% 0%}
+@keyframes fPec{0%,100%{transform:rotate(0)}50%{transform:rotate(16deg)}}
+.f-wave{animation:fWave .9s ease-in-out infinite;transform-box:fill-box;transform-origin:20% 0%}
+@keyframes fWave{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(-58deg)}}
+.f-blink{animation:fBlink 4.6s infinite;transform-box:fill-box;transform-origin:50% 50%}
+@keyframes fBlink{0%,91%,100%{transform:scaleY(1)}94%{transform:scaleY(.08)}97%{transform:scaleY(1)}}
+.f-bub{animation:fBub 3.6s ease-in infinite;transform-box:fill-box;transform-origin:50% 50%;opacity:0}
+@keyframes fBub{0%{transform:translateY(18px) scale(.4);opacity:0}20%{opacity:.95}100%{transform:translateY(-44px) scale(1.05);opacity:0}}
+.f-drip{animation:fDrip 2.4s ease-in infinite;transform-box:fill-box}
+@keyframes fDrip{0%,30%{transform:translateY(0);opacity:1}100%{transform:translateY(24px);opacity:0}}
+.f-shield{animation:fShield 3s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%}
+@keyframes fShield{0%,100%{transform:scale(.97) rotate(0);opacity:.7}50%{transform:scale(1.02) rotate(8deg);opacity:1}}
+.f-zz{animation:fZz 3s ease-out infinite;opacity:0}
+@keyframes fZz{0%{transform:translate(0,8px);opacity:0}25%{opacity:1}100%{transform:translate(16px,-28px);opacity:0}}
+.f-think{animation:fThink 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%}
+@keyframes fThink{0%,100%{transform:scale(.82);opacity:.45}50%{transform:scale(1);opacity:1}}
+.f-alert{animation:fAlert 1.3s ease-out infinite;transform-box:fill-box;transform-origin:0% 100%}
+@keyframes fAlert{0%{transform:scale(.5);opacity:0}30%{transform:scale(1.1);opacity:1}70%{opacity:1}100%{transform:scale(1);opacity:0}}
+.f-splash{animation:fSplash 1.6s ease-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes fSplash{0%,10%{transform:translateY(0) scale(.4);opacity:0}30%{opacity:1}100%{transform:translateY(-28px) scale(1);opacity:0}}
+.m-hook{animation:mHook 3.6s ease-in-out infinite;transform-origin:50% 0%}
+@keyframes mHook{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+.f-line{fill:none;stroke:#2A1608;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round}
+.f-ray{fill:none;stroke:#FFE1B8;stroke-width:2;stroke-linecap:round;opacity:.75}
+.f-scale{fill:none;stroke:#E86A0C;stroke-width:2.4;stroke-linecap:round;opacity:.4}
+@media (prefers-reduced-motion: reduce){*{animation:none !important}}
+</style>
+</helmet>
+<div style="width: 1360px; height: 1320px; box-sizing: border-box; padding: 64px; background: #FFF6EC; color: #2A1608; font-family: Poppins, 'Segoe UI', sans-serif; display: flex; flex-direction: column; gap: 36px">
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; align-items: end; height: 236px">
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="font-size: 13px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; color: #C4450B">Mascot</div>
+      <h1 style="margin: 0; font-size: 72px; line-height: .95; font-weight: 800; letter-spacing: -3px">Meet Ginto</h1>
+      <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #5C3A22; max-width: 560px">Ginto is Filipino for gold. A small goldfish who keeps swimming past the hook, Ginto never scolds. Ginto reacts to the moment so the user feels accompanied, not watched.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+      <div style="background: #FFFFFF; border-radius: 18px; padding: 16px 18px"><div style="font-size: 15px; font-weight: 600">Round, never sharp</div><div style="font-size: 13px; line-height: 1.5; color: #7A5B47">Every shape is a soft curve. Only the hook has a point.</div></div>
+      <div style="background: #FFFFFF; border-radius: 18px; padding: 16px 18px"><div style="font-size: 15px; font-weight: 600">Eyes do the acting</div><div style="font-size: 13px; line-height: 1.5; color: #7A5B47">Mood comes from eyes, brows and mouth. The body stays the same.</div></div>
+      <div style="background: #FFFFFF; border-radius: 18px; padding: 16px 18px"><div style="font-size: 15px; font-weight: 600">One Ginto per screen</div><div style="font-size: 13px; line-height: 1.5; color: #7A5B47">Ginto swims between screens instead of popping in.</div></div>
+      <div style="background: #FFFFFF; border-radius: 18px; padding: 16px 18px"><div style="font-size: 15px; font-weight: 600">Never judges</div><div style="font-size: 13px; line-height: 1.5; color: #7A5B47">No angry face, no crying, no pointing at money.</div></div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+    <sc-for list="{{moods}}" as="m" hint-placeholder-count="9">
+      <div class="{{m.pattern}}" style="position: relative; height: 280px; border-radius: 28px; overflow: hidden; background: {{m.bg}}; color: {{m.fg}}; display: flex; align-items: center; gap: 8px; padding: 20px 24px 20px 12px; box-sizing: border-box">
+        <div style="position: absolute; right: 70px; top: 0; width: 34px; height: 120px; display: {{m.hookCss}}">
+          <div class="m-hook" style="position: relative; width: 34px; height: 120px">
+            <div style="position: absolute; left: 16px; top: 0; width: 2px; height: 72px; background: {{m.lineColor}}"></div>
+            <svg width="34" height="50" viewBox="0 0 44 64" aria-hidden="true" style="position: absolute; left: 0; top: 68px">
+              <circle cx="22" cy="6" r="4.5" fill="none" stroke="#3B2412" stroke-width="3"></circle>
+              <path d="M22 11 V42 C22 56 6 58 6 44" fill="none" stroke="#3B2412" stroke-width="5" stroke-linecap="round"></path>
+              <path d="M6 46 L3 34 L11 41 Z" fill="#3B2412"></path>
+              <path d="M17.5 14 H26.5 M17.5 18 H26.5 M17.5 22 H26.5" stroke="#F2B544" stroke-width="2.6" stroke-linecap="round"></path>
+            </svg>
+          </div>
+        </div>
+        <div style="width: 196px; height: 196px; flex: none">
+          <svg viewBox="0 0 220 200" width="100%" height="100%" aria-hidden="true" style="overflow: visible">
+            <defs>
+              <radialGradient id="gBody" cx="62%" cy="30%" r="78%">
+                <stop offset="0" stop-color="#FFD992"></stop>
+                <stop offset="0.45" stop-color="#FFA63D"></stop>
+                <stop offset="0.8" stop-color="#FF8214"></stop>
+                <stop offset="1" stop-color="#EC6206"></stop>
+              </radialGradient>
+              <linearGradient id="gFin" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#FFCB7E"></stop>
+                <stop offset="1" stop-color="#FF8A1F"></stop>
+              </linearGradient>
+            </defs>
+            <g display="{{m.bubD}}">
+              <circle class="f-bub" cx="78" cy="40" r="9" fill="#FFE7C7" fill-opacity="0.55" stroke="#FFAA55" stroke-width="2"></circle>
+              <circle class="f-bub" style="animation-delay: 1.2s" cx="64" cy="58" r="6" fill="#FFE7C7" fill-opacity="0.55" stroke="#FFAA55" stroke-width="2"></circle>
+              <circle class="f-bub" style="animation-delay: 2.3s" cx="88" cy="22" r="4.5" fill="#FFE7C7" fill-opacity="0.55" stroke="#FFAA55" stroke-width="2"></circle>
+            </g>
+            <g class="{{m.wrapClass}}">
+              <g display="{{m.shieldD}}"><circle class="f-shield" cx="116" cy="108" r="100" fill="#7CC8E8" fill-opacity="0.13" stroke="#4FA9CF" stroke-width="3" stroke-dasharray="12 9"></circle></g>
+              <g class="f-tail">
+                <path d="M68 112 C 50 84, 20 66, 12 90 C 8 104, 22 110, 32 112 C 22 114, 8 122, 14 136 C 22 158, 50 140, 68 112 Z" fill="url(#gFin)"></path>
+                <path class="f-ray" d="M62 110 L24 86 M62 111 L18 100 M62 114 L18 126 M62 115 L26 140"></path>
+              </g>
+              <path class="f-dorsal" d="M86 66 C 84 38, 108 22, 132 30 C 148 36, 152 50, 146 64 Z" fill="url(#gFin)"></path>
+              <path class="f-ray" d="M100 62 L104 36 M114 60 L124 34 M128 60 L140 42"></path>
+              <path class="f-side" d="M170 104 C 192 94, 204 118, 186 130 C 178 134, 170 126, 170 118 Z" fill="url(#gFin)"></path>
+              <ellipse cx="118" cy="110" rx="62" ry="56" transform="rotate(-10 118 110)" fill="url(#gBody)"></ellipse>
+              <path class="f-scale" d="M66 104 a9 9 0 0 0 18 0 M70 124 a9 9 0 0 0 18 0 M80 86 a9 9 0 0 0 18 0 M84 106 a9 9 0 0 0 18 0 M88 126 a9 9 0 0 0 18 0 M78 144 a9 9 0 0 0 18 0"></path>
+              <ellipse cx="146" cy="132" rx="34" ry="22" fill="#FFE3B4" opacity="0.5"></ellipse>
+              <ellipse cx="130" cy="74" rx="24" ry="9" transform="rotate(-16 130 74)" fill="#FFFFFF" opacity="0.38"></ellipse>
+              <g class="{{m.finClass}}">
+                <path d="M104 138 C 92 160, 104 180, 126 174 C 140 170, 140 152, 128 140 Z" fill="url(#gFin)"></path>
+                <path class="f-ray" d="M110 142 L106 166 M118 142 L120 170 M124 144 L132 164"></path>
+              </g>
+              <ellipse cx="118" cy="122" rx="7" ry="4" fill="#FF5E5E" opacity="0.32"></ellipse>
+              <ellipse cx="176" cy="114" rx="6" ry="3.6" fill="#FF5E5E" opacity="0.32"></ellipse>
+              <g transform="translate({{m.ex}} {{m.ey}})">
+                <g display="{{m.openD}}">
+                  <g class="f-blink">
+                    <ellipse cx="130" cy="104" rx="11" ry="12.5" fill="#1C0E05"></ellipse>
+                    <circle cx="134" cy="99" r="4" fill="#FFFFFF"></circle>
+                    <circle cx="126.5" cy="109" r="1.8" fill="#FFFFFF"></circle>
+                  </g>
+                  <g class="f-blink">
+                    <ellipse cx="164" cy="97" rx="10.5" ry="12" fill="#1C0E05"></ellipse>
+                    <circle cx="168" cy="92" r="3.8" fill="#FFFFFF"></circle>
+                    <circle cx="160.5" cy="102" r="1.7" fill="#FFFFFF"></circle>
+                  </g>
+                </g>
+                <g display="{{m.sleepyD}}">
+                  <ellipse cx="130" cy="106" rx="11" ry="10" fill="#1C0E05"></ellipse>
+                  <ellipse cx="164" cy="99" rx="10.5" ry="9.5" fill="#1C0E05"></ellipse>
+                  <path d="M118 106 A 12 12 0 0 1 142 106 Z" fill="#FFA43C"></path>
+                  <path d="M152.5 99 A 11.5 11.5 0 0 1 175.5 99 Z" fill="#FFA43C"></path>
+                  <path class="f-line" d="M118 106 H142 M152.5 99 H175.5" style="stroke-width: 2.6"></path>
+                </g>
+                <g display="{{m.happyD}}">
+                  <path class="f-line" d="M120 107 Q130 94 140 107 M154 100 Q164 87 174 100"></path>
+                </g>
+                <g display="{{m.calmD}}">
+                  <path class="f-line" d="M120 103 Q130 112 140 103 M154 96 Q164 105 174 96"></path>
+                </g>
+              </g>
+              <path display="{{m.worriedD}}" class="f-line" d="M119 86 L137 80 M157 74 L173 80" style="stroke-width: 3"></path>
+              <path display="{{m.braveD}}" class="f-line" d="M119 80 L137 87 M157 81 L173 74" style="stroke-width: 3"></path>
+              <g display="{{m.mOpenD}}">
+                <path d="M140 118 Q148 134 157 117 Z" fill="#8A1F12"></path>
+                <ellipse cx="148.5" cy="125.5" rx="4.2" ry="2.6" fill="#F07A6A"></ellipse>
+              </g>
+              <ellipse display="{{m.mOD}}" cx="148" cy="122" rx="4.2" ry="5.2" fill="#8A1F12"></ellipse>
+              <path display="{{m.mSmileD}}" class="f-line" d="M141 120 Q148 127 155 119" style="stroke: #8A2A12; stroke-width: 2.8"></path>
+              <path display="{{m.mWavyD}}" class="f-line" d="M140 124 q4 -4 8 0 t8 0" style="stroke: #8A2A12; stroke-width: 2.6"></path>
+              <g display="{{m.mBigD}}">
+                <path d="M136 116 Q148 142 161 115 Z" fill="#8A1F12"></path>
+                <ellipse cx="148.5" cy="128" rx="6" ry="3.4" fill="#F07A6A"></ellipse>
+              </g>
+              <path display="{{m.sweatD}}" class="f-drip" d="M190 60 C 196 70, 198 77, 192 81 C 186 84, 183 76, 190 60 Z" fill="#8FD3F0"></path>
+            </g>
+            <g display="{{m.alertD}}" class="f-alert">
+              <path d="M184 44 L178 30 M195 40 L199 25 M203 52 L216 47" fill="none" stroke="#FFD36E" stroke-width="4.5" stroke-linecap="round"></path>
+            </g>
+            <g display="{{m.thinkD}}">
+              <circle class="f-think" cx="190" cy="56" r="4.5" fill="#FFC793"></circle>
+              <circle class="f-think" style="animation-delay: .3s" cx="201" cy="40" r="6.5" fill="#FFC793"></circle>
+              <circle class="f-think" style="animation-delay: .6s" cx="214" cy="20" r="9.5" fill="#FFC793"></circle>
+            </g>
+            <g display="{{m.zzD}}" font-family="Poppins, sans-serif" font-weight="800" fill="#8FD3E0">
+              <text class="f-zz" x="184" y="62" font-size="18">z</text>
+              <text class="f-zz" style="animation-delay: 1s" x="194" y="46" font-size="22">z</text>
+              <text class="f-zz" style="animation-delay: 2s" x="206" y="28" font-size="26">z</text>
+            </g>
+            <g display="{{m.splashD}}">
+              <path class="f-splash" d="M70 186 C 72 178, 76 174, 78 170 C 80 174, 82 180, 78 186 Z" fill="#FFE1B8"></path>
+              <path class="f-splash" style="animation-delay: .25s" d="M160 188 C 162 178, 166 174, 168 168 C 170 174, 172 182, 168 188 Z" fill="#FFE1B8"></path>
+              <path class="f-splash" style="animation-delay: .5s" d="M116 192 C 118 184, 121 180, 123 176 C 125 180, 127 186, 123 192 Z" fill="#FFE1B8"></path>
+            </g>
+          </svg>
+        </div>
+        <div style="display: flex; flex-direction: column; justify-content: space-between; align-self: stretch; padding: 6px 0; min-width: 0; flex: 1">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="font-size: 12px; font-weight: 600; letter-spacing: 1.4px; opacity: .75">{{m.num}}</div>
+            <div style="font-size: 26px; line-height: 1.05; font-weight: 700; letter-spacing: -.6px">{{m.name}}</div>
+            <div style="font-size: 13px; line-height: 1.5; opacity: .9">{{m.when}}</div>
+          </div>
+          <div style="font-size: 11px; line-height: 1.5; font-weight: 500; opacity: .75">{{m.motion}}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1320}}'>
+class Component extends DCLogic {
+  mood(m) {
+    const T = {
+      happy: { eyes: 'open', mouth: 'open', body: 'f-bob', fin: 'f-pec', bub: 1 },
+      wave: { eyes: 'happy', mouth: 'open', body: 'f-bob', fin: 'f-wave', bub: 1 },
+      curious: { eyes: 'open', ex: 3, ey: -3, mouth: 'o', body: 'f-bob', fin: 'f-pec', alert: 1, bub: 1 },
+      calm: { eyes: 'calm', mouth: 'smile', body: 'f-breathe', fin: 'f-pec', bub: 1 },
+      worried: { eyes: 'open', ex: -1, ey: 1, brow: 'worried', mouth: 'wavy', body: 'f-shiver', fin: 'f-pec', sweat: 1 },
+      proud: { eyes: 'happy', mouth: 'big', body: 'f-jump', fin: 'f-wave', splash: 1 },
+      sleepy: { eyes: 'sleepy', mouth: 'o', body: 'f-sway', fin: 'f-pec', zz: 1 },
+      thinking: { eyes: 'open', ex: 3, ey: -4, mouth: 'smile', body: 'f-bob', fin: 'f-pec', think: 1 },
+      brave: { eyes: 'open', brow: 'brave', mouth: 'smile', body: 'f-bob', fin: 'f-pec', shield: 1 }
+    };
+    const t = T[m] || T.happy;
+    const on = (b) => (b ? 'inline' : 'none');
+    return {
+      wrapClass: t.body, finClass: t.fin, ex: t.ex || 0, ey: t.ey || 0,
+      openD: on(t.eyes === 'open'), happyD: on(t.eyes === 'happy'), calmD: on(t.eyes === 'calm'), sleepyD: on(t.eyes === 'sleepy'),
+      worriedD: on(t.brow === 'worried'), braveD: on(t.brow === 'brave'),
+      mOpenD: on(t.mouth === 'open'), mOD: on(t.mouth === 'o'), mSmileD: on(t.mouth === 'smile'), mWavyD: on(t.mouth === 'wavy'), mBigD: on(t.mouth === 'big'),
+      sweatD: on(t.sweat), bubD: on(t.bub), alertD: on(t.alert), thinkD: on(t.think), shieldD: on(t.shield), splashD: on(t.splash), zzD: on(t.zz)
+    };
+  }
+  renderVals() {
+    const list = [
+      { key: 'wave', name: 'Hello', when: 'Welcome, onboarding, and the end of a break.', motion: 'Fin wave 0.9s · bob 3.2s', bg: '#FF6B1A', fg: '#2A1608', pattern: 'm-dots' },
+      { key: 'happy', name: 'Happy', when: 'Today screen and steady progress. The default mood.', motion: 'Bob 3.2s · blink every 4.6s · bubbles', bg: '#FFE3CC', fg: '#2A1608' },
+      { key: 'curious', name: 'Curious', when: 'A hook shows up: a checkout, a new loan, a long scroll.', motion: 'Eyes track the hook · alert ticks 1.3s', bg: '#FF8A3D', fg: '#2A1608', pattern: 'm-dots', hook: 1, line: '#FFE1B8' },
+      { key: 'calm', name: 'Calm', when: 'The pause countdown. Ginto breathes with the user.', motion: 'Breathe 4s in, 4s out · eyes closed', bg: '#0B3440', fg: '#FFF6EC' },
+      { key: 'worried', name: 'Worried', when: 'Borrowing pause when repayments already overlap.', motion: 'Small shiver · one sweat drop · never panic', bg: '#FFF1C9', fg: '#2A1608', hook: 1, line: '#C9A77F' },
+      { key: 'proud', name: 'Proud', when: 'Unhooked: the user chose to wait, save or ask for help.', motion: 'Squash and stretch jump 1.6s · splash', bg: '#FF6B1A', fg: '#2A1608', pattern: 'm-dots' },
+      { key: 'sleepy', name: 'Sleepy', when: 'Late-night scroll check-ins after 11 PM.', motion: 'Slow sway 5s · drifting z', bg: '#1B2B4B', fg: '#F2F5FF' },
+      { key: 'thinking', name: 'Thinking', when: 'Spend checks and insights while numbers load.', motion: 'Thought bubbles pulse 2.4s', bg: '#FFFFFF', fg: '#2A1608' },
+      { key: 'brave', name: 'Brave', when: 'Safety moments: message check, evidence, help.', motion: 'Bubble shield turns 3s · firm brows', bg: '#DDF0F3', fg: '#0B3440' }
+    ];
+    return {
+      moods: list.map((x, i) => Object.assign(this.mood(x.key), {
+        num: (i < 9 ? '0' : '') + (i + 1) + ' · ' + x.key.toUpperCase(),
+        name: x.name, when: x.when, motion: x.motion, bg: x.bg, fg: x.fg,
+        pattern: x.pattern || '', hookCss: x.hook ? 'block' : 'none', lineColor: x.line || '#FFE1B8'
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

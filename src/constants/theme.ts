@@ -1,24 +1,27 @@
 // Design tokens. Calm, non-alarming palette: Unhooked nudges, it never scolds.
 // Use tokens everywhere; never hard-code colors or spacing in screens.
 
+// Brand palette matches the Ginto prototype (see prototype/ and plan.md → Brand & mascot).
 export const colors = {
-  bg: '#F7F5F0',
+  bg: '#FFF6EC', // Cream
   surface: '#FFFFFF',
-  surfaceMuted: '#EFECE5',
-  border: '#E2DED5',
-  text: '#1F2421',
-  textMuted: '#5F665F',
-  primary: '#2F6F5E', // calm green — "intentional"
-  primaryText: '#FFFFFF',
-  accent: '#C98A3D', // warm amber — "pause"
-  info: '#3D6FB4',
-  warning: '#B7791F',
-  danger: '#B4443D', // reserved for high-risk messages, never for user setbacks
-  success: '#2F855A',
+  surfaceMuted: '#FFE3CC', // Peach
+  border: '#F0E2D4',
+  text: '#2A1608', // Ink
+  textMuted: '#7A5B47',
+  primary: '#FF6B1A', // Goldfish — always paired with Ink text, never white
+  primaryText: '#2A1608',
+  link: '#C4450B', // Ember — orange text on light backgrounds
+  accent: '#FFB061', // Amber — countdown ring, progress
+  pause: '#0B3440', // Deep water — the pause screen
+  info: '#0F5F6E',
+  warning: '#7A4A00',
+  danger: '#B3261E', // reserved for high-risk messages, never for user setbacks
+  success: '#1E5E3B',
   // Module identity colors
-  debt: '#7A5AA6',
-  spend: '#C98A3D',
-  scroll: '#3D8FA6',
+  debt: '#5E3D8C',
+  spend: '#C4450B',
+  scroll: '#0F5F6E', // Lagoon
 } as const;
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;

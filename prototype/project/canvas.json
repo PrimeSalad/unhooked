@@ -1,0 +1,17 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-09T15:30:00Z" },
+  "title": "Unhooked Prototype",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "App prototype (press Play)", "is_interactive": true, "radius": 44 },
+    "Mascot.dc.html": { "x": 470, "y": 0, "w": 1360, "h": 1320, "title": "Ginto, the mascot" },
+    "Brand.dc.html": { "x": 1910, "y": 0, "w": 1200, "h": 1320, "title": "Brand, type and motion" }
+  },
+  "order": ["Main.dc.html", "Mascot.dc.html", "Brand.dc.html"],
+  "notes": {
+    "title": { "x": 0, "y": -300, "text": "Unhooked: prototype and Ginto the goldfish", "kind": "title1", "maxW": 3110 }
+  },
+  "designSystems": []
+}

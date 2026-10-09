@@ -18,7 +18,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.link,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
         headerStyle: { backgroundColor: colors.bg },
@@ -30,7 +30,7 @@ export default function TabLayout() {
       <Tabs.Screen name="debt" options={tab('Debt', 'wallet-outline')} />
       <Tabs.Screen name="spend" options={tab('Spend', 'cart-outline')} />
       <Tabs.Screen name="scroll" options={tab('Scroll', 'phone-portrait-outline')} />
-      <Tabs.Screen name="insights" options={tab('Insights', 'sparkles-outline')} />
+      <Tabs.Screen name="insights" options={tab('Insights', 'bar-chart-outline')} />
     </Tabs>
   );
 }

@@ -40,6 +40,18 @@
 
 ---
 
+## Brand & mascot
+
+**Prototype canvas (tap-through app, mascot sheet, brand board):** https://claude.ai/artifact/VMcLVnPGSGS9xtLLjfquDw. Source files are in [`prototype/project/`](./prototype/project/).
+
+- **Ginto the goldfish** (Filipino for gold): the mascot from `assets/logo initial.png`, a goldfish that keeps swimming past the hook. Ginto has 9 moods, each tied to a moment: Hello, Happy, Curious (a hook appears), Calm (the pause countdown), Worried (overlapping repayments), Proud (Unhooked!), Sleepy (late-night scrolling), Thinking, and Brave (safety). Mood comes from the eyes, brows and mouth; the body stays the same. Ginto never scolds and never points at money.
+- **The hook is the trigger.** It drops in when a risky decision starts and gets yanked away when the user waits, saves or asks for help.
+- **Type:** Poppins (400–800). **Color:** Goldfish `#FF6B1A` (always with Ink text), Ember `#C4450B`, Ink `#2A1608`, Cream `#FFF6EC`, Peach `#FFE3CC`, Deep water `#0B3440` (pause), Lagoon `#0F5F6E` (scroll), Amber `#FFB061`, Alert `#B3261E` (high-risk messages only). Tokens are in `src/constants/theme.ts`.
+- **Motion:** Ginto swims between screens (800 ms) instead of popping in; the hook drops and yanks with overshoot (900 ms); the pause breathes 4 s in and 4 s out; screens rise 14 px over 450 ms. Reduced motion turns all of it off.
+- **No emoji, no sparkle-style "AI" icons.** Use plain stroke icons only.
+
+---
+
 ## 0. North star & non-negotiables
 
 These come straight from the research brief. Every phase must respect them. A feature that breaks one is not done.
@@ -122,7 +134,10 @@ Estimates assume a 2–3 person hackathon team; phases 2–4 can run in parallel
 - [x] Jest, ESLint, Prettier, expo-doctor (21/21), Android bundle export verified
 
 ### Phase 1 — The AI Pause (core loop) ★ highest priority
-The one screen that must be flawless; every module reuses it.
+The one screen that must be flawless; every module reuses it. Match the prototype's pause screen.
+- [ ] Brand setup: load Poppins (`@expo-google-fonts/poppins` + `expo-font`) and apply it in `src/components/ui.tsx`.
+- [ ] `src/components/mascot/Ginto.tsx`: port the prototype SVG to `react-native-svg` with a `mood` prop (9 moods) and animate the tail, fins, blink and body with `react-native-reanimated`. Respect reduced motion.
+- [ ] `src/components/mascot/Hook.tsx`: the hook that drops in and yanks away.
 - [ ] `src/components/pause/PauseCountdown.tsx` — animated ring, `settings.pauseSeconds`, decision buttons disabled until it ends (R1). Haptic tick on finish.
 - [ ] `src/components/pause/ReflectionCard.tsx` — headline + labeled lines + suggestions with `CertaintyTag` (R3).
 - [ ] `src/app/pause.tsx` — accept `kind` + serialized `facts` params; call `getReflectionProvider().reflect()`; render options per kind:

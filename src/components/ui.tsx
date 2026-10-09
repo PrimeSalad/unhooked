@@ -70,7 +70,7 @@ export function Button({
         (pressed || disabled) && { opacity: 0.6 },
       ]}
     >
-      <RNText style={[styles.buttonLabel, kind !== 'primary' && { color: colors.primary }]}>
+      <RNText style={[styles.buttonLabel, kind !== 'primary' && { color: colors.text }]}>
         {label}
       </RNText>
     </Pressable>
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
 
 const buttonStyles = StyleSheet.create({
   primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary },
+  secondary: { backgroundColor: 'transparent', borderWidth: 2, borderColor: colors.text },
   ghost: { backgroundColor: 'transparent' },
 });
 

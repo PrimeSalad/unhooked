@@ -30,6 +30,10 @@ npm start          # scan the QR code with Expo Go
 | `npm run format` | Prettier |
 | `npm run doctor` | `expo-doctor` dependency checks |
 
+## Prototype
+
+Tap through the app, meet the mascot Ginto, and see the brand board: **[Unhooked prototype canvas](https://claude.ai/artifact/VMcLVnPGSGS9xtLLjfquDw)** (source in `prototype/project/`).
+
 ## Project docs
 
 - [`plan.md`](./plan.md) — architecture, phased build plan, demo script, definition of done

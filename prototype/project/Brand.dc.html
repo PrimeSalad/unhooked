@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unhooked brand, type and motion</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#C4450B}a:hover{color:#8F3207}
+.b-ring{animation:bSpin 10s linear infinite;transform-origin:50% 50%}
+@keyframes bSpin{to{transform:rotate(-360deg)}}
+.b-drop{animation:bDrop 3.2s cubic-bezier(.5,-.35,.3,1.25) infinite}
+@keyframes bDrop{0%,100%{transform:translateY(-14px)}50%{transform:translateY(10px)}}
+.b-rise{animation:bRise 2.4s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes bRise{0%{opacity:0;transform:translateY(14px)}40%,100%{opacity:1;transform:none}}
+.b-swim{animation:bSwim 3s cubic-bezier(.45,.05,.25,1) infinite alternate}
+@keyframes bSwim{from{transform:translateX(0)}to{transform:translateX(150px)}}
+.b-breath{animation:bBreath 8s ease-in-out infinite;transform-origin:50% 50%}
+@keyframes bBreath{0%,100%{transform:scale(.8)}50%{transform:scale(1.1)}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important}}
+</style>
+</helmet>
+<div style="width: 1200px; height: 1320px; box-sizing: border-box; padding: 64px; background: #FFFFFF; color: #2A1608; font-family: Poppins, 'Segoe UI', sans-serif; display: flex; flex-direction: column; gap: 48px">
+
+  <div style="display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 48px; align-items: center">
+    <img src="/_blob/c672e5632559398634544983ef1401a9" alt="Unhooked app icon: a goldfish swimming past a hook" style="width: 280px; height: 280px; border-radius: 64px; object-fit: cover; box-shadow: 0 24px 48px -24px rgba(196,69,11,.6)">
+    <div style="display: flex; flex-direction: column; gap: 18px">
+      <div style="font-size: 13px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; color: #C4450B">Brand</div>
+      <div style="font-size: 96px; line-height: .9; font-weight: 800; letter-spacing: -4px">unhooked</div>
+      <div style="font-size: 22px; font-weight: 500; color: #5C3A22">Pause. Understand. Decide.</div>
+      <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #7A5B47; max-width: 560px">Warm, round and calm. Orange carries the energy of the goldfish, deep water carries the pause. Nothing in the interface shouts at the user. Red appears only for a high-risk message.</p>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 16px">
+    <div style="font-size: 20px; font-weight: 700">Color</div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{swatches}}" as="c" hint-placeholder-count="10">
+        <div style="border-radius: 20px; overflow: hidden; border: 1px solid #F0E2D4">
+          <div style="height: 92px; background: {{c.hex}}; display: flex; align-items: flex-end; padding: 12px; box-sizing: border-box; color: {{c.on}}; font-size: 13px; font-weight: 600">Aa</div>
+          <div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 14px; font-weight: 600">{{c.name}}</div>
+            <div style="font-size: 12px; color: #7A5B47; font-family: ui-monospace, Menlo, monospace">{{c.hex}}</div>
+            <div style="font-size: 12px; line-height: 1.45; color: #5C3A22">{{c.use}}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px">
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div class="u-row" style="display: flex; align-items: baseline; justify-content: space-between">
+        <div style="font-size: 20px; font-weight: 700">Type: Poppins</div>
+        <div style="font-size: 12px; color: #7A5B47">400 · 500 · 600 · 700 · 800</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #F0E2D4; padding-top: 14px">
+        <div style="display: flex; align-items: baseline; gap: 16px"><div style="width: 92px; flex: none; font-size: 11px; color: #7A5B47">Display 52/800</div><div style="font-size: 52px; line-height: 1; font-weight: 800; letter-spacing: -2px">Unhooked.</div></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><div style="width: 92px; flex: none; font-size: 11px; color: #7A5B47">H1 28/700</div><div style="font-size: 28px; font-weight: 700; letter-spacing: -.6px">Before you buy</div></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><div style="width: 92px; flex: none; font-size: 11px; color: #7A5B47">Title 18/600</div><div style="font-size: 18px; font-weight: 600">This one could pinch your repayment.</div></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><div style="width: 92px; flex: none; font-size: 11px; color: #7A5B47">Body 15/400</div><div style="font-size: 15px; line-height: 1.55">After ₱4,500 you would have about ₱1,700 left this cycle.</div></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><div style="width: 92px; flex: none; font-size: 11px; color: #7A5B47">Label 12/600</div><div style="font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase">Checkout pause</div></div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="font-size: 20px; font-weight: 700">Components</div>
+      <div style="display: flex; flex-direction: column; gap: 14px; border-top: 1px solid #F0E2D4; padding-top: 14px">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <button type="button" style="min-height: 52px; border-radius: 999px; border: 0; background: #FF6B1A; color: #2A1608; font-family: inherit; font-size: 15px; font-weight: 600">Save for 24h</button>
+          <button type="button" style="min-height: 52px; border-radius: 999px; border: 0; background: #2A1608; color: #FFF6EC; font-family: inherit; font-size: 15px; font-weight: 600">Back to Today</button>
+          <button type="button" style="min-height: 52px; border-radius: 999px; border: 0; background: transparent; box-shadow: inset 0 0 0 2px #2A1608; color: #2A1608; font-family: inherit; font-size: 15px; font-weight: 600">Buy anyway</button>
+        </div>
+        <div style="font-size: 12px; line-height: 1.5; color: #7A5B47">Orange buttons use ink text, not white, so they pass contrast. Pills are 52 px tall.</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; padding: 5px 12px; border-radius: 999px; background: #FFEBDC; color: #8F3207">From your records</span>
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; padding: 5px 12px; border-radius: 999px; background: #FFF1C9; color: #7A4A00">Estimate</span>
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; padding: 5px 12px; border-radius: 999px; background: #E5F2EA; color: #1E5E3B">Calculated</span>
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; padding: 5px 12px; border-radius: 999px; background: #F4ECE4; color: #5C3A22">Suggestion</span>
+        </div>
+        <div style="font-size: 12px; line-height: 1.5; color: #7A5B47">Every generated line carries one of these tags, so a guess never reads like a fact.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px">
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="font-size: 20px; font-weight: 700">Motion</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <div style="background: #FFF6EC; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="height: 64px; position: relative; overflow: hidden"><div class="b-swim" style="position: absolute; left: 0; top: 18px; width: 44px; height: 28px; border-radius: 999px; background: #FF8A1F"></div></div>
+          <div style="font-size: 14px; font-weight: 600">Ginto swims</div>
+          <div style="font-size: 12px; line-height: 1.5; color: #7A5B47">800 ms, ease in-out. Ginto moves between screens, never teleports.</div>
+        </div>
+        <div style="background: #FFF6EC; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="height: 64px; display: flex; justify-content: center"><div class="b-drop" style="width: 2px; height: 56px; background: #3B2412; border-radius: 2px"></div></div>
+          <div style="font-size: 14px; font-weight: 600">Hook drops and yanks</div>
+          <div style="font-size: 12px; line-height: 1.5; color: #7A5B47">900 ms with a little overshoot. The hook leaves when the user chooses well.</div>
+        </div>
+        <div style="background: #0B3440; color: #FFF6EC; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="height: 64px; display: flex; justify-content: center; align-items: center"><div class="b-breath" style="width: 48px; height: 48px; border-radius: 999px; background: #FFB061"></div></div>
+          <div style="font-size: 14px; font-weight: 600">The pause breathes</div>
+          <div style="font-size: 12px; line-height: 1.5; color: #BFE6EC">4 s in, 4 s out. Choices unlock only when the ring completes.</div>
+        </div>
+        <div style="background: #FFF6EC; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="height: 64px; display: flex; flex-direction: column; gap: 6px; justify-content: center"><div class="b-rise" style="height: 14px; width: 80%; border-radius: 6px; background: #FFD3B0"></div><div class="b-rise" style="height: 14px; width: 60%; border-radius: 6px; background: #FFE3CC; animation-delay: .12s"></div></div>
+          <div style="font-size: 14px; font-weight: 600">Screens rise</div>
+          <div style="font-size: 12px; line-height: 1.5; color: #7A5B47">450 ms, 14 px rise. Reduced motion turns every animation off.</div>
+        </div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="font-size: 20px; font-weight: 700">Voice</div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{voice}}" as="v" hint-placeholder-count="4">
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <div style="background: #E5F2EA; border-radius: 16px; padding: 12px 14px"><div style="font-size: 11px; font-weight: 600; letter-spacing: 1px; color: #1E5E3B">SAY</div><div style="font-size: 13px; line-height: 1.45">{{v.say}}</div></div>
+            <div style="background: #FBEAE8; border-radius: 16px; padding: 12px 14px"><div style="font-size: 11px; font-weight: 600; letter-spacing: 1px; color: #8C1D18">NOT</div><div style="font-size: 13px; line-height: 1.45">{{v.not}}</div></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":1320}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      swatches: [
+        { name: 'Goldfish', hex: '#FF6B1A', on: '#2A1608', use: 'Brand, primary buttons, celebration' },
+        { name: 'Ember', hex: '#C4450B', on: '#FFFFFF', use: 'Orange text and active tab on light' },
+        { name: 'Ink', hex: '#2A1608', on: '#FFF6EC', use: 'Text, dark buttons, Evidence Pack' },
+        { name: 'Cream', hex: '#FFF6EC', on: '#2A1608', use: 'App background' },
+        { name: 'Peach', hex: '#FFE3CC', on: '#2A1608', use: 'Hero cards, chips' },
+        { name: 'Deep water', hex: '#0B3440', on: '#FFF6EC', use: 'The pause screen' },
+        { name: 'Lagoon', hex: '#0F5F6E', on: '#FFFFFF', use: 'Scroll module' },
+        { name: 'Shell', hex: '#DDF0F3', on: '#0B3440', use: 'Breaks and safety' },
+        { name: 'Amber', hex: '#FFB061', on: '#2A1608', use: 'Countdown ring, progress' },
+        { name: 'Alert', hex: '#B3261E', on: '#FFFFFF', use: 'High-risk messages only' }
+      ],
+      voice: [
+        { say: 'This one could pinch your repayment.', not: 'You cannot afford this.' },
+        { say: 'Your call. Logged without judgment.', not: 'Are you sure? That is a bad decision.' },
+        { say: 'Still using this time the way you meant to?', not: 'You are addicted to your phone.' },
+        { say: 'This is an indication, not proof.', not: 'This lender is a scammer.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
