@@ -14,12 +14,18 @@ import { CollectorCallBridge } from '@/components/CollectorCallBridge';
 import { ModelDownloadHost } from '@/components/ModelDownloadPill';
 import { PhoneFrame } from '@/components/PhoneFrame';
 import { ToastHost } from '@/components/Toast';
+import { TrialGate } from '@/components/TrialGate';
 import { colors } from '@/constants/theme';
 import { DatabaseGate } from '@/db/DatabaseGate';
 import { useWarmLocalModel } from '@/hooks/useWarmLocalModel';
 
-export default function RootLayout() {
+/** Warms the on-device model; mounted inside the trial gate so an ended trial loads nothing. */
+function LocalModelWarmer() {
   useWarmLocalModel();
+  return null;
+}
+
+export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -46,66 +52,73 @@ export default function RootLayout() {
 
   return (
     <PhoneFrame>
-      <DatabaseGate>
-        <CollectorCallBridge />
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.bg },
-            // iOS-style push with parallax on both platforms; swipe back follows the finger.
-            animation: 'ios_from_right',
-            animationMatchesGesture: true,
-            fullScreenGestureEnabled: true,
-          }}
-        >
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="agree" options={{ animation: 'fade' }} />
-          <Stack.Screen name="legal" />
-          <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
-          <Stack.Screen name="permissions" options={{ animation: 'fade' }} />
-          <Stack.Screen
-            name="pause"
-            options={{ presentation: 'fullScreenModal', animation: 'fade' }}
-          />
-          <Stack.Screen name="unhooked" options={{ animation: 'fade' }} />
-          <Stack.Screen name="break" options={{ animation: 'fade' }} />
-          <Stack.Screen
-            name="check-in"
-            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-          />
-          <Stack.Screen name="check-in-history" />
-          <Stack.Screen
-            name="debt-new"
-            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-          />
-          <Stack.Screen name="repayment-plan" />
-          <Stack.Screen name="evidence-pack" />
-          <Stack.Screen name="number-log" />
-          <Stack.Screen name="calls" />
-          <Stack.Screen
-            name="borrow"
-            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-          />
-          <Stack.Screen name="chat" />
-          <Stack.Screen name="spend-check" />
-          <Stack.Screen name="fade-preview" options={{ animation: 'fade' }} />
-          <Stack.Screen name="block/apps" />
-          <Stack.Screen name="block/sites" />
-          <Stack.Screen name="block/permissions" />
-          <Stack.Screen
-            name="shield"
-            options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
-          />
-          <Stack.Screen name="message-check" />
-          <Stack.Screen name="settings" />
-          <Stack.Screen name="help" />
-          <Stack.Screen name="wrapped" />
-          <Stack.Screen name="scan" />
-        </Stack>
-        <ToastHost />
-        <ModelDownloadHost />
-      </DatabaseGate>
+      <TrialGate>
+        <LocalModelWarmer />
+        <DatabaseGate>
+          <CollectorCallBridge />
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.bg },
+              // iOS-style push with parallax on both platforms; swipe back follows the finger.
+              animation: 'ios_from_right',
+              animationMatchesGesture: true,
+              fullScreenGestureEnabled: true,
+            }}
+          >
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="agree" options={{ animation: 'fade' }} />
+            <Stack.Screen name="legal" />
+            <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+            <Stack.Screen name="permissions" options={{ animation: 'fade' }} />
+            <Stack.Screen
+              name="pause"
+              options={{ presentation: 'fullScreenModal', animation: 'fade' }}
+            />
+            <Stack.Screen name="unhooked" options={{ animation: 'fade' }} />
+            <Stack.Screen name="break" options={{ animation: 'fade' }} />
+            <Stack.Screen
+              name="check-in"
+              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen name="check-in-history" />
+            <Stack.Screen
+              name="debt-new"
+              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen name="repayment-plan" />
+            <Stack.Screen name="evidence-pack" />
+            <Stack.Screen name="number-log" />
+            <Stack.Screen name="calls" />
+            <Stack.Screen
+              name="borrow"
+              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen name="chat" />
+            <Stack.Screen name="spend-check" />
+            <Stack.Screen name="fade-preview" options={{ animation: 'fade' }} />
+            <Stack.Screen name="block/apps" />
+            <Stack.Screen name="block/sites" />
+            <Stack.Screen name="block/permissions" />
+            <Stack.Screen
+              name="shield"
+              options={{
+                presentation: 'fullScreenModal',
+                animation: 'fade',
+                gestureEnabled: false,
+              }}
+            />
+            <Stack.Screen name="message-check" />
+            <Stack.Screen name="settings" />
+            <Stack.Screen name="help" />
+            <Stack.Screen name="wrapped" />
+            <Stack.Screen name="scan" />
+          </Stack>
+          <ToastHost />
+          <ModelDownloadHost />
+        </DatabaseGate>
+      </TrialGate>
     </PhoneFrame>
   );
 }

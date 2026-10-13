@@ -6,6 +6,7 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { buildEventInsights, buildInsights, todayMessage, visibleInsights } from '@/ai/insights';
 import { InsightCard } from '@/components/InsightCard';
+import { TrialBadge } from '@/components/TrialGate';
 import { Ginto } from '@/components/mascot/Ginto';
 import {
   Card,
@@ -190,6 +191,8 @@ export default function TodayScreen() {
           </View>
         }
       />
+
+      <TrialBadge />
 
       <Rise>
         <View style={styles.hero}>

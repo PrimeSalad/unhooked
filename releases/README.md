@@ -2,6 +2,19 @@
 
 Android APKs are attached to [GitHub Releases](https://github.com/PrimeSalad/unhooked/releases), not committed here: each one is about 340 MB, over GitHub's 100 MB file limit. This folder keeps the notes for each build.
 
+## v1.1.0 (2-day trial)
+
+**Download:** [Unhooked-1.1.0-trial.apk](https://github.com/PrimeSalad/unhooked/releases/download/v1.1.0/Unhooked-1.1.0-trial.apk) (324 MB)
+
+| | |
+| --- | --- |
+| Package | `ph.appbuilders.unhooked` |
+| Version | 1.1.0 (versionCode 2) |
+| Built | 2026-10-13, local Gradle release build |
+| SHA-256 | `43fec6e02a07bea182db19b33957d21a9b8702e0fc3b8c5e03326f0ca9c2a9e8` |
+
+**Trial:** works for 2 days from install (or from updating over v1.0.0), then shows a "trial ended" screen and switches off the guards, call screening and reminders. Clearing data or setting the clock back does not reset it. Every copy stops on the hard expiry in `src/constants/trial.ts` (2026-10-27), which also limits uninstall/reinstall.
+
 ## v1.0.0
 
 **Download:** [Unhooked-1.0.0-release.apk](https://github.com/PrimeSalad/unhooked/releases/download/v1.0.0/Unhooked-1.0.0-release.apk) (324 MB)
